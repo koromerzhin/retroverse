@@ -168,6 +168,7 @@ pub async fn list_remote_dir(
 pub async fn scan_remote_source_inner(
     state: &AppState,
     source_id: String,
+    app: Option<tauri::AppHandle>,
 ) -> Result<ScanResult> {
     // gather connection info
     let (host, port, username, key_path, base_path) = {
@@ -202,6 +203,8 @@ pub async fn scan_remote_source_inner(
         platforms_ext: &[String],
         platform_slugs: &[String],
         out: &mut Vec<(String, i64, i64)>,
+        app: Option<&tauri::AppHandle>,
+        source_id: &str,
     ) {
         if let Ok(entries) = sftp.read_dir(dir).await {
             for e in entries {
@@ -227,7 +230,7 @@ pub async fn scan_remote_source_inner(
                     continue;
                 }
                 if is_dir {
-                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, out)).await;
+                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, out, app, source_id)).await;
                 } else {
                     let ext = std::path::Path::new(&name)
                         .extension()
@@ -247,6 +250,12 @@ pub async fn scan_remote_source_inner(
                         let size = meta.size.unwrap_or(0) as i64;
                         let mtime = meta.mtime.unwrap_or(0) as i64;
                         out.push((full, size, mtime));
+                        if let Some(a) = app
+                            && out.len().is_multiple_of(500)
+                        {
+                            use tauri::Emitter;
+                            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": out.len(), "total": 0, "status": "scanning"}));
+                        }
                     }
                 }
             }
@@ -262,7 +271,7 @@ pub async fn scan_remote_source_inner(
         .flat_map(|p| p.extensions.clone())
         .collect();
     let slugs: Vec<String> = platforms.iter().map(|p| p.slug.clone()).collect();
-    walk(&sess.sftp, &base_path, &exts, &slugs, &mut collected).await;
+    walk(&sess.sftp, &base_path, &exts, &slugs, &mut collected, app.as_ref(), &source_id).await;
 
     // process into db (sync), like scanner but for remote source
     let mut files_found = 0usize;
@@ -387,6 +396,11 @@ pub async fn scan_remote_source_inner(
         tx.commit()?;
     }
 
+    if let Some(a) = &app {
+        use tauri::Emitter;
+        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": files_found, "status": "done"}));
+    }
+
     let _ = sess
         .session
         .disconnect(russh::Disconnect::ByApplication, "", "")
@@ -403,9 +417,10 @@ pub async fn scan_remote_source_inner(
 #[tauri::command]
 pub async fn scan_remote_source(
     state: State<'_, AppState>,
+    app: tauri::AppHandle,
     source_id: String,
 ) -> Result<ScanResult> {
-    scan_remote_source_inner(&state, source_id).await
+    scan_remote_source_inner(&state, source_id, Some(app)).await
 }
 
 #[tauri::command]

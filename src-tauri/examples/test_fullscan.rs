@@ -18,7 +18,7 @@ async fn main() {
         std::fs::write("/tmp/opencode/sid.txt", &sid).unwrap();
     }
     let sid = std::fs::read_to_string("/tmp/opencode/sid.txt").unwrap();
-    match remote::scan_remote_source_inner(&state, sid.clone()).await {
+    match remote::scan_remote_source_inner(&state, sid.clone(), None).await {
         Ok(r) => println!("SCAN RESULT: files={} created={} updated={}", r.files_found, r.games_created, r.games_updated),
         Err(e) => println!("SCAN ERROR: {}", e),
     }

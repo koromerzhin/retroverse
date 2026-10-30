@@ -56,6 +56,7 @@ export default function Sources() {
   const [testMsg, setTestMsg] = useState<string | null>(null);
 
   const [scanning, setScanning] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ scanned: number; total: number; status: string } | null>(null);
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,15 +115,25 @@ export default function Sources() {
   async function handleScan(s: GameSource) {
     setScanning(s.id);
     setError(null);
+    setProgress({ scanned: 0, total: 0, status: "scanning" });
+    let unlisten: (() => void) | null = null;
     try {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen<any>("scan-progress", (ev) => {
+        if (ev.payload?.source_id === s.id) {
+          setProgress({ scanned: ev.payload.scanned ?? 0, total: ev.payload.total ?? 0, status: ev.payload.status ?? "scanning" });
+        }
+      });
       const res = s.kind === "remote" ? await api.scanRemoteSource(s.id) : await api.scanSource(s.id);
       setLastResult(res);
+      setProgress({ scanned: res.files_found, total: res.files_found, status: "done" });
       qc.invalidateQueries({ queryKey: ["games"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
       qc.invalidateQueries({ queryKey: ["sources"] });
     } catch (e: any) {
       setError(String(e));
     } finally {
+      if (unlisten) unlisten();
       setScanning(null);
     }
   }
@@ -181,6 +192,23 @@ export default function Sources() {
       )}
 
       {error && <p style={{ color: "var(--danger)", marginBottom: 12 }}>{error}</p>}
+
+      {scanning && progress && (
+        <div className="card" style={{ marginBottom: 12, borderColor: "var(--accent)" }}>
+          <div style={{ fontSize: 13, marginBottom: 6 }}>
+            Scan en cours… {progress.scanned}{progress.total > 0 ? ` / ${progress.total}` : ""} fichier(s)
+            {progress.status === "done" && " — terminé"}
+          </div>
+          <div style={{ height: 6, background: "var(--bg-3)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{
+              height: "100%",
+              width: progress.total > 0 ? `${Math.min(100, (progress.scanned / progress.total) * 100)}%` : "100%",
+              background: "var(--accent)",
+              transition: "width .2s",
+            }} />
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
