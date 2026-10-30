@@ -10,19 +10,40 @@ export default function Sources() {
     queryFn: () => api.listSources(),
   });
 
-  const [name, setName] = useState("");
-  const [path, setPath] = useState("");
+  // local
+  const [localName, setLocalName] = useState("");
+  const [localPath, setLocalPath] = useState("");
+
+  // remote
+  const [rName, setRName] = useState("");
+  const [rHost, setRHost] = useState("");
+  const [rPort, setRPort] = useState("22");
+  const [rUser, setRUser] = useState("deck");
+  const [rKey, setRKey] = useState("");
+  const [rPath, setRPath] = useState("/home/deck/Emulation/roms/");
+  const [testMsg, setTestMsg] = useState<string | null>(null);
+
   const [scanning, setScanning] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const addMutation = useMutation({
-    mutationFn: () => api.addSource(name.trim() || "Nouvelle source", path),
+  const addLocal = useMutation({
+    mutationFn: () => api.addSource(localName.trim() || "Nouvelle source", localPath),
     onSuccess: () => {
-      setName("");
-      setPath("");
+      setLocalName(""); setLocalPath("");
       qc.invalidateQueries({ queryKey: ["sources"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
+    },
+    onError: (e: any) => setError(String(e)),
+  });
+
+  const addRemote = useMutation({
+    mutationFn: () =>
+      api.addRemoteSource(rName.trim() || "Source distante", rHost.trim(), Number(rPort) || 22, rUser.trim(), rKey.trim(), rPath.trim()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sources"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      setError(null);
     },
     onError: (e: any) => setError(String(e)),
   });
@@ -35,19 +56,34 @@ export default function Sources() {
     },
   });
 
-  async function handlePick() {
+  async function handlePickLocal() {
     const dir = await pickDirectory();
     if (dir) {
-      setPath(dir);
-      if (!name) setName(dir.split("/").pop() || "Source");
+      setLocalPath(dir);
+      if (!localName) setLocalName(dir.split("/").pop() || "Source");
+    }
+  }
+  async function handlePickKey() {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const res = await open({ multiple: false });
+    if (typeof res === "string") setRKey(res);
+  }
+
+  async function handleTest() {
+    setError(null); setTestMsg(null);
+    try {
+      const msg = await api.testRemoteConnection(rHost.trim(), Number(rPort) || 22, rUser.trim(), rKey.trim());
+      setTestMsg(msg);
+    } catch (e: any) {
+      setError(String(e));
     }
   }
 
-  async function handleScan(id: string) {
-    setScanning(id);
+  async function handleScan(s: GameSource) {
+    setScanning(s.id);
     setError(null);
     try {
-      const res = await api.scanSource(id);
+      const res = s.kind === "remote" ? await api.scanRemoteSource(s.id) : await api.scanSource(s.id);
       setLastResult(res);
       qc.invalidateQueries({ queryKey: ["games"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
@@ -62,19 +98,45 @@ export default function Sources() {
   return (
     <>
       <h1 className="page-title">Sources</h1>
-      <p className="page-sub">Gérez les dossiers scannés pour votre collection.</p>
+      <p className="page-sub">Gérez les bibliothèques locales et distantes.</p>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ marginTop: 0 }}>Ajouter une source locale</h3>
         <div className="row">
-          <input className="input" placeholder="Nom" value={name} onChange={(e) => setName(e.target.value)} style={{ maxWidth: 220 }} />
-          <input className="input" placeholder="Chemin du dossier" value={path} onChange={(e) => setPath(e.target.value)} />
-          <button className="btn" onClick={handlePick}>Parcourir…</button>
-          <button className="btn primary" onClick={() => addMutation.mutate()} disabled={!path || addMutation.isPending}>
-            {addMutation.isPending ? <span className="spinner" /> : "Ajouter"}
+          <input className="input" placeholder="Nom" value={localName} onChange={(e) => setLocalName(e.target.value)} style={{ maxWidth: 220 }} />
+          <input className="input" placeholder="Chemin du dossier" value={localPath} onChange={(e) => setLocalPath(e.target.value)} />
+          <button className="btn" onClick={handlePickLocal}>Parcourir…</button>
+          <button className="btn primary" onClick={() => addLocal.mutate()} disabled={!localPath || addLocal.isPending}>
+            {addLocal.isPending ? <span className="spinner" /> : "Ajouter"}
           </button>
         </div>
-        {error && <p style={{ color: "var(--danger)", marginTop: 10 }}>{error}</p>}
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Ajouter une source distante (SSH/SFTP)</h3>
+        <div className="row">
+          <input className="input" placeholder="Nom" value={rName} onChange={(e) => setRName(e.target.value)} style={{ maxWidth: 200 }} />
+          <input className="input" placeholder="Hôte (IP ou nom)" value={rHost} onChange={(e) => setRHost(e.target.value)} style={{ maxWidth: 200 }} />
+          <input className="input" placeholder="Port" value={rPort} onChange={(e) => setRPort(e.target.value)} style={{ maxWidth: 80 }} />
+          <input className="input" placeholder="Utilisateur" value={rUser} onChange={(e) => setRUser(e.target.value)} style={{ maxWidth: 120 }} />
+        </div>
+        <div className="row" style={{ marginTop: 10 }}>
+          <input className="input" placeholder="Chemin de la clé SSH privée" value={rKey} onChange={(e) => setRKey(e.target.value)} />
+          <button className="btn" onClick={handlePickKey}>Parcourir…</button>
+        </div>
+        <div className="row" style={{ marginTop: 10 }}>
+          <input className="input" placeholder="Chemin distant des ROMs" value={rPath} onChange={(e) => setRPath(e.target.value)} />
+        </div>
+        <div className="row" style={{ marginTop: 12 }}>
+          <button className="btn" onClick={handleTest} disabled={!rHost || !rKey}>Tester la connexion</button>
+          <button className="btn primary" onClick={() => addRemote.mutate()} disabled={!rHost || !rKey || !rPath || addRemote.isPending}>
+            {addRemote.isPending ? <span className="spinner" /> : "Ajouter la source distante"}
+          </button>
+          {testMsg && <span style={{ color: "var(--success)", fontSize: 13 }}>{testMsg}</span>}
+        </div>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+          Exemple Steam Deck : hôte 192.168.x.x, utilisateur <code>deck</code>, clé <code>~/.ssh/id_ed25519</code>, chemin <code>/home/deck/Emulation/roms/</code>.
+        </p>
       </div>
 
       {lastResult && (
@@ -82,6 +144,8 @@ export default function Sources() {
           <strong>Scan terminé :</strong> {lastResult.files_found} fichier(s), {lastResult.games_created} jeu(x) créé(s), {lastResult.games_updated} mis à jour.
         </div>
       )}
+
+      {error && <p style={{ color: "var(--danger)", marginBottom: 12 }}>{error}</p>}
 
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
@@ -95,6 +159,7 @@ export default function Sources() {
           <thead>
             <tr>
               <th>Nom</th>
+              <th>Type</th>
               <th>Chemin</th>
               <th>Dernier scan</th>
               <th>Actions</th>
@@ -104,13 +169,14 @@ export default function Sources() {
             {sources!.map((s) => (
               <tr key={s.id}>
                 <td>{s.name}</td>
-                <td style={{ fontFamily: "monospace", fontSize: 12 }}>{s.path}</td>
+                <td><span className="badge">{s.kind === "remote" ? "Distant" : "Local"}</span></td>
+                <td style={{ fontFamily: "monospace", fontSize: 12 }}>{s.kind === "remote" ? `${s.remote_path}` : s.path}</td>
                 <td>{s.last_scan_at ? new Date(s.last_scan_at).toLocaleString() : "—"}</td>
                 <td>
                   <div className="row">
                     <button
                       className="btn primary"
-                      onClick={() => handleScan(s.id)}
+                      onClick={() => handleScan(s)}
                       disabled={scanning === s.id}
                     >
                       {scanning === s.id ? <><span className="spinner" /> Scan…</> : "Scanner"}

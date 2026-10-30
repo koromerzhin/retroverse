@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api";
-import type { LibraryEntry } from "../types";
+import { api, pickDirectory } from "../lib/api";
+import type { LibraryEntry, GameSource } from "../types";
 
 export default function GameDetail() {
   const { id } = useParams<{ id: string }>();
@@ -13,11 +13,20 @@ export default function GameDetail() {
     queryFn: () => api.getGame(id!),
     enabled: !!id,
   });
+  const { data: sources } = useQuery<GameSource[]>({
+    queryKey: ["sources"],
+    queryFn: () => api.listSources(),
+  });
 
   const [title, setTitle] = useState("");
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
   useEffect(() => {
     if (data) setTitle(data.game.title);
   }, [data]);
+
+  const sourceMap = new Map(sources?.map((s) => [s.id, s]) || []);
+  const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
+  const remoteSourceId = data?.files.map((f) => f.source_id).find((sid) => sourceMap.get(sid)?.kind === "remote");
 
   const saveMutation = useMutation({
     mutationFn: () => api.correctTitle(id!, title),
@@ -26,6 +35,19 @@ export default function GameDetail() {
       qc.invalidateQueries({ queryKey: ["games"] });
     },
   });
+
+  async function handleCopy() {
+    if (!remoteSourceId || !data) return;
+    const dest = await pickDirectory();
+    if (!dest) return;
+    setCopyMsg(null);
+    try {
+      const res = await api.copyRemoteFiles(remoteSourceId, data.files.map((f) => f.id), dest);
+      setCopyMsg(`Copié : ${res.files} fichier(s), ${res.bytes} octets.${res.errors.length ? " Erreurs: " + res.errors.join("; ") : ""}`);
+    } catch (e: any) {
+      setCopyMsg(String(e));
+    }
+  }
 
   if (isLoading || !data) {
     return <div className="empty"><div className="spinner" /></div>;
@@ -46,6 +68,12 @@ export default function GameDetail() {
           </button>
         </div>
         {saveMutation.isSuccess && <p style={{ color: "var(--success)", marginTop: 8 }}>Titre mis à jour.</p>}
+        {isRemote && (
+          <div style={{ marginTop: 12 }}>
+            <button className="btn primary" onClick={handleCopy}>Copier localement…</button>
+            {copyMsg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{copyMsg}</p>}
+          </div>
+        )}
         <div style={{ marginTop: 12, fontSize: 12, color: "var(--text-muted)" }}>
           Créé le {new Date(data.game.created_at).toLocaleString()} · Mis à jour le {new Date(data.game.updated_at).toLocaleString()}
         </div>

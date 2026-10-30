@@ -1,6 +1,6 @@
 [package]
 name = "retroverse"
-version = "0.1.0"
+version = "0.2.0"
 description = "RETROVERSE - The Universal Video Game Collection Companion"
 authors = ["koromerzhin"]
 edition = "2024"
@@ -26,6 +26,8 @@ walkdir = "2.5"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 sha2 = "0.10"
+russh = "0.65"
+russh-sftp = "3.0"
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

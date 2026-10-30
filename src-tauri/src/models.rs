@@ -17,10 +17,44 @@ pub struct Platform {
 pub struct GameSource {
     pub id: String,
     pub name: String,
-    pub kind: String, // "local"
+    pub kind: String, // "local" | "remote"
     pub path: String,
     pub created_at: DateTime<Utc>,
     pub last_scan_at: Option<DateTime<Utc>>,
+    pub connection_id: Option<String>,
+    pub remote_path: Option<String>,
+    pub available: bool,
+    pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteConnection {
+    pub id: String,
+    pub name: String,
+    pub host: String,
+    pub port: i64,
+    pub username: String,
+    pub key_path: String,
+    pub host_key_fingerprint: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub size: i64,
+    pub modified_at: i64,
+    pub extension: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferResult {
+    pub job_id: String,
+    pub files: usize,
+    pub bytes: i64,
+    pub errors: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
