@@ -277,6 +277,18 @@ pub async fn scan_remote_source_inner(
         }
     }
 
+    // Try to load systems.txt from the (possibly roms/) folder.
+    if let Ok(mut f) = sess.sftp.open(&format!("{}/systems.txt", base_path.trim_end_matches('/'))).await {
+        use tokio::io::AsyncReadExt;
+        let mut buf = Vec::new();
+        let _ = f.read_to_end(&mut buf).await;
+        if let Ok(content) = String::from_utf8(buf) {
+            let systems = crate::identify::parse_systems_txt(&content);
+            let conn = state.db.lock().unwrap();
+            let _ = crate::identify::ensure_platforms(&conn, &systems);
+        }
+    }
+
     let platforms = {
         let conn = state.db.lock().unwrap();
         crate::identify::load_platforms(&conn)?

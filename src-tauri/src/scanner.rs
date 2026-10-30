@@ -30,6 +30,14 @@ pub fn scan_source(conn: &mut Connection, source_id: &str, app: Option<tauri::Ap
             root = roms;
         }
     }
+    // Load systems.txt if present to enrich platform list.
+    let systems_path = root.join("systems.txt");
+    if systems_path.is_file()
+        && let Ok(content) = std::fs::read_to_string(&systems_path)
+    {
+        let systems = identify::parse_systems_txt(&content);
+        let _ = identify::ensure_platforms(conn, &systems);
+    }
 
     let platforms = identify::load_platforms(conn)?;
 
