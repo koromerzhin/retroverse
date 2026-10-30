@@ -2,7 +2,16 @@
 
 All notable changes to RETROVERSE are documented here.
 
-## [0.5.0] - Transfer & Preservation (in progress)
+## [0.6.0] - Companion (in progress)
+
+### Added
+- EmuDeck installation detection.
+- Running emulator process detection (Linux /proc).
+- Game session tracking (start/stop, duration).
+- Session statistics.
+- Companion page.
+
+## [0.5.0] - Transfer & Preservation
 
 ### Added
 - SHA-256 hash computation for local files.

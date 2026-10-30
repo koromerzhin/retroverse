@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod companion;
 pub mod library;
 pub mod metadata;
 pub mod platforms;
@@ -8,6 +9,7 @@ pub mod remote;
 pub mod sources;
 
 pub use backup::*;
+pub use companion::*;
 pub use library::*;
 pub use metadata::*;
 pub use remote::*;
