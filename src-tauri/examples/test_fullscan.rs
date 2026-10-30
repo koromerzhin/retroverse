@@ -12,7 +12,7 @@ async fn main() {
         conn.execute("INSERT INTO remote_connections (id,name,host,port,username,key_path,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
             rusqlite::params![cid, "deck", "192.168.1.125", 22i64, "deck", "/home/koromerzhin/.ssh/id_ed25519", chrono::Utc::now().to_rfc3339()]).unwrap();
         conn.execute("INSERT INTO game_sources (id,name,kind,path,created_at,connection_id,remote_path,available) VALUES (?1,?2,?3,?4,?5,?6,?7,1)",
-            rusqlite::params![sid, "deck", "remote", "/run/media/deck/WDC1/Emulation/roms/nes/", chrono::Utc::now().to_rfc3339(), cid, "/run/media/deck/WDC1/Emulation/roms/nes/"]).unwrap();
+            rusqlite::params![sid, "deck", "remote", "/run/media/deck/WDC1/Emulation/", chrono::Utc::now().to_rfc3339(), cid, "/run/media/deck/WDC1/Emulation/"]).unwrap();
         println!("source id: {}", sid);
         // store sid for scan
         std::fs::write("/tmp/opencode/sid.txt", &sid).unwrap();

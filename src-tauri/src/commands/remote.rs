@@ -315,16 +315,20 @@ pub async fn scan_remote_source_inner(
     let slugs: Vec<String> = platforms.iter().map(|p| p.slug.clone()).collect();
     walk(&sess.sftp, &base_path, &exts, &slugs, &mut collected, app.as_ref(), &source_id).await;
 
-    // process into db (sync), like scanner but for remote source
+    // process into db in chunks to avoid locking the DB for too long
     let mut files_found = 0usize;
     let mut games_created = 0usize;
     let mut games_updated = 0usize;
-    {
-        let mut conn = state.db.lock().unwrap();
-        let platforms2 = crate::identify::load_platforms(&conn)?;
+    let chunk_size = 500usize;
+    let platforms2 = {
+        let conn = state.db.lock().unwrap();
+        crate::identify::load_platforms(&conn)?
+    };
 
+    for chunk in collected.chunks(chunk_size) {
+        let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
-        for (fpath, size, mtime) in &collected {
+        for (fpath, size, mtime) in chunk {
             let filename = std::path::Path::new(fpath)
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -344,16 +348,16 @@ pub async fn scan_remote_source_inner(
 
             let file_id = if let Some(id) = existing {
                 tx.execute(
-                "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,missing=0 WHERE id=?6",
-                params![filename, ext, *size, *mtime, platform_id, id],
-            )?;
+                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,missing=0 WHERE id=?6",
+                    params![filename, ext, *size, *mtime, platform_id, id],
+                )?;
                 id
             } else {
                 let id = crate::models::new_id();
                 tx.execute(
-                "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                params![id, source_id, fpath, filename, ext, *size, *mtime, platform_id, Utc::now().to_rfc3339()],
-            )?;
+                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+                    params![id, source_id, fpath, filename, ext, *size, *mtime, platform_id, Utc::now().to_rfc3339()],
+                )?;
                 id
             };
             files_found += 1;
@@ -373,12 +377,12 @@ pub async fn scan_remote_source_inner(
             let (title, conf) = crate::identify::identify_file(&gf, &platforms2);
 
             let existing_game: Option<String> = tx
-            .query_row(
-                "SELECT id FROM games WHERE LOWER(title)=LOWER(?1) AND (platform_id IS ?2 OR platform_id=?2)",
-                params![title, platform_id],
-                |r| r.get(0),
-            )
-            .ok();
+                .query_row(
+                    "SELECT id FROM games WHERE LOWER(title)=LOWER(?1) AND (platform_id IS ?2 OR platform_id=?2)",
+                    params![title, platform_id],
+                    |r| r.get(0),
+                )
+                .ok();
 
             let game_id = if let Some(gid) = existing_game {
                 tx.execute(
@@ -390,51 +394,61 @@ pub async fn scan_remote_source_inner(
             } else {
                 let gid = crate::models::new_id();
                 tx.execute(
-                "INSERT INTO games (id,title,platform_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5)",
-                params![gid, title, platform_id, Utc::now().to_rfc3339(), Utc::now().to_rfc3339()],
-            )?;
+                    "INSERT INTO games (id,title,platform_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5)",
+                    params![gid, title, platform_id, Utc::now().to_rfc3339(), Utc::now().to_rfc3339()],
+                )?;
                 games_created += 1;
                 gid
             };
 
             let manual: i64 = tx
-            .query_row(
-                "SELECT COUNT(*) FROM game_file_links l JOIN user_corrections c ON c.file_id=l.file_id WHERE l.file_id=?1",
-                [file_id.clone()],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
+                .query_row(
+                    "SELECT COUNT(*) FROM game_file_links l JOIN user_corrections c ON c.file_id=l.file_id WHERE l.file_id=?1",
+                    [file_id.clone()],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
             if manual == 0 {
                 tx.execute(
-                "INSERT OR REPLACE INTO game_file_links (file_id,game_id,confidence,manual) VALUES (?1,?2,?3,0)",
-                params![file_id, game_id, conf],
-            )?;
+                    "INSERT OR REPLACE INTO game_file_links (file_id,game_id,confidence,manual) VALUES (?1,?2,?3,0)",
+                    params![file_id, game_id, conf],
+                )?;
             }
         }
-
-        // mark missing files
-        tx.execute(
-            "UPDATE game_files SET missing=1 WHERE source_id=?1",
-            params![source_id],
-        )?;
-        for (fpath, _, _) in &collected {
-            tx.execute(
-                "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path=?2",
-                params![source_id, fpath],
-            )?;
+        tx.commit()?;
+        if let Some(a) = &app {
+            use tauri::Emitter;
+            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": collected.len(), "status": "scanning"}));
         }
+    }
 
+    // Mark missing files in one transaction.
+    {
+        let mut conn = state.db.lock().unwrap();
+        let tx = conn.transaction()?;
+        tx.execute("UPDATE game_files SET missing=1 WHERE source_id=?1", params![source_id])?;
+        for chunk in collected.chunks(900) {
+            // build placeholders
+            let mut sql = String::from("UPDATE game_files SET missing=0 WHERE source_id=?1 AND path IN (");
+            let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
+            params_vec.push(rusqlite::types::Value::Text(source_id.clone()));
+            for (i, (fp, _, _)) in chunk.iter().enumerate() {
+                if i > 0 { sql.push(','); }
+                sql.push('?');
+                params_vec.push(rusqlite::types::Value::Text(fp.clone()));
+            }
+            sql.push(')');
+            tx.execute(&sql, rusqlite::params_from_iter(params_vec))?;
+        }
         tx.execute(
             "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL WHERE id=?2",
             params![Utc::now().to_rfc3339(), source_id],
         )?;
-
         let job_id = crate::models::new_id();
         tx.execute(
-        "INSERT INTO sync_jobs (id,source_id,status,started_at,finished_at,files_found) VALUES (?1,?2,?3,?4,?5,?6)",
-        params![job_id, source_id, "completed", Utc::now().to_rfc3339(), Utc::now().to_rfc3339(), files_found as i64],
-    )?;
-
+            "INSERT INTO sync_jobs (id,source_id,status,started_at,finished_at,files_found) VALUES (?1,?2,?3,?4,?5,?6)",
+            params![job_id, source_id, "completed", Utc::now().to_rfc3339(), Utc::now().to_rfc3339(), files_found as i64],
+        )?;
         tx.commit()?;
     }
 
