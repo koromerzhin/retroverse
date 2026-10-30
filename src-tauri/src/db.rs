@@ -392,7 +392,27 @@ fn seed_platforms(conn: &Connection) -> Result<()> {
             params![id, name, slug, mfr, generation, year, exts],
         )?;
     }
-    // avoid unused
     let _ = Utc::now();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn migrate_creates_platforms() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM platforms", [], |r| r.get(0))
+            .unwrap();
+        assert!(count > 0);
+        // idempotent
+        migrate(&conn).unwrap();
+        let count2: i64 = conn
+            .query_row("SELECT COUNT(*) FROM platforms", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, count2);
+    }
 }

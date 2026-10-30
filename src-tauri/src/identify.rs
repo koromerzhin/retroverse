@@ -1,4 +1,3 @@
-use crate::db;
 use crate::models::{GameFile, Platform};
 use rusqlite::Connection;
 use std::path::Path;
@@ -95,7 +94,29 @@ pub fn ext_of(path: &str) -> String {
         .to_lowercase()
 }
 
-// suppress unused import warning
-pub fn _db_touch() {
-    let _ = db::SCHEMA_VERSION;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clean_title_removes_tags() {
+        assert_eq!(clean_title("Super Mario World (USA).sfc"), "Super Mario World");
+        assert_eq!(clean_title("Zelda [Hack].nes"), "Zelda");
+        assert_eq!(clean_title("Game (U) (V1.0).bin"), "Game");
+    }
+
+    #[test]
+    fn guess_platform_exact() {
+        let platforms = vec![Platform {
+            id: "snes".into(),
+            name: "SNES".into(),
+            slug: "snes".into(),
+            manufacturer: None,
+            generation: None,
+            release_year: None,
+            extensions: vec![".sfc".into(), ".smc".into()],
+        }];
+        assert_eq!(guess_platform("sfc", &platforms), Some("snes".into()));
+        assert_eq!(guess_platform("txt", &platforms), None);
+    }
 }
