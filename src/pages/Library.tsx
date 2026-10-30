@@ -15,7 +15,11 @@ export default function Library() {
   });
   const { data: games, isLoading, refetch } = useQuery<LibraryEntry[]>({
     queryKey: ["games", platform, search],
-    queryFn: () => api.listGames(platform, search || undefined),
+    queryFn: async () => {
+      const base = search.trim() ? await api.searchGamesFts(search.trim()) : await api.listGames();
+      if (platform) return base.filter((g: any) => g.game.platform_id === platform);
+      return base;
+    },
   });
 
   return (

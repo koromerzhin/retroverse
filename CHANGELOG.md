@@ -2,7 +2,16 @@
 
 All notable changes to RETROVERSE are documented here.
 
-## [0.3.0] - RetroData Engine (in progress)
+## [0.4.0] - Game Encyclopedia & Discovery (in progress)
+
+### Added
+- FTS5 full-text search with triggers and population (v4 migration).
+- Duplicate detection by title + platform.
+- Collections CRUD and game membership.
+- Discovery page (duplicates, collections, forgotten games).
+- game_relations table.
+
+## [0.3.0] - RetroData Engine
 
 ### Added
 - Metadata provider trait architecture.
