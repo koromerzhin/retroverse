@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 2;
+pub const SCHEMA_VERSION: i32 = 3;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -37,6 +37,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 2 {
         apply_v2(conn)?;
+    }
+    if current < 3 {
+        apply_v3(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -226,6 +229,25 @@ fn apply_v2(conn: &Connection) -> Result<()> {
         "#,
     )?;
 
+    Ok(())
+}
+
+fn apply_v3(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS metadata_jobs (
+            id TEXT PRIMARY KEY,
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            provider TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            priority INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            finished_at TEXT,
+            error TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_metadata_jobs_status ON metadata_jobs(status);
+        "#,
+    )?;
     Ok(())
 }
 

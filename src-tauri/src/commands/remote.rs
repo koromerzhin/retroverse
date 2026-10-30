@@ -389,7 +389,7 @@ pub async fn copy_remote_files(
         }
     }
 
-    std::fs::create_dir_all(&dest_dir).map_err(|e| RetroError::Io(e))?;
+    std::fs::create_dir_all(&dest_dir).map_err(RetroError::Io)?;
 
     let sess = remote::connect(&host, port, &username, &key_path).await?;
 
@@ -410,15 +410,14 @@ pub async fn copy_remote_files(
         let filename = std::path::Path::new(rpath).file_name().unwrap_or_default().to_string_lossy().to_string();
         let dest = std::path::Path::new(&dest_dir).join(&filename);
         // skip if exists with same size
-        if dest.exists() {
-            if let Ok(meta) = std::fs::metadata(&dest) {
-                if meta.len() as i64 == *size {
-                    total_bytes += size;
-                    done_files += 1;
-                    let _ = app.emit("transfer-progress", serde_json::json!({"job_id": job_id, "file": filename, "status": "skipped"}));
-                    continue;
-                }
-            }
+        if dest.exists()
+            && let Ok(meta) = std::fs::metadata(&dest)
+            && meta.len() as i64 == *size
+        {
+            total_bytes += size;
+            done_files += 1;
+            let _ = app.emit("transfer-progress", serde_json::json!({"job_id": job_id, "file": filename, "status": "skipped"}));
+            continue;
         }
 
         // download

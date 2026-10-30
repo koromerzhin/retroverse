@@ -2,7 +2,17 @@
 
 All notable changes to RETROVERSE are documented here.
 
-## [0.2.0] - Remote Sources (in progress)
+## [0.3.0] - RetroData Engine (in progress)
+
+### Added
+- Metadata provider trait architecture.
+- Wikipedia provider (free, no API key) for description + cover.
+- Enrichment command with provenance tracking.
+- metadata_jobs queue table (v3 migration).
+- Game detail enrichment UI with provider selection and metadata display.
+- ureq HTTP client with rustls + json.
+
+## [0.2.0] - Remote Sources
 
 ### Added
 - SSH/SFTP connector (russh + russh-sftp) with key-based auth.
