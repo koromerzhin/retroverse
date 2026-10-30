@@ -440,7 +440,7 @@ pub async fn scan_remote_source_inner(
 
     if let Some(a) = &app {
         use tauri::Emitter;
-        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": files_found, "status": "done"}));
+        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": files_found, "status": "done", "files_found": files_found, "games_created": games_created, "games_updated": games_updated}));
     }
 
     let _ = sess

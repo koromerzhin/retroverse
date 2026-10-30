@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { formatNumber } from "../lib/format";
 import type { LibraryEntry, Platform } from "../types";
 
 export default function Library() {
@@ -50,7 +51,7 @@ export default function Library() {
           <span className="badge">{platforms?.find((p) => p.id === platform)?.name}</span>
         )}
         <button className="btn" onClick={() => refetch()}>Actualiser</button>
-        <span className="badge">{games?.length ?? 0} jeu(x)</span>
+        <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
       </div>
 
       {isLoading ? (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { formatBytes } from "../lib/format";
 
 export default function Preservation() {
   const qc = useQueryClient();
@@ -77,7 +78,7 @@ export default function Preservation() {
                 <tr key={j.id}>
                   <td>{new Date(j.created_at).toLocaleString()}</td>
                   <td><span className="badge">{j.status}</span></td>
-                  <td>{j.transferred_bytes} / {j.total_bytes}</td>
+                  <td>{formatBytes(j.transferred_bytes)} / {formatBytes(j.total_bytes)}</td>
                   <td style={{ fontSize: 12, color: "var(--danger)" }}>{j.error ?? "—"}</td>
                 </tr>
               ))}

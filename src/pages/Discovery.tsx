@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { formatNumber } from "../lib/format";
 
 export default function Discovery() {
   const qc = useQueryClient();
@@ -58,7 +59,7 @@ export default function Discovery() {
         {missing.length === 0 ? (
           <p style={{ color: "var(--text-muted)" }}>Rien à signaler.</p>
         ) : (
-          <p style={{ color: "var(--text-dim)", fontSize: 13 }}>{missing.length} jeu(x) avec fichiers manquants ou sans fichier.</p>
+          <p style={{ color: "var(--text-dim)", fontSize: 13 }}>{formatNumber(missing.length)} jeu(x) avec fichiers manquants ou sans fichier.</p>
         )}
       </div>
     </>

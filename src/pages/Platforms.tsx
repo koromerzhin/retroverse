@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { formatNumber } from "../lib/format";
 import type { Platform } from "../types";
 
 export default function Platforms() {
@@ -32,7 +33,7 @@ export default function Platforms() {
               {p.manufacturer ?? "—"} {p.release_year ? `· ${p.release_year}` : ""}
             </div>
             <div style={{ marginTop: 10 }}>
-              <span className="badge">{counts[p.id] ?? 0} jeu(x)</span>
+              <span className="badge">{formatNumber(counts[p.id] ?? 0)} jeu(x)</span>
             </div>
           </div>
         ))}
