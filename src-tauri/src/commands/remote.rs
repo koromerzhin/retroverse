@@ -171,7 +171,7 @@ pub async fn scan_remote_source_inner(
     app: Option<tauri::AppHandle>,
 ) -> Result<ScanResult> {
     // gather connection info
-    let (host, port, username, key_path, base_path) = {
+    let (host, port, username, key_path, mut base_path) = {
         let conn = state.db.lock().unwrap();
         let (cid, rp): (Option<String>, Option<String>) = conn.query_row(
             "SELECT connection_id, remote_path FROM game_sources WHERE id=?1",
@@ -194,6 +194,21 @@ pub async fn scan_remote_source_inner(
     };
 
     let sess = remote::connect(&host, port, &username, &key_path).await?;
+
+    // If a 'roms' subfolder exists, scan it as the primary source.
+    if !base_path.ends_with("roms")
+        && !base_path.ends_with("roms/")
+        && let Ok(rd) = sess.sftp.read_dir(&base_path).await
+    {
+        let entries: Vec<_> = rd.collect();
+        if entries.iter().any(|e| e.file_name() == "roms" && e.metadata().is_dir()) {
+            if base_path.ends_with('/') {
+                base_path = format!("{}roms/", base_path);
+            } else {
+                base_path = format!("{}/roms", base_path);
+            }
+        }
+    }
 
     // recursive collect files via sftp
     let mut collected: Vec<(String, i64, i64)> = Vec::new(); // path, size, mtime
