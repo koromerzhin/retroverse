@@ -19,9 +19,16 @@ pub async fn test_remote_connection(
     }
     let sess = remote::connect(&host, port, &username, &key_path).await?;
     // get current dir
-    let cwd = sess.sftp.canonicalize(".").await.unwrap_or_else(|_| "/".into());
+    let cwd = sess
+        .sftp
+        .canonicalize(".")
+        .await
+        .unwrap_or_else(|_| "/".into());
     // close
-    let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+    let _ = sess
+        .session
+        .disconnect(russh::Disconnect::ByApplication, "", "")
+        .await;
     Ok(format!("OK — {}", cwd))
 }
 
@@ -40,7 +47,10 @@ pub async fn add_remote_source(
     }
     // test connection first
     let sess = remote::connect(&host, port, &username, &key_path).await?;
-    let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+    let _ = sess
+        .session
+        .disconnect(russh::Disconnect::ByApplication, "", "")
+        .await;
 
     let conn_id = crate::models::new_id();
     let now = Utc::now();
@@ -107,7 +117,13 @@ pub async fn list_remote_dir(
             [cid],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )?;
-        (host, port as u16, username, key_path, rp.unwrap_or_else(|| "/".into()))
+        (
+            host,
+            port as u16,
+            username,
+            key_path,
+            rp.unwrap_or_else(|| "/".into()),
+        )
     };
 
     let target = path.unwrap_or(base);
@@ -142,11 +158,17 @@ pub async fn list_remote_dir(
             }
         }
         Err(e) => {
-            let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+            let _ = sess
+                .session
+                .disconnect(russh::Disconnect::ByApplication, "", "")
+                .await;
             return Err(RetroError::Other(e.to_string()));
         }
     }
-    let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+    let _ = sess
+        .session
+        .disconnect(russh::Disconnect::ByApplication, "", "")
+        .await;
     Ok(out)
 }
 
@@ -169,7 +191,13 @@ pub async fn scan_remote_source(
             [cid],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )?;
-        (host, port as u16, username, key_path, rp.unwrap_or_else(|| "/".into()))
+        (
+            host,
+            port as u16,
+            username,
+            key_path,
+            rp.unwrap_or_else(|| "/".into()),
+        )
     };
 
     let sess = remote::connect(&host, port, &username, &key_path).await?;
@@ -204,7 +232,10 @@ pub async fn scan_remote_source(
                         .unwrap_or("")
                         .to_lowercase();
                     let ext_dot = format!(".{}", ext);
-                    if platforms_ext.iter().any(|x| x.eq_ignore_ascii_case(&ext_dot)) {
+                    if platforms_ext
+                        .iter()
+                        .any(|x| x.eq_ignore_ascii_case(&ext_dot))
+                    {
                         let size = meta.size.unwrap_or(0) as i64;
                         let mtime = meta.mtime.unwrap_or(0) as i64;
                         out.push((full, size, mtime));
@@ -218,7 +249,10 @@ pub async fn scan_remote_source(
         let conn = state.db.lock().unwrap();
         crate::identify::load_platforms(&conn)?
     };
-    let exts: Vec<String> = platforms.iter().flat_map(|p| p.extensions.clone()).collect();
+    let exts: Vec<String> = platforms
+        .iter()
+        .flat_map(|p| p.extensions.clone())
+        .collect();
 
     walk(&sess.sftp, &base_path, &exts, &mut collected).await;
 
@@ -227,58 +261,58 @@ pub async fn scan_remote_source(
     let mut games_created = 0usize;
     let mut games_updated = 0usize;
     {
-    let mut conn = state.db.lock().unwrap();
-    let platforms2 = crate::identify::load_platforms(&conn)?;
+        let mut conn = state.db.lock().unwrap();
+        let platforms2 = crate::identify::load_platforms(&conn)?;
 
-    let tx = conn.transaction()?;
-    for (fpath, size, mtime) in &collected {
-        let filename = std::path::Path::new(fpath)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("")
-            .to_string();
-        let ext = crate::identify::ext_of(fpath);
-        let platform_id = crate::identify::guess_platform(&ext, &platforms2);
+        let tx = conn.transaction()?;
+        for (fpath, size, mtime) in &collected {
+            let filename = std::path::Path::new(fpath)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_string();
+            let ext = crate::identify::ext_of(fpath);
+            let platform_id = crate::identify::guess_platform(&ext, &platforms2);
 
-        let existing: Option<String> = tx
-            .query_row(
-                "SELECT id FROM game_files WHERE source_id=?1 AND path=?2",
-                params![source_id, fpath],
-                |r| r.get(0),
-            )
-            .ok();
+            let existing: Option<String> = tx
+                .query_row(
+                    "SELECT id FROM game_files WHERE source_id=?1 AND path=?2",
+                    params![source_id, fpath],
+                    |r| r.get(0),
+                )
+                .ok();
 
-        let file_id = if let Some(id) = existing {
-            tx.execute(
+            let file_id = if let Some(id) = existing {
+                tx.execute(
                 "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,missing=0 WHERE id=?6",
                 params![filename, ext, *size, *mtime, platform_id, id],
             )?;
-            id
-        } else {
-            let id = crate::models::new_id();
-            tx.execute(
+                id
+            } else {
+                let id = crate::models::new_id();
+                tx.execute(
                 "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
                 params![id, source_id, fpath, filename, ext, *size, *mtime, platform_id, Utc::now().to_rfc3339()],
             )?;
-            id
-        };
-        files_found += 1;
+                id
+            };
+            files_found += 1;
 
-        let gf = crate::models::GameFile {
-            id: file_id.clone(),
-            source_id: source_id.clone(),
-            path: fpath.clone(),
-            filename: filename.clone(),
-            extension: ext.clone(),
-            size: *size,
-            modified_at: *mtime,
-            hash: None,
-            platform_id: platform_id.clone(),
-            created_at: Utc::now(),
-        };
-        let (title, conf) = crate::identify::identify_file(&gf, &platforms2);
+            let gf = crate::models::GameFile {
+                id: file_id.clone(),
+                source_id: source_id.clone(),
+                path: fpath.clone(),
+                filename: filename.clone(),
+                extension: ext.clone(),
+                size: *size,
+                modified_at: *mtime,
+                hash: None,
+                platform_id: platform_id.clone(),
+                created_at: Utc::now(),
+            };
+            let (title, conf) = crate::identify::identify_file(&gf, &platforms2);
 
-        let existing_game: Option<String> = tx
+            let existing_game: Option<String> = tx
             .query_row(
                 "SELECT id FROM games WHERE LOWER(title)=LOWER(?1) AND (platform_id IS ?2 OR platform_id=?2)",
                 params![title, platform_id],
@@ -286,62 +320,68 @@ pub async fn scan_remote_source(
             )
             .ok();
 
-        let game_id = if let Some(gid) = existing_game {
-            tx.execute(
-                "UPDATE games SET updated_at=?1 WHERE id=?2",
-                params![Utc::now().to_rfc3339(), gid],
-            )?;
-            games_updated += 1;
-            gid
-        } else {
-            let gid = crate::models::new_id();
-            tx.execute(
+            let game_id = if let Some(gid) = existing_game {
+                tx.execute(
+                    "UPDATE games SET updated_at=?1 WHERE id=?2",
+                    params![Utc::now().to_rfc3339(), gid],
+                )?;
+                games_updated += 1;
+                gid
+            } else {
+                let gid = crate::models::new_id();
+                tx.execute(
                 "INSERT INTO games (id,title,platform_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5)",
                 params![gid, title, platform_id, Utc::now().to_rfc3339(), Utc::now().to_rfc3339()],
             )?;
-            games_created += 1;
-            gid
-        };
+                games_created += 1;
+                gid
+            };
 
-        let manual: i64 = tx
+            let manual: i64 = tx
             .query_row(
                 "SELECT COUNT(*) FROM game_file_links l JOIN user_corrections c ON c.file_id=l.file_id WHERE l.file_id=?1",
                 [file_id.clone()],
                 |r| r.get(0),
             )
             .unwrap_or(0);
-        if manual == 0 {
-            tx.execute(
+            if manual == 0 {
+                tx.execute(
                 "INSERT OR REPLACE INTO game_file_links (file_id,game_id,confidence,manual) VALUES (?1,?2,?3,0)",
                 params![file_id, game_id, conf],
             )?;
+            }
         }
-    }
 
-    // mark missing files
-    tx.execute("UPDATE game_files SET missing=1 WHERE source_id=?1", params![source_id])?;
-    for (fpath, _, _) in &collected {
+        // mark missing files
         tx.execute(
-            "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path=?2",
-            params![source_id, fpath],
+            "UPDATE game_files SET missing=1 WHERE source_id=?1",
+            params![source_id],
         )?;
-    }
+        for (fpath, _, _) in &collected {
+            tx.execute(
+                "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path=?2",
+                params![source_id, fpath],
+            )?;
+        }
 
-    tx.execute(
-        "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL WHERE id=?2",
-        params![Utc::now().to_rfc3339(), source_id],
-    )?;
+        tx.execute(
+            "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL WHERE id=?2",
+            params![Utc::now().to_rfc3339(), source_id],
+        )?;
 
-    let job_id = crate::models::new_id();
-    tx.execute(
+        let job_id = crate::models::new_id();
+        tx.execute(
         "INSERT INTO sync_jobs (id,source_id,status,started_at,finished_at,files_found) VALUES (?1,?2,?3,?4,?5,?6)",
         params![job_id, source_id, "completed", Utc::now().to_rfc3339(), Utc::now().to_rfc3339(), files_found as i64],
     )?;
 
-    tx.commit()?;
+        tx.commit()?;
     }
 
-    let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+    let _ = sess
+        .session
+        .disconnect(russh::Disconnect::ByApplication, "", "")
+        .await;
 
     Ok(ScanResult {
         source_id,
@@ -372,7 +412,14 @@ pub async fn copy_remote_files(
         conn.query_row(
             "SELECT host,port,username,key_path FROM remote_connections WHERE id=?1",
             [cid],
-            |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u16, r.get::<_, String>(2)?, r.get::<_, String>(3)?)),
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, i64>(1)? as u16,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                ))
+            },
         )?
     };
 
@@ -398,7 +445,12 @@ pub async fn copy_remote_files(
         let conn = state.db.lock().unwrap();
         conn.execute(
             "INSERT INTO transfer_jobs (id,status,created_at,total_bytes) VALUES (?1,?2,?3,?4)",
-            params![job_id, "running", Utc::now().to_rfc3339(), files_info.iter().map(|f| f.2).sum::<i64>()],
+            params![
+                job_id,
+                "running",
+                Utc::now().to_rfc3339(),
+                files_info.iter().map(|f| f.2).sum::<i64>()
+            ],
         )?;
     }
 
@@ -407,7 +459,11 @@ pub async fn copy_remote_files(
     let mut done_files = 0usize;
 
     for (_fid, rpath, size) in &files_info {
-        let filename = std::path::Path::new(rpath).file_name().unwrap_or_default().to_string_lossy().to_string();
+        let filename = std::path::Path::new(rpath)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let dest = std::path::Path::new(&dest_dir).join(&filename);
         // skip if exists with same size
         if dest.exists()
@@ -416,7 +472,10 @@ pub async fn copy_remote_files(
         {
             total_bytes += size;
             done_files += 1;
-            let _ = app.emit("transfer-progress", serde_json::json!({"job_id": job_id, "file": filename, "status": "skipped"}));
+            let _ = app.emit(
+                "transfer-progress",
+                serde_json::json!({"job_id": job_id, "file": filename, "status": "skipped"}),
+            );
             continue;
         }
 
@@ -437,7 +496,9 @@ pub async fn copy_remote_files(
                     }
                 }
                 // only write if no read error for this file
-                let read_ok = !errors.iter().any(|e| e.starts_with(&format!("{}:", filename)));
+                let read_ok = !errors
+                    .iter()
+                    .any(|e| e.starts_with(&format!("{}:", filename)));
                 if read_ok {
                     if let Err(e) = std::fs::write(&dest, &buf) {
                         errors.push(format!("{}: {}", filename, e));
@@ -452,16 +513,32 @@ pub async fn copy_remote_files(
         }
     }
 
-    let status = if errors.is_empty() { "completed" } else { "completed_with_errors" };
+    let status = if errors.is_empty() {
+        "completed"
+    } else {
+        "completed_with_errors"
+    };
     {
         let conn = state.db.lock().unwrap();
         conn.execute(
             "UPDATE transfer_jobs SET status=?1, transferred_bytes=?2, error=?3 WHERE id=?4",
-            params![status, total_bytes, if errors.is_empty() { None } else { Some(errors.join("; ")) }, job_id],
+            params![
+                status,
+                total_bytes,
+                if errors.is_empty() {
+                    None
+                } else {
+                    Some(errors.join("; "))
+                },
+                job_id
+            ],
         )?;
     }
 
-    let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+    let _ = sess
+        .session
+        .disconnect(russh::Disconnect::ByApplication, "", "")
+        .await;
 
     Ok(TransferResult {
         job_id,

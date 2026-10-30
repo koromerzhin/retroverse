@@ -206,7 +206,8 @@ pub fn stats(state: State<AppState>) -> Result<serde_json::Value> {
 pub fn search_games_fts(state: State<AppState>, query: String) -> Result<Vec<LibraryEntry>> {
     let conn = state.db.lock().unwrap();
     let platforms = crate::identify::load_platforms(&conn)?;
-    let pmap: std::collections::HashMap<String, Platform> = platforms.into_iter().map(|p| (p.id.clone(), p)).collect();
+    let pmap: std::collections::HashMap<String, Platform> =
+        platforms.into_iter().map(|p| (p.id.clone(), p)).collect();
 
     // FTS5 match
     let mut stmt = conn.prepare(
@@ -269,7 +270,10 @@ pub fn search_games_fts(state: State<AppState>, query: String) -> Result<Vec<Lib
         for fr in frows {
             files.push(fr?);
         }
-        let platform = game.platform_id.as_ref().and_then(|pid| pmap.get(pid).cloned());
+        let platform = game
+            .platform_id
+            .as_ref()
+            .and_then(|pid| pmap.get(pid).cloned());
         entries.push(LibraryEntry {
             game,
             platform,
@@ -310,7 +314,9 @@ pub fn list_collections(state: State<AppState>) -> Result<Vec<serde_json::Value>
         Ok(serde_json::json!({"id": r.get::<_, String>(0)?, "name": r.get::<_, String>(1)?, "created_at": r.get::<_, String>(2)?}))
     })?;
     let mut out = Vec::new();
-    for r in rows { out.push(r?); }
+    for r in rows {
+        out.push(r?);
+    }
     Ok(out)
 }
 
@@ -318,21 +324,38 @@ pub fn list_collections(state: State<AppState>) -> Result<Vec<serde_json::Value>
 pub fn create_collection(state: State<AppState>, name: String) -> Result<serde_json::Value> {
     let conn = state.db.lock().unwrap();
     let id = crate::models::new_id();
-    conn.execute("INSERT INTO collections (id,name,created_at) VALUES (?1,?2,?3)", params![id, name, chrono::Utc::now().to_rfc3339()])?;
+    conn.execute(
+        "INSERT INTO collections (id,name,created_at) VALUES (?1,?2,?3)",
+        params![id, name, chrono::Utc::now().to_rfc3339()],
+    )?;
     Ok(serde_json::json!({"id": id, "name": name}))
 }
 
 #[tauri::command]
-pub fn add_game_to_collection(state: State<AppState>, collection_id: String, game_id: String) -> Result<()> {
+pub fn add_game_to_collection(
+    state: State<AppState>,
+    collection_id: String,
+    game_id: String,
+) -> Result<()> {
     let conn = state.db.lock().unwrap();
-    conn.execute("INSERT OR IGNORE INTO collection_games (collection_id,game_id) VALUES (?1,?2)", params![collection_id, game_id])?;
+    conn.execute(
+        "INSERT OR IGNORE INTO collection_games (collection_id,game_id) VALUES (?1,?2)",
+        params![collection_id, game_id],
+    )?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn remove_game_from_collection(state: State<AppState>, collection_id: String, game_id: String) -> Result<()> {
+pub fn remove_game_from_collection(
+    state: State<AppState>,
+    collection_id: String,
+    game_id: String,
+) -> Result<()> {
     let conn = state.db.lock().unwrap();
-    conn.execute("DELETE FROM collection_games WHERE collection_id=?1 AND game_id=?2", params![collection_id, game_id])?;
+    conn.execute(
+        "DELETE FROM collection_games WHERE collection_id=?1 AND game_id=?2",
+        params![collection_id, game_id],
+    )?;
     Ok(())
 }
 
@@ -342,7 +365,9 @@ pub fn collection_games(state: State<AppState>, collection_id: String) -> Result
     let mut stmt = conn.prepare("SELECT game_id FROM collection_games WHERE collection_id=?1")?;
     let rows = stmt.query_map([collection_id], |r| r.get(0))?;
     let mut out = Vec::new();
-    for r in rows { out.push(r?); }
+    for r in rows {
+        out.push(r?);
+    }
     Ok(out)
 }
 

@@ -25,7 +25,10 @@ pub fn compute_hashes(state: State<AppState>, source_id: Option<String>) -> Resu
             let mut hasher = Sha256::new();
             hasher.update(&data);
             let hash = format!("{:x}", hasher.finalize());
-            conn.execute("UPDATE game_files SET hash=?1 WHERE id=?2", params![hash, id])?;
+            conn.execute(
+                "UPDATE game_files SET hash=?1 WHERE id=?2",
+                params![hash, id],
+            )?;
             done += 1;
         }
     }
@@ -53,12 +56,15 @@ pub fn export_backup(state: State<AppState>, dest_path: String) -> Result<String
             }))
         })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
 
     let games: Vec<serde_json::Value> = {
-        let mut stmt = conn.prepare("SELECT id,title,platform_id,created_at,updated_at FROM games")?;
+        let mut stmt =
+            conn.prepare("SELECT id,title,platform_id,created_at,updated_at FROM games")?;
         let rows = stmt.query_map([], |r| {
             Ok(json!({
                 "id": r.get::<_,String>(0)?,
@@ -69,7 +75,9 @@ pub fn export_backup(state: State<AppState>, dest_path: String) -> Result<String
             }))
         })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
 
@@ -91,12 +99,15 @@ pub fn export_backup(state: State<AppState>, dest_path: String) -> Result<String
             }))
         })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
 
     let links: Vec<serde_json::Value> = {
-        let mut stmt = conn.prepare("SELECT file_id,game_id,confidence,manual FROM game_file_links")?;
+        let mut stmt =
+            conn.prepare("SELECT file_id,game_id,confidence,manual FROM game_file_links")?;
         let rows = stmt.query_map([], |r| {
             Ok(json!({
                 "file_id": r.get::<_,String>(0)?,
@@ -106,12 +117,16 @@ pub fn export_backup(state: State<AppState>, dest_path: String) -> Result<String
             }))
         })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
 
     let metadata: Vec<serde_json::Value> = {
-        let mut stmt = conn.prepare("SELECT id,game_id,provider,field,value,provenance,fetched_at FROM metadata_records")?;
+        let mut stmt = conn.prepare(
+            "SELECT id,game_id,provider,field,value,provenance,fetched_at FROM metadata_records",
+        )?;
         let rows = stmt.query_map([], |r| {
             Ok(json!({
                 "id": r.get::<_,String>(0)?,
@@ -124,12 +139,15 @@ pub fn export_backup(state: State<AppState>, dest_path: String) -> Result<String
             }))
         })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
 
     let media: Vec<serde_json::Value> = {
-        let mut stmt = conn.prepare("SELECT id,game_id,kind,path,url,cached_at FROM media_assets")?;
+        let mut stmt =
+            conn.prepare("SELECT id,game_id,kind,path,url,cached_at FROM media_assets")?;
         let rows = stmt.query_map([], |r| {
             Ok(json!({
                 "id": r.get::<_,String>(0)?,
@@ -141,7 +159,9 @@ pub fn export_backup(state: State<AppState>, dest_path: String) -> Result<String
             }))
         })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
 
@@ -155,7 +175,9 @@ pub fn export_backup(state: State<AppState>, dest_path: String) -> Result<String
             }))
         })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
 
@@ -168,7 +190,9 @@ pub fn export_backup(state: State<AppState>, dest_path: String) -> Result<String
             }))
         })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
 
@@ -200,9 +224,18 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     if let Some(arr) = v["sources"].as_array() {
         for s in arr {
             let id = s["id"].as_str().unwrap_or("");
-            if id.is_empty() { continue; }
-            let exists: bool = conn.query_row("SELECT COUNT(*) FROM game_sources WHERE id=?1", [id], |r| r.get::<_,i64>(0)).unwrap_or(0) > 0;
-            if exists { continue; }
+            if id.is_empty() {
+                continue;
+            }
+            let exists: bool = conn
+                .query_row("SELECT COUNT(*) FROM game_sources WHERE id=?1", [id], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap_or(0)
+                > 0;
+            if exists {
+                continue;
+            }
             conn.execute(
                 "INSERT OR IGNORE INTO game_sources (id,name,kind,path,created_at,last_scan_at,connection_id,remote_path,available,last_error) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
                 params![
@@ -224,9 +257,18 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     if let Some(arr) = v["games"].as_array() {
         for g in arr {
             let id = g["id"].as_str().unwrap_or("");
-            if id.is_empty() { continue; }
-            let exists: bool = conn.query_row("SELECT COUNT(*) FROM games WHERE id=?1", [id], |r| r.get::<_,i64>(0)).unwrap_or(0) > 0;
-            if exists { continue; }
+            if id.is_empty() {
+                continue;
+            }
+            let exists: bool = conn
+                .query_row("SELECT COUNT(*) FROM games WHERE id=?1", [id], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap_or(0)
+                > 0;
+            if exists {
+                continue;
+            }
             conn.execute(
                 "INSERT OR IGNORE INTO games (id,title,platform_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5)",
                 params![id, g["title"].as_str().unwrap_or(""), g["platform_id"].as_str(), g["created_at"].as_str().unwrap_or(""), g["updated_at"].as_str().unwrap_or("")],
@@ -237,9 +279,18 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     if let Some(arr) = v["files"].as_array() {
         for f in arr {
             let id = f["id"].as_str().unwrap_or("");
-            if id.is_empty() { continue; }
-            let exists: bool = conn.query_row("SELECT COUNT(*) FROM game_files WHERE id=?1", [id], |r| r.get::<_,i64>(0)).unwrap_or(0) > 0;
-            if exists { continue; }
+            if id.is_empty() {
+                continue;
+            }
+            let exists: bool = conn
+                .query_row("SELECT COUNT(*) FROM game_files WHERE id=?1", [id], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap_or(0)
+                > 0;
+            if exists {
+                continue;
+            }
             conn.execute(
                 "INSERT OR IGNORE INTO game_files (id,source_id,path,filename,extension,size,modified_at,hash,platform_id,created_at,missing) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
                 params![
@@ -263,7 +314,9 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
         for l in arr {
             let fid = l["file_id"].as_str().unwrap_or("");
             let gid = l["game_id"].as_str().unwrap_or("");
-            if fid.is_empty() || gid.is_empty() { continue; }
+            if fid.is_empty() || gid.is_empty() {
+                continue;
+            }
             conn.execute(
                 "INSERT OR IGNORE INTO game_file_links (file_id,game_id,confidence,manual) VALUES (?1,?2,?3,?4)",
                 params![fid, gid, l["confidence"].as_f64().unwrap_or(0.5), l["manual"].as_bool().unwrap_or(false) as i64],
@@ -273,9 +326,20 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     if let Some(arr) = v["metadata"].as_array() {
         for m in arr {
             let id = m["id"].as_str().unwrap_or("");
-            if id.is_empty() { continue; }
-            let exists: bool = conn.query_row("SELECT COUNT(*) FROM metadata_records WHERE id=?1", [id], |r| r.get::<_,i64>(0)).unwrap_or(0) > 0;
-            if exists { continue; }
+            if id.is_empty() {
+                continue;
+            }
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM metadata_records WHERE id=?1",
+                    [id],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if exists {
+                continue;
+            }
             conn.execute(
                 "INSERT OR IGNORE INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
                 params![id, m["game_id"].as_str().unwrap_or(""), m["provider"].as_str().unwrap_or(""), m["field"].as_str().unwrap_or(""), m["value"].as_str().unwrap_or(""), m["provenance"].as_str(), m["fetched_at"].as_str().unwrap_or("")],
@@ -285,9 +349,18 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     if let Some(arr) = v["media"].as_array() {
         for m in arr {
             let id = m["id"].as_str().unwrap_or("");
-            if id.is_empty() { continue; }
-            let exists: bool = conn.query_row("SELECT COUNT(*) FROM media_assets WHERE id=?1", [id], |r| r.get::<_,i64>(0)).unwrap_or(0) > 0;
-            if exists { continue; }
+            if id.is_empty() {
+                continue;
+            }
+            let exists: bool = conn
+                .query_row("SELECT COUNT(*) FROM media_assets WHERE id=?1", [id], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap_or(0)
+                > 0;
+            if exists {
+                continue;
+            }
             conn.execute(
                 "INSERT OR IGNORE INTO media_assets (id,game_id,kind,path,url,cached_at) VALUES (?1,?2,?3,?4,?5,?6)",
                 params![id, m["game_id"].as_str().unwrap_or(""), m["kind"].as_str().unwrap_or(""), m["path"].as_str(), m["url"].as_str(), m["cached_at"].as_str()],
@@ -297,13 +370,28 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     if let Some(arr) = v["collections"].as_array() {
         for c in arr {
             let id = c["id"].as_str().unwrap_or("");
-            if id.is_empty() { continue; }
-            conn.execute("INSERT OR IGNORE INTO collections (id,name,created_at) VALUES (?1,?2,?3)", params![id, c["name"].as_str().unwrap_or(""), c["created_at"].as_str().unwrap_or("")])?;
+            if id.is_empty() {
+                continue;
+            }
+            conn.execute(
+                "INSERT OR IGNORE INTO collections (id,name,created_at) VALUES (?1,?2,?3)",
+                params![
+                    id,
+                    c["name"].as_str().unwrap_or(""),
+                    c["created_at"].as_str().unwrap_or("")
+                ],
+            )?;
         }
     }
     if let Some(arr) = v["collection_games"].as_array() {
         for cg in arr {
-            conn.execute("INSERT OR IGNORE INTO collection_games (collection_id,game_id) VALUES (?1,?2)", params![cg["collection_id"].as_str().unwrap_or(""), cg["game_id"].as_str().unwrap_or("")])?;
+            conn.execute(
+                "INSERT OR IGNORE INTO collection_games (collection_id,game_id) VALUES (?1,?2)",
+                params![
+                    cg["collection_id"].as_str().unwrap_or(""),
+                    cg["game_id"].as_str().unwrap_or("")
+                ],
+            )?;
         }
     }
 
@@ -325,6 +413,8 @@ pub fn list_transfer_jobs(state: State<AppState>) -> Result<Vec<serde_json::Valu
         }))
     })?;
     let mut out = Vec::new();
-    for r in rows { out.push(r?); }
+    for r in rows {
+        out.push(r?);
+    }
     Ok(out)
 }
