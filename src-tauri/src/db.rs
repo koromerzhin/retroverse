@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 3;
+pub const SCHEMA_VERSION: i32 = 4;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -40,6 +40,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 3 {
         apply_v3(conn)?;
+    }
+    if current < 4 {
+        apply_v4(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -246,6 +249,39 @@ fn apply_v3(conn: &Connection) -> Result<()> {
             error TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_metadata_jobs_status ON metadata_jobs(status);
+        "#,
+    )?;
+    Ok(())
+}
+
+fn apply_v4(conn: &Connection) -> Result<()> {
+    // FTS5 triggers + populate
+    conn.execute_batch(
+        r#"
+        CREATE TRIGGER IF NOT EXISTS games_ai AFTER INSERT ON games BEGIN
+            INSERT INTO games_fts(rowid, title) VALUES (new.rowid, new.title);
+        END;
+        CREATE TRIGGER IF NOT EXISTS games_ad AFTER DELETE ON games BEGIN
+            INSERT INTO games_fts(games_fts, rowid, title) VALUES('delete', old.rowid, old.title);
+        END;
+        CREATE TRIGGER IF NOT EXISTS games_au AFTER UPDATE ON games BEGIN
+            INSERT INTO games_fts(games_fts, rowid, title) VALUES('delete', old.rowid, old.title);
+            INSERT INTO games_fts(rowid, title) VALUES (new.rowid, new.title);
+        END;
+        "#,
+    )?;
+    // populate existing
+    let _ = conn.execute("INSERT INTO games_fts(rowid, title) SELECT rowid, title FROM games", []);
+    // collections already exist; game_relations table
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS game_relations (
+            id TEXT PRIMARY KEY,
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            related_game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            relation_type TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         "#,
     )?;
     Ok(())
