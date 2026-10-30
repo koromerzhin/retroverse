@@ -37,8 +37,10 @@ pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult>
         }
         let p = entry.path();
         let pstr = p.to_string_lossy();
-        // Skip media/asset directories to avoid scanning thousands of images
-        if pstr.contains("/media/") || pstr.contains("/images/") || pstr.contains("/assets/") {
+        // Skip media/asset directories to avoid scanning thousands of images.
+        // Match whole path segments only (not /run/media/...).
+        let skip = pstr.split('/').any(|seg| seg == "media" || seg == "images" || seg == "assets");
+        if skip {
             continue;
         }
         let ext = identify::ext_of(pstr.as_ref());
