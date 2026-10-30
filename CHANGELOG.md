@@ -2,7 +2,15 @@
 
 All notable changes to RETROVERSE are documented here.
 
-## [0.4.0] - Game Encyclopedia & Discovery (in progress)
+## [0.5.0] - Transfer & Preservation (in progress)
+
+### Added
+- SHA-256 hash computation for local files.
+- Full backup export/import (JSON).
+- Transfer jobs history UI.
+- Preservation page.
+
+## [0.4.0] - Game Encyclopedia & Discovery
 
 ### Added
 - FTS5 full-text search with triggers and population (v4 migration).

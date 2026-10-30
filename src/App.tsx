@@ -5,6 +5,7 @@ import GameDetail from "./pages/GameDetail";
 import Platforms from "./pages/Platforms";
 import Sources from "./pages/Sources";
 import Discovery from "./pages/Discovery";
+import Preservation from "./pages/Preservation";
 import Settings from "./pages/Settings";
 
 const nav = [
@@ -13,6 +14,7 @@ const nav = [
   { to: "/platforms", label: "Plateformes", icon: "🎮" },
   { to: "/sources", label: "Sources", icon: "📁" },
   { to: "/discovery", label: "Découverte", icon: "🧭" },
+  { to: "/preservation", label: "Préservation", icon: "🛡️" },
   { to: "/settings", label: "Paramètres", icon: "⚙️" },
 ];
 
@@ -47,6 +49,7 @@ export default function App() {
           <Route path="/platforms" element={<Platforms />} />
           <Route path="/sources" element={<Sources />} />
           <Route path="/discovery" element={<Discovery />} />
+          <Route path="/preservation" element={<Preservation />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
