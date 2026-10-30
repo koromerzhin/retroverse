@@ -31,7 +31,11 @@ export default function App() {
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     listen<any>("scan-progress", (ev) => {
-      if (ev.payload?.status === "done") {
+      if (ev.payload?.status === "cancelled") {
+        setScanProgress(null);
+        setToast("Scan annulé");
+        setTimeout(() => setToast(null), 4000);
+      } else if (ev.payload?.status === "done") {
         setScanProgress(null);
         const created = ev.payload?.games_created ?? 0;
         const updated = ev.payload?.games_updated ?? 0;

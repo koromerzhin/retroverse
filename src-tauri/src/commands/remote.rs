@@ -184,6 +184,7 @@ pub async fn scan_remote_source_inner(
     state: &AppState,
     source_id: String,
     app: Option<tauri::AppHandle>,
+    cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<ScanResult> {
     // gather connection info
     let (host, port, username, key_path, mut base_path) = {
@@ -227,6 +228,7 @@ pub async fn scan_remote_source_inner(
 
     // recursive collect files via sftp
     let mut collected: Vec<(String, i64, i64)> = Vec::new(); // path, size, mtime
+    #[allow(clippy::too_many_arguments)]
     async fn walk(
         sftp: &russh_sftp::client::SftpSession,
         dir: &str,
@@ -235,9 +237,16 @@ pub async fn scan_remote_source_inner(
         out: &mut Vec<(String, i64, i64)>,
         app: Option<&tauri::AppHandle>,
         source_id: &str,
+        cancel: Option<&std::sync::Arc<std::sync::atomic::AtomicBool>>,
     ) {
+        if cancel.map(|c| c.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
+            return;
+        }
         if let Ok(entries) = sftp.read_dir(dir).await {
             for e in entries {
+                if cancel.map(|c| c.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
+                    return;
+                }
                 let name = e.file_name();
                 if name == "." || name == ".." {
                     continue;
@@ -260,7 +269,7 @@ pub async fn scan_remote_source_inner(
                     continue;
                 }
                 if is_dir {
-                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, out, app, source_id)).await;
+                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, out, app, source_id, cancel)).await;
                 } else {
                     let ext = std::path::Path::new(&name)
                         .extension()
@@ -313,7 +322,7 @@ pub async fn scan_remote_source_inner(
         .flat_map(|p| p.extensions.clone())
         .collect();
     let slugs: Vec<String> = platforms.iter().map(|p| p.slug.clone()).collect();
-    walk(&sess.sftp, &base_path, &exts, &slugs, &mut collected, app.as_ref(), &source_id).await;
+    walk(&sess.sftp, &base_path, &exts, &slugs, &mut collected, app.as_ref(), &source_id, Some(&cancel)).await;
 
     // process into db in chunks to avoid locking the DB for too long
     let mut files_found = 0usize;
@@ -326,6 +335,19 @@ pub async fn scan_remote_source_inner(
     };
 
     for chunk in collected.chunks(chunk_size) {
+        if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+            // cancelled: emit and return partial
+            if let Some(a) = &app {
+                use tauri::Emitter;
+                let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": collected.len(), "status": "cancelled"}));
+            }
+            return Ok(ScanResult {
+                source_id,
+                files_found,
+                games_created,
+                games_updated,
+            });
+        }
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
         for (fpath, size, mtime) in chunk {
@@ -476,7 +498,8 @@ pub async fn scan_remote_source(
     app: tauri::AppHandle,
     source_id: String,
 ) -> Result<ScanResult> {
-    scan_remote_source_inner(&state, source_id, Some(app)).await
+    state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
+    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone()).await
 }
 
 #[tauri::command]
