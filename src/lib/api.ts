@@ -5,6 +5,7 @@ export const api = {
   addSource: (name: string, path: string) => invoke<any>("add_source", { name, path }),
   removeSource: (id: string) => invoke<void>("remove_source", { id }),
   scanSource: (sourceId: string) => invoke<any>("scan_source", { sourceId }),
+  cancelScan: () => invoke<void>("cancel_scan"),
   testRemoteConnection: (host: string, port: number, username: string, keyPath: string) =>
     invoke<string>("test_remote_connection", { host, port, username, keyPath }),
   addRemoteSource: (name: string, host: string, port: number, username: string, keyPath: string, remotePath: string) =>

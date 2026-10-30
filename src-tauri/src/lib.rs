@@ -28,6 +28,7 @@ pub fn run() {
             commands::remove_source,
             commands::scan_source,
             commands::scan_source_cmd,
+            commands::cancel_scan,
             commands::test_remote_connection,
             commands::add_remote_source,
             commands::list_remote_dir,

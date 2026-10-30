@@ -10,6 +10,7 @@ pub fn scan_source(
     conn: &mut Connection,
     source_id: &str,
     app: Option<tauri::AppHandle>,
+    cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<ScanResult> {
     use tauri::Emitter;
 
@@ -79,6 +80,18 @@ pub fn scan_source(
     let mut total_updated = 0usize;
 
     for top in &top_dirs {
+        if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+            if let Some(a) = &app {
+                use tauri::Emitter;
+                let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": total_files_found, "total": total_files_found, "status": "cancelled"}));
+            }
+            return Ok(ScanResult {
+                source_id: source_id.to_string(),
+                files_found: total_files_found,
+                games_created: total_created,
+                games_updated: total_updated,
+            });
+        }
         // Collect files in this top-level folder.
         let mut files: Vec<(String, u64, i64)> = Vec::new();
         for entry in WalkDir::new(top)
@@ -135,6 +148,9 @@ pub fn scan_source(
         // collect found paths for missing detection
         let mut found_paths: Vec<String> = Vec::new();
         for (idx, (fpath, size, mtime)) in files.iter().enumerate() {
+            if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+                break;
+            }
             let filename = Path::new(fpath)
                 .file_name()
                 .and_then(|s| s.to_str())

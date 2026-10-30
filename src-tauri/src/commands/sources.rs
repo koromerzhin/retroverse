@@ -2,6 +2,7 @@ use crate::error::{Result, RetroError};
 use crate::models::{GameSource, ScanResult};
 use crate::scanner;
 use crate::state::AppState;
+use std::sync::atomic::Ordering;
 use chrono::Utc;
 use rusqlite::params;
 use tauri::State;
@@ -93,6 +94,13 @@ pub fn remove_source(state: State<AppState>, id: String) -> Result<()> {
 
 #[tauri::command]
 pub fn scan_source(state: State<AppState>, app: tauri::AppHandle, source_id: String) -> Result<ScanResult> {
+    state.cancel_scan.store(false, Ordering::SeqCst);
     let mut conn = state.db.lock().unwrap();
-    scanner::scan_source(&mut conn, &source_id, Some(app))
+    scanner::scan_source(&mut conn, &source_id, Some(app), state.cancel_scan.clone())
+}
+
+#[tauri::command]
+pub fn cancel_scan(state: State<AppState>) -> Result<()> {
+    state.cancel_scan.store(true, Ordering::SeqCst);
+    Ok(())
 }

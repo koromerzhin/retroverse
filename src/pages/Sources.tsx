@@ -139,6 +139,10 @@ export default function Sources() {
     }
   }
 
+  async function handleCancel() {
+    try { await api.cancelScan(); } catch {}
+  }
+
   return (
     <>
       <h1 className="page-title">Sources</h1>
@@ -238,13 +242,15 @@ export default function Sources() {
                 <td>{s.last_scan_at ? new Date(s.last_scan_at).toLocaleString() : "—"}</td>
                 <td>
                   <div className="row">
-                    <button
-                      className="btn primary"
-                      onClick={() => handleScan(s)}
-                      disabled={scanning === s.id}
-                    >
-                      {scanning === s.id ? <><span className="spinner" /> Scan…</> : "Scanner"}
-                    </button>
+                    {scanning === s.id ? (
+                      <button className="btn danger" onClick={handleCancel}>
+                        Arrêter
+                      </button>
+                    ) : (
+                      <button className="btn primary" onClick={() => handleScan(s)}>
+                        Scanner
+                      </button>
+                    )}
                     <button
                       className="btn danger"
                       onClick={() => { if (confirm("Supprimer cette source ?")) removeMutation.mutate(s.id); }}
