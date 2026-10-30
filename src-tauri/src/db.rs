@@ -182,7 +182,15 @@ fn apply_v1(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-type PlatformSeed = (&'static str, &'static str, &'static str, Option<&'static str>, Option<i32>, Option<i32>, &'static str);
+type PlatformSeed = (
+    &'static str,
+    &'static str,
+    &'static str,
+    Option<&'static str>,
+    Option<i32>,
+    Option<i32>,
+    &'static str,
+);
 
 fn apply_v2(conn: &Connection) -> Result<()> {
     // Remote connections
@@ -213,7 +221,10 @@ fn apply_v2(conn: &Connection) -> Result<()> {
     }
 
     // Extend game_files with missing flag
-    let _ = conn.execute("ALTER TABLE game_files ADD COLUMN missing INTEGER NOT NULL DEFAULT 0", []);
+    let _ = conn.execute(
+        "ALTER TABLE game_files ADD COLUMN missing INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
 
     // Transfer job items
     conn.execute_batch(
@@ -271,7 +282,10 @@ fn apply_v4(conn: &Connection) -> Result<()> {
         "#,
     )?;
     // populate existing
-    let _ = conn.execute("INSERT INTO games_fts(rowid, title) SELECT rowid, title FROM games", []);
+    let _ = conn.execute(
+        "INSERT INTO games_fts(rowid, title) SELECT rowid, title FROM games",
+        [],
+    );
     // collections already exist; game_relations table
     conn.execute_batch(
         r#"

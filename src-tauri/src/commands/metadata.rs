@@ -6,7 +6,10 @@ use tauri::State;
 
 #[tauri::command]
 pub fn list_metadata_providers() -> Vec<String> {
-    metadata::providers().iter().map(|p| p.name().to_string()).collect()
+    metadata::providers()
+        .iter()
+        .map(|p| p.name().to_string())
+        .collect()
 }
 
 #[tauri::command]
@@ -81,7 +84,10 @@ pub async fn enrich_game(
 }
 
 #[tauri::command]
-pub fn get_game_metadata(state: State<AppState>, game_id: String) -> Result<Vec<serde_json::Value>> {
+pub fn get_game_metadata(
+    state: State<AppState>,
+    game_id: String,
+) -> Result<Vec<serde_json::Value>> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn.prepare("SELECT provider,field,value,provenance,fetched_at FROM metadata_records WHERE game_id=?1 ORDER BY fetched_at DESC")?;
     let rows = stmt.query_map([game_id.clone()], |r| {

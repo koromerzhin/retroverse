@@ -38,9 +38,16 @@ pub async fn connect(
     // authenticate with key
     let key = keys::load_secret_key(key_path, None)
         .map_err(|e| RetroError::Other(format!("load key failed: {}", e)))?;
-    let hash = session.best_supported_rsa_hash().await.map_err(|e| RetroError::Other(e.to_string()))?.flatten();
+    let hash = session
+        .best_supported_rsa_hash()
+        .await
+        .map_err(|e| RetroError::Other(e.to_string()))?
+        .flatten();
     let auth = session
-        .authenticate_publickey(username, russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), hash))
+        .authenticate_publickey(
+            username,
+            russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), hash),
+        )
         .await
         .map_err(|e| RetroError::Other(format!("auth failed: {}", e)))?;
     if !auth.success() {

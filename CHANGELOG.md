@@ -2,7 +2,14 @@
 
 All notable changes to RETROVERSE are documented here.
 
-## [0.6.0] - Companion (in progress)
+## [1.0.0] - Universal Library (stable)
+
+### Added
+- Stabilization pass, documentation refresh.
+- Multi-version roadmap delivered (0.1 → 0.6).
+- Full feature set: local + remote sources, RetroData enrichment, encyclopedia, discovery, preservation, companion.
+
+## [0.6.0] - Companion
 
 ### Added
 - EmuDeck installation detection.

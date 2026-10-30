@@ -5,10 +5,27 @@ use serde_json::json;
 use tauri::State;
 
 const KNOWN_EMULATORS: &[&str] = &[
-    "retroarch", "ppsspp", "dolphin", "pcsx2", "rpcs3", "yuzu", "ryujinx",
-    "mame", "fs-uae", "scummvm", "dosbox", "mednafen", "mupen64plus",
-    "flycast", "duckstation", "azahar", "lime3ds", "vita3k", "xemu",
-    "melonds", "desmume",
+    "retroarch",
+    "ppsspp",
+    "dolphin",
+    "pcsx2",
+    "rpcs3",
+    "yuzu",
+    "ryujinx",
+    "mame",
+    "fs-uae",
+    "scummvm",
+    "dosbox",
+    "mednafen",
+    "mupen64plus",
+    "flycast",
+    "duckstation",
+    "azahar",
+    "lime3ds",
+    "vita3k",
+    "xemu",
+    "melonds",
+    "desmume",
 ];
 
 #[tauri::command]
@@ -97,7 +114,10 @@ pub fn stop_session(state: State<AppState>, session_id: String) -> Result<i64> {
 }
 
 #[tauri::command]
-pub fn list_sessions(state: State<AppState>, game_id: Option<String>) -> Result<Vec<serde_json::Value>> {
+pub fn list_sessions(
+    state: State<AppState>,
+    game_id: Option<String>,
+) -> Result<Vec<serde_json::Value>> {
     let conn = state.db.lock().unwrap();
     let sql = if game_id.is_some() {
         "SELECT id,game_id,started_at,ended_at,duration_seconds FROM game_sessions WHERE game_id=?1 ORDER BY started_at DESC"
@@ -107,23 +127,31 @@ pub fn list_sessions(state: State<AppState>, game_id: Option<String>) -> Result<
     let mut stmt = conn.prepare(sql)?;
     let mut out = Vec::new();
     if let Some(gid) = &game_id {
-        let rows = stmt.query_map([gid.clone()], |r| Ok(json!({
-            "id": r.get::<_,String>(0)?,
-            "game_id": r.get::<_,String>(1)?,
-            "started_at": r.get::<_,String>(2)?,
-            "ended_at": r.get::<_,Option<String>>(3)?,
-            "duration_seconds": r.get::<_,Option<i64>>(4)?,
-        })))?;
-        for r in rows { out.push(r?); }
+        let rows = stmt.query_map([gid.clone()], |r| {
+            Ok(json!({
+                "id": r.get::<_,String>(0)?,
+                "game_id": r.get::<_,String>(1)?,
+                "started_at": r.get::<_,String>(2)?,
+                "ended_at": r.get::<_,Option<String>>(3)?,
+                "duration_seconds": r.get::<_,Option<i64>>(4)?,
+            }))
+        })?;
+        for r in rows {
+            out.push(r?);
+        }
     } else {
-        let rows = stmt.query_map([], |r| Ok(json!({
-            "id": r.get::<_,String>(0)?,
-            "game_id": r.get::<_,String>(1)?,
-            "started_at": r.get::<_,String>(2)?,
-            "ended_at": r.get::<_,Option<String>>(3)?,
-            "duration_seconds": r.get::<_,Option<i64>>(4)?,
-        })))?;
-        for r in rows { out.push(r?); }
+        let rows = stmt.query_map([], |r| {
+            Ok(json!({
+                "id": r.get::<_,String>(0)?,
+                "game_id": r.get::<_,String>(1)?,
+                "started_at": r.get::<_,String>(2)?,
+                "ended_at": r.get::<_,Option<String>>(3)?,
+                "duration_seconds": r.get::<_,Option<i64>>(4)?,
+            }))
+        })?;
+        for r in rows {
+            out.push(r?);
+        }
     }
     Ok(out)
 }
@@ -131,17 +159,26 @@ pub fn list_sessions(state: State<AppState>, game_id: Option<String>) -> Result<
 #[tauri::command]
 pub fn session_stats(state: State<AppState>) -> Result<serde_json::Value> {
     let conn = state.db.lock().unwrap();
-    let total_sessions: i64 = conn.query_row("SELECT COUNT(*) FROM game_sessions", [], |r| r.get(0))?;
-    let total_seconds: i64 = conn.query_row("SELECT COALESCE(SUM(duration_seconds),0) FROM game_sessions", [], |r| r.get(0))?;
+    let total_sessions: i64 =
+        conn.query_row("SELECT COUNT(*) FROM game_sessions", [], |r| r.get(0))?;
+    let total_seconds: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(duration_seconds),0) FROM game_sessions",
+        [],
+        |r| r.get(0),
+    )?;
     let top: Vec<serde_json::Value> = {
         let mut stmt = conn.prepare("SELECT game_id, COUNT(*) as c, COALESCE(SUM(duration_seconds),0) as d FROM game_sessions GROUP BY game_id ORDER BY d DESC LIMIT 10")?;
-        let rows = stmt.query_map([], |r| Ok(json!({
-            "game_id": r.get::<_,String>(0)?,
-            "sessions": r.get::<_,i64>(1)?,
-            "seconds": r.get::<_,i64>(2)?,
-        })))?;
+        let rows = stmt.query_map([], |r| {
+            Ok(json!({
+                "game_id": r.get::<_,String>(0)?,
+                "sessions": r.get::<_,i64>(1)?,
+                "seconds": r.get::<_,i64>(2)?,
+            }))
+        })?;
         let mut v = Vec::new();
-        for r in rows { v.push(r?); }
+        for r in rows {
+            v.push(r?);
+        }
         v
     };
     Ok(json!({

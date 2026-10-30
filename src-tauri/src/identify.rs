@@ -100,7 +100,10 @@ mod tests {
 
     #[test]
     fn clean_title_removes_tags() {
-        assert_eq!(clean_title("Super Mario World (USA).sfc"), "Super Mario World");
+        assert_eq!(
+            clean_title("Super Mario World (USA).sfc"),
+            "Super Mario World"
+        );
         assert_eq!(clean_title("Zelda [Hack].nes"), "Zelda");
         assert_eq!(clean_title("Game (U) (V1.0).bin"), "Game");
     }
