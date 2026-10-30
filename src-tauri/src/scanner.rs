@@ -213,7 +213,7 @@ pub fn scan_source(conn: &mut Connection, source_id: &str, app: Option<tauri::Ap
     tx.commit()?;
 
     if let Some(a) = &app {
-        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": total, "total": total, "status": "done"}));
+        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": total, "total": total, "status": "done", "files_found": files_found, "games_created": games_created, "games_updated": games_updated}));
     }
 
     Ok(ScanResult {

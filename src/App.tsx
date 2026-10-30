@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./lib/api";
+import { formatNumber } from "./lib/format";
 import { NavLink, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Library from "./pages/Library";
@@ -25,13 +26,26 @@ const nav = [
 
 export default function App() {
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     listen<any>("scan-progress", (ev) => {
-      setScanProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning" });
       if (ev.payload?.status === "done") {
-        setTimeout(() => setScanProgress(null), 4000);
+        setScanProgress(null);
+        const created = ev.payload?.games_created ?? 0;
+        const updated = ev.payload?.games_updated ?? 0;
+        const files = ev.payload?.files_found ?? 0;
+        let msg = "Scan terminé";
+        if (created > 0 || updated > 0) {
+          msg += ` : ${formatNumber(created)} nouveau(x) jeu(x), ${formatNumber(updated)} mis à jour (${formatNumber(files)} fichier(s))`;
+        } else {
+          msg += ` : ${formatNumber(files)} fichier(s), aucune nouveauté`;
+        }
+        setToast(msg);
+        setTimeout(() => setToast(null), 5000);
+      } else {
+        setScanProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning" });
       }
     }).then((u) => { unlisten = u; });
     return () => { if (unlisten) unlisten(); };
@@ -62,7 +76,7 @@ export default function App() {
           padding: "6px 16px", fontSize: 12, color: "var(--text-dim)",
           display: "flex", alignItems: "center", gap: 12,
         }}>
-          <span>Scan en cours… {scanProgress.scanned}{scanProgress.total > 0 ? ` / ${scanProgress.total}` : ""} fichier(s)</span>
+          <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s)</span>
           <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
             <div style={{
               height: "100%",
@@ -73,6 +87,9 @@ export default function App() {
           </div>
           {scanProgress.status === "done" && <span style={{ color: "var(--success)" }}>Terminé</span>}
         </div>
+      )}
+      {toast && (
+        <div className="toast" style={{ borderColor: "var(--success)" }}>{toast}</div>
       )}
       <aside className="sidebar">
         <div className="brand">

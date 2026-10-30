@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { formatNumber } from "../lib/format";
 
 export default function Companion() {
   const { data: emudeck } = useQuery({ queryKey: ["emudeck"], queryFn: () => api.detectEmudeck() });
@@ -33,8 +34,8 @@ export default function Companion() {
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Statistiques de sessions</h3>
         <div className="row">
-          <span className="badge">Sessions : {stats?.total_sessions ?? 0}</span>
-          <span className="badge">Temps total : {Math.round((stats?.total_seconds ?? 0) / 60)} min</span>
+          <span className="badge">Sessions : {formatNumber(stats?.total_sessions ?? 0)}</span>
+          <span className="badge">Temps total : {formatNumber(Math.round((stats?.total_seconds ?? 0) / 60))} min</span>
         </div>
         {(stats?.top || []).length > 0 && (
           <table className="table" style={{ marginTop: 12 }}>

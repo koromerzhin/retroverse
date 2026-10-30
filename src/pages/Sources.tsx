@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
+import { formatNumber } from "../lib/format";
 import type { GameSource, ScanResult } from "../types";
 
 export default function Sources() {
@@ -187,7 +188,7 @@ export default function Sources() {
 
       {lastResult && (
         <div className="card" style={{ marginBottom: 20, borderColor: "var(--success)" }}>
-          <strong>Scan terminé :</strong> {lastResult.files_found} fichier(s), {lastResult.games_created} jeu(x) créé(s), {lastResult.games_updated} mis à jour.
+          <strong>Scan terminé :</strong> {formatNumber(lastResult.files_found)} fichier(s), {formatNumber(lastResult.games_created)} jeu(x) créé(s), {formatNumber(lastResult.games_updated)} mis à jour.
         </div>
       )}
 
@@ -196,7 +197,7 @@ export default function Sources() {
       {scanning && progress && (
         <div className="card" style={{ marginBottom: 12, borderColor: "var(--accent)" }}>
           <div style={{ fontSize: 13, marginBottom: 6 }}>
-            Scan en cours… {progress.scanned}{progress.total > 0 ? ` / ${progress.total}` : ""} fichier(s)
+            Scan en cours… {formatNumber(progress.scanned)}{progress.total > 0 ? ` / ${formatNumber(progress.total)}` : ""} fichier(s)
             {progress.status === "done" && " — terminé"}
           </div>
           <div style={{ height: 6, background: "var(--bg-3)", borderRadius: 3, overflow: "hidden" }}>

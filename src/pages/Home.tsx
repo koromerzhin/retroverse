@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { formatNumber } from "../lib/format";
 import type { Stats } from "../types";
 
 export default function Home() {
@@ -22,10 +23,10 @@ export default function Home() {
       <p className="page-sub">Bienvenue dans RETROVERSE — votre compagnon de collection vidéoludique.</p>
 
       <div className="stat-grid">
-        <div className="stat"><div className="label">Jeux</div><div className="value">{stats?.games ?? 0}</div></div>
-        <div className="stat"><div className="label">Fichiers</div><div className="value">{stats?.files ?? 0}</div></div>
-        <div className="stat"><div className="label">Sources</div><div className="value">{stats?.sources ?? 0}</div></div>
-        <div className="stat"><div className="label">Plateformes</div><div className="value">{stats?.platforms ?? 0}</div></div>
+        <div className="stat"><div className="label">Jeux</div><div className="value">{formatNumber(stats?.games ?? 0)}</div></div>
+        <div className="stat"><div className="label">Fichiers</div><div className="value">{formatNumber(stats?.files ?? 0)}</div></div>
+        <div className="stat"><div className="label">Sources</div><div className="value">{formatNumber(stats?.sources ?? 0)}</div></div>
+        <div className="stat"><div className="label">Plateformes</div><div className="value">{formatNumber(stats?.platforms ?? 0)}</div></div>
       </div>
 
       <h2 style={{ marginTop: 28, fontSize: 18 }}>Jeux récemment découverts</h2>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
+import { formatBytes } from "../lib/format";
 import type { LibraryEntry, GameSource } from "../types";
 
 export default function GameDetail() {
@@ -141,7 +142,7 @@ export default function GameDetail() {
               <tr key={f.id}>
                 <td>{f.filename}</td>
                 <td><span className="badge">{f.extension}</span></td>
-                <td>{(f.size / 1024).toFixed(1)} Ko</td>
+                <td>{formatBytes(f.size)}</td>
                 <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>{f.path}</td>
               </tr>
             ))}
