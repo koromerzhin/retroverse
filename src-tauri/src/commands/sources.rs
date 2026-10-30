@@ -47,20 +47,34 @@ pub fn add_source(state: State<AppState>, name: String, path: String) -> Result<
     if !p.is_dir() {
         return Err(RetroError::Invalid("path must be a directory".into()));
     }
+    // A source must point to a folder containing a 'roms' subfolder (or be 'roms' itself).
+    let final_path = if p.ends_with("roms") {
+        path.clone()
+    } else {
+        let roms = p.join("roms");
+        if roms.is_dir() {
+            roms.to_string_lossy().to_string()
+        } else {
+            return Err(RetroError::Invalid(
+                "Le dossier doit contenir un sous-dossier 'roms'".into(),
+            ));
+        }
+    };
+
     let id = crate::models::new_id();
     let now = Utc::now();
     {
         let conn = state.db.lock().unwrap();
         conn.execute(
             "INSERT INTO game_sources (id,name,kind,path,created_at) VALUES (?1,?2,?3,?4,?5)",
-            params![id, name, "local", path, now.to_rfc3339()],
+            params![id, name, "local", final_path, now.to_rfc3339()],
         )?;
     }
     Ok(GameSource {
         id,
         name,
         kind: "local".into(),
-        path,
+        path: final_path,
         created_at: now,
         last_scan_at: None,
         connection_id: None,

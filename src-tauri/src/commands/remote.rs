@@ -40,6 +40,21 @@ pub async fn add_remote_source(
 ) -> Result<GameSource> {
     // test connection first (key path may be empty -> default key)
     let sess = remote::connect(&host, port, &username, &key_path).await?;
+    // If a 'roms' subfolder exists, use it as the source path.
+    let mut remote_path = remote_path.clone();
+    if !remote_path.ends_with("roms")
+        && !remote_path.ends_with("roms/")
+        && let Ok(rd) = sess.sftp.read_dir(&remote_path).await
+    {
+        let entries: Vec<_> = rd.collect();
+        if entries.iter().any(|e| e.file_name() == "roms" && e.metadata().is_dir()) {
+            if remote_path.ends_with('/') {
+                remote_path = format!("{}roms/", remote_path);
+            } else {
+                remote_path = format!("{}/roms", remote_path);
+            }
+        }
+    }
     let _ = sess
         .session
         .disconnect(russh::Disconnect::ByApplication, "", "")
