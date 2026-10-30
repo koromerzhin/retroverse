@@ -60,6 +60,7 @@ pub fn run() {
             commands::stats,
             commands::list_platforms,
             commands::app_info,
+            commands::reset_database,
         ])
         .setup(|app| {
             let _ = app;

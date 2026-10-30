@@ -28,6 +28,7 @@ export const api = {
   stats: () => invoke<any>("stats"),
   listPlatforms: () => invoke<any[]>("list_platforms"),
   appInfo: () => invoke<any>("app_info"),
+  resetDatabase: () => invoke<void>("reset_database"),
   computeHashes: (sourceId?: string) => invoke<number>("compute_hashes", { sourceId }),
   exportBackup: (destPath: string) => invoke<string>("export_backup", { destPath }),
   importBackup: (srcPath: string) => invoke<number>("import_backup", { srcPath }),

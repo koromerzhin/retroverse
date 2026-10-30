@@ -1,12 +1,26 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { AppInfo } from "../types";
 
 export default function Settings() {
+  const qc = useQueryClient();
   const { data } = useQuery<AppInfo>({
     queryKey: ["appInfo"],
     queryFn: () => api.appInfo(),
   });
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function handleReset() {
+    if (!confirm("Vider toute la base de données ? Cette action est irréversible.")) return;
+    try {
+      await api.resetDatabase();
+      setMsg("Base de données vidée.");
+      qc.invalidateQueries();
+    } catch (e: any) {
+      setMsg(String(e));
+    }
+  }
 
   return (
     <>
@@ -22,6 +36,15 @@ export default function Settings() {
           <span>Base de données</span>
           <span style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text-dim)" }}>{data?.db_path ?? "—"}</span>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Maintenance</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>
+          Vider la base de données (sources, jeux, fichiers, métadonnées, sessions). Les plateformes sont conservées.
+        </p>
+        <button className="btn danger" onClick={handleReset}>Vider la base de données</button>
+        {msg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{msg}</p>}
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
