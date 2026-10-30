@@ -216,8 +216,9 @@ pub async fn scan_remote_source(
                 } else {
                     format!("{}/{}", dir, name)
                 };
-                // Skip media/asset directories
-                if full.contains("/media/") || full.contains("/images/") || full.contains("/assets/") {
+                // Skip media/asset directories (whole segments only)
+                let skip = full.split('/').any(|seg| seg == "media" || seg == "images" || seg == "assets");
+                if skip {
                     continue;
                 }
                 if is_dir {
