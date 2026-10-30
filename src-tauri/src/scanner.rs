@@ -38,8 +38,13 @@ pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult>
         let p = entry.path();
         let pstr = p.to_string_lossy();
         // Skip media/asset directories to avoid scanning thousands of images.
-        // Match whole path segments only (not /run/media/...).
-        let skip = pstr.split('/').any(|seg| seg == "media" || seg == "images" || seg == "assets");
+        // Match whole path segments only, but not the /run/media mount point.
+        let segs: Vec<&str> = pstr.split('/').collect();
+        let skip = segs.iter().enumerate().any(|(i, seg)| {
+            (*seg == "media" || *seg == "images" || *seg == "assets")
+                && i > 0
+                && segs[i - 1] != "run"
+        });
         if skip {
             continue;
         }
@@ -47,8 +52,11 @@ pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult>
         if ext.is_empty() {
             continue;
         }
-        // Only consider files whose extension maps to a known platform.
-        if identify::guess_platform(&ext, &platforms).is_none() {
+        // Consider files whose extension maps to a known platform OR whose path
+        // identifies a platform (e.g. .zip ROMs in a nes/ folder).
+        let ext_known = identify::guess_platform(&ext, &platforms).is_some();
+        let path_known = identify::infer_platform_from_path(p.to_string_lossy().as_ref(), &platforms).is_some();
+        if !ext_known && !path_known {
             continue;
         }
         // only known-ish extensions: accept all but skip tiny/system? We'll accept all files with extension
@@ -79,7 +87,8 @@ pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult>
             .unwrap_or("")
             .to_string();
         let ext = identify::ext_of(fpath);
-        let platform_id = identify::guess_platform(&ext, &platforms);
+        let platform_id = identify::infer_platform_from_path(fpath, &platforms)
+            .or_else(|| identify::guess_platform(&ext, &platforms));
 
         // upsert game_file
         let existing: Option<String> = tx

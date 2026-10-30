@@ -165,9 +165,8 @@ pub async fn list_remote_dir(
     Ok(out)
 }
 
-#[tauri::command]
-pub async fn scan_remote_source(
-    state: State<'_, AppState>,
+pub async fn scan_remote_source_inner(
+    state: &AppState,
     source_id: String,
 ) -> Result<ScanResult> {
     // gather connection info
@@ -201,6 +200,7 @@ pub async fn scan_remote_source(
         sftp: &russh_sftp::client::SftpSession,
         dir: &str,
         platforms_ext: &[String],
+        platform_slugs: &[String],
         out: &mut Vec<(String, i64, i64)>,
     ) {
         if let Ok(entries) = sftp.read_dir(dir).await {
@@ -216,13 +216,18 @@ pub async fn scan_remote_source(
                 } else {
                     format!("{}/{}", dir, name)
                 };
-                // Skip media/asset directories (whole segments only)
-                let skip = full.split('/').any(|seg| seg == "media" || seg == "images" || seg == "assets");
+                // Skip media/asset directories (whole segments only, not /run/media mount)
+                let segs: Vec<&str> = full.split('/').collect();
+                let skip = segs.iter().enumerate().any(|(i, seg)| {
+                    (*seg == "media" || *seg == "images" || *seg == "assets")
+                        && i > 0
+                        && segs[i - 1] != "run"
+                });
                 if skip {
                     continue;
                 }
                 if is_dir {
-                    Box::pin(walk(sftp, &full, platforms_ext, out)).await;
+                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, out)).await;
                 } else {
                     let ext = std::path::Path::new(&name)
                         .extension()
@@ -230,10 +235,15 @@ pub async fn scan_remote_source(
                         .unwrap_or("")
                         .to_lowercase();
                     let ext_dot = format!(".{}", ext);
-                    if platforms_ext
+                    let ext_known = platforms_ext
                         .iter()
-                        .any(|x| x.eq_ignore_ascii_case(&ext_dot))
-                    {
+                        .any(|x| x.eq_ignore_ascii_case(&ext_dot));
+                    // Platform from folder name (e.g. .../roms/nes/...)
+                    let folder_platform = full.split('/').any(|seg| {
+                        let low = seg.to_lowercase();
+                        platform_slugs.iter().any(|s| s == &low)
+                    });
+                    if ext_known || folder_platform {
                         let size = meta.size.unwrap_or(0) as i64;
                         let mtime = meta.mtime.unwrap_or(0) as i64;
                         out.push((full, size, mtime));
@@ -251,8 +261,8 @@ pub async fn scan_remote_source(
         .iter()
         .flat_map(|p| p.extensions.clone())
         .collect();
-
-    walk(&sess.sftp, &base_path, &exts, &mut collected).await;
+    let slugs: Vec<String> = platforms.iter().map(|p| p.slug.clone()).collect();
+    walk(&sess.sftp, &base_path, &exts, &slugs, &mut collected).await;
 
     // process into db (sync), like scanner but for remote source
     let mut files_found = 0usize;
@@ -270,7 +280,8 @@ pub async fn scan_remote_source(
                 .unwrap_or("")
                 .to_string();
             let ext = crate::identify::ext_of(fpath);
-            let platform_id = crate::identify::guess_platform(&ext, &platforms2);
+            let platform_id = crate::identify::infer_platform_from_path(fpath, &platforms2)
+                .or_else(|| crate::identify::guess_platform(&ext, &platforms2));
 
             let existing: Option<String> = tx
                 .query_row(
@@ -387,6 +398,14 @@ pub async fn scan_remote_source(
         games_created,
         games_updated,
     })
+}
+
+#[tauri::command]
+pub async fn scan_remote_source(
+    state: State<'_, AppState>,
+    source_id: String,
+) -> Result<ScanResult> {
+    scan_remote_source_inner(&state, source_id).await
 }
 
 #[tauri::command]
