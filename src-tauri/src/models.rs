@@ -1,0 +1,83 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Platform {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub manufacturer: Option<String>,
+    pub generation: Option<i32>,
+    pub release_year: Option<i32>,
+    pub extensions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameSource {
+    pub id: String,
+    pub name: String,
+    pub kind: String, // "local"
+    pub path: String,
+    pub created_at: DateTime<Utc>,
+    pub last_scan_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameFile {
+    pub id: String,
+    pub source_id: String,
+    pub path: String,
+    pub filename: String,
+    pub extension: String,
+    pub size: i64,
+    pub modified_at: i64,
+    pub hash: Option<String>,
+    pub platform_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Game {
+    pub id: String,
+    pub title: String,
+    pub platform_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameFileLink {
+    pub file_id: String,
+    pub game_id: String,
+    pub confidence: f64,
+    pub manual: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveredGame {
+    pub game: Game,
+    pub files: Vec<GameFile>,
+    pub platform: Option<Platform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScanProgress {
+    pub source_id: String,
+    pub scanned: usize,
+    pub total: usize,
+    pub status: String,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScanResult {
+    pub source_id: String,
+    pub files_found: usize,
+    pub games_created: usize,
+    pub games_updated: usize,
+}
+
+pub fn new_id() -> String {
+    Uuid::new_v4().to_string()
+}
