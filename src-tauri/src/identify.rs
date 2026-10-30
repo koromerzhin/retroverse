@@ -28,7 +28,6 @@ pub fn load_platforms(conn: &Connection) -> crate::error::Result<Vec<Platform>> 
 
 pub fn guess_platform(ext: &str, platforms: &[Platform]) -> Option<String> {
     let e = format!(".{}", ext.to_lowercase());
-    // Prefer exact single-extension matches; ambiguous ones resolved later
     let mut candidates: Vec<&Platform> = platforms
         .iter()
         .filter(|p| p.extensions.iter().any(|x| x.eq_ignore_ascii_case(&e)))
@@ -39,9 +38,21 @@ pub fn guess_platform(ext: &str, platforms: &[Platform]) -> Option<String> {
     if candidates.len() == 1 {
         return Some(candidates[0].id.clone());
     }
-    // Ambiguous: prefer by specificity (fewer extensions) then name
     candidates.sort_by_key(|p| (p.extensions.len(), p.name.clone()));
     Some(candidates[0].id.clone())
+}
+
+/// Infer platform from path segments (e.g. .../roms/nes/... -> nes).
+pub fn infer_platform_from_path(path: &str, platforms: &[Platform]) -> Option<String> {
+    for seg in path.split('/') {
+        let low = seg.to_lowercase();
+        for p in platforms {
+            if p.slug == low || p.id == low {
+                return Some(p.id.clone());
+            }
+        }
+    }
+    None
 }
 
 pub fn clean_title(filename: &str) -> String {
