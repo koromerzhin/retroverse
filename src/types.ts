@@ -15,6 +15,10 @@ export interface GameSource {
   path: string;
   created_at: string;
   last_scan_at: string | null;
+  connection_id: string | null;
+  remote_path: string | null;
+  available: boolean;
+  last_error: string | null;
 }
 
 export interface GameFile {
@@ -50,6 +54,22 @@ export interface ScanResult {
   files_found: number;
   games_created: number;
   games_updated: number;
+}
+
+export interface RemoteEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number;
+  modified_at: number;
+  extension: string;
+}
+
+export interface TransferResult {
+  job_id: string;
+  files: number;
+  bytes: number;
+  errors: string[];
 }
 
 export interface Stats {

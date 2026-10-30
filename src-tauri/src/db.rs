@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -34,11 +34,14 @@ pub fn migrate(conn: &Connection) -> Result<()> {
 
     if current < 1 {
         apply_v1(conn)?;
-        conn.execute(
-            "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
-            params![SCHEMA_VERSION],
-        )?;
     }
+    if current < 2 {
+        apply_v2(conn)?;
+    }
+    conn.execute(
+        "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
+        params![SCHEMA_VERSION],
+    )?;
     Ok(())
 }
 
@@ -174,6 +177,57 @@ fn apply_v1(conn: &Connection) -> Result<()> {
 }
 
 type PlatformSeed = (&'static str, &'static str, &'static str, Option<&'static str>, Option<i32>, Option<i32>, &'static str);
+
+fn apply_v2(conn: &Connection) -> Result<()> {
+    // Remote connections
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS remote_connections (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            host TEXT NOT NULL,
+            port INTEGER NOT NULL DEFAULT 22,
+            username TEXT NOT NULL,
+            key_path TEXT NOT NULL,
+            host_key_fingerprint TEXT,
+            created_at TEXT NOT NULL
+        );
+        "#,
+    )?;
+
+    // Extend game_sources
+    let alter_stmts = [
+        "ALTER TABLE game_sources ADD COLUMN connection_id TEXT REFERENCES remote_connections(id)",
+        "ALTER TABLE game_sources ADD COLUMN remote_path TEXT",
+        "ALTER TABLE game_sources ADD COLUMN available INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE game_sources ADD COLUMN last_error TEXT",
+    ];
+    for s in alter_stmts {
+        let _ = conn.execute(s, []);
+    }
+
+    // Extend game_files with missing flag
+    let _ = conn.execute("ALTER TABLE game_files ADD COLUMN missing INTEGER NOT NULL DEFAULT 0", []);
+
+    // Transfer job items
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS transfer_items (
+            id TEXT PRIMARY KEY,
+            job_id TEXT NOT NULL REFERENCES transfer_jobs(id) ON DELETE CASCADE,
+            file_id TEXT,
+            remote_path TEXT NOT NULL,
+            local_path TEXT NOT NULL,
+            size INTEGER NOT NULL DEFAULT 0,
+            transferred INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'pending',
+            error TEXT
+        );
+        "#,
+    )?;
+
+    Ok(())
+}
 
 fn seed_platforms(conn: &Connection) -> Result<()> {
     let platforms: Vec<PlatformSeed> = vec![

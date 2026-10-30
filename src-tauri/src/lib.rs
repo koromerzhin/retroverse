@@ -3,6 +3,7 @@ pub mod db;
 pub mod error;
 pub mod identify;
 pub mod models;
+pub mod remote;
 pub mod scanner;
 pub mod state;
 
@@ -26,6 +27,11 @@ pub fn run() {
             commands::remove_source,
             commands::scan_source,
             commands::scan_source_cmd,
+            commands::test_remote_connection,
+            commands::add_remote_source,
+            commands::list_remote_dir,
+            commands::scan_remote_source,
+            commands::copy_remote_files,
             commands::list_games,
             commands::get_game,
             commands::correct_game_title,
