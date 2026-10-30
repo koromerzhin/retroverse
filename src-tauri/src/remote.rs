@@ -23,12 +23,29 @@ impl client::Handler for ClientHandler {
     }
 }
 
+pub fn resolve_key_path(key_path: &str) -> String {
+    if !key_path.trim().is_empty() {
+        return key_path.trim().to_string();
+    }
+    // try common default keys
+    if let Some(home) = dirs::home_dir() {
+        for name in ["id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"] {
+            let p = home.join(".ssh").join(name);
+            if p.exists() {
+                return p.to_string_lossy().to_string();
+            }
+        }
+    }
+    key_path.trim().to_string()
+}
+
 pub async fn connect(
     host: &str,
     port: u16,
     username: &str,
     key_path: &str,
 ) -> Result<RemoteSession> {
+    let key_path = resolve_key_path(key_path);
     let config = Arc::new(client::Config::default());
     let sh = ClientHandler;
     let mut session = client::connect(config, (host, port), sh)
@@ -36,8 +53,8 @@ pub async fn connect(
         .map_err(|e| RetroError::Other(format!("ssh connect failed: {}", e)))?;
 
     // authenticate with key
-    let key = keys::load_secret_key(key_path, None)
-        .map_err(|e| RetroError::Other(format!("load key failed: {}", e)))?;
+    let key = keys::load_secret_key(&key_path, None)
+        .map_err(|e| RetroError::Other(format!("load key failed ({}): {}", key_path, e)))?;
     let hash = session
         .best_supported_rsa_hash()
         .await
