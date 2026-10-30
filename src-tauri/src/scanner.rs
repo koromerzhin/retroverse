@@ -6,7 +6,8 @@ use rusqlite::{Connection, params};
 use std::path::Path;
 use walkdir::WalkDir;
 
-pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult> {
+pub fn scan_source(conn: &mut Connection, source_id: &str, app: Option<tauri::AppHandle>) -> Result<ScanResult> {
+    use tauri::Emitter;
     let (path,): (String,) = conn
         .query_row(
             "SELECT path FROM game_sources WHERE id = ?1",
@@ -80,7 +81,11 @@ pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult>
 
     // Process each file in a transaction
     let tx = conn.transaction()?;
-    for (fpath, size, mtime) in &files {
+    let total = files.len();
+    if let Some(a) = &app {
+        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": 0usize, "total": total, "status": "scanning"}));
+    }
+    for (idx, (fpath, size, mtime)) in files.iter().enumerate() {
         let filename = Path::new(fpath)
             .file_name()
             .and_then(|s| s.to_str())
@@ -170,6 +175,11 @@ pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult>
                 params![file_id, game_id, conf],
             )?;
         }
+        if let Some(a) = &app
+            && (idx.is_multiple_of(50) || idx + 1 == total)
+        {
+            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": idx + 1, "total": total, "status": "scanning"}));
+        }
     }
 
     // update source last_scan_at
@@ -186,6 +196,10 @@ pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult>
     )?;
 
     tx.commit()?;
+
+    if let Some(a) = &app {
+        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": total, "total": total, "status": "done"}));
+    }
 
     Ok(ScanResult {
         source_id: source_id.to_string(),

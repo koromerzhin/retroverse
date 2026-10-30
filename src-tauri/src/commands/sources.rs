@@ -78,7 +78,7 @@ pub fn remove_source(state: State<AppState>, id: String) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn scan_source(state: State<AppState>, source_id: String) -> Result<ScanResult> {
+pub fn scan_source(state: State<AppState>, app: tauri::AppHandle, source_id: String) -> Result<ScanResult> {
     let mut conn = state.db.lock().unwrap();
-    scanner::scan_source(&mut conn, &source_id)
+    scanner::scan_source(&mut conn, &source_id, Some(app))
 }
