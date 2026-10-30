@@ -37,7 +37,7 @@ export default function Library() {
         />
         <select
           className="select"
-          style={{ maxWidth: 220 }}
+          style={{ maxWidth: 320 }}
           value={platform ?? ""}
           onChange={(e) => setPlatform(e.target.value || undefined)}
         >
@@ -46,6 +46,9 @@ export default function Library() {
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
+        {platform && (
+          <span className="badge">{platforms?.find((p) => p.id === platform)?.name}</span>
+        )}
         <button className="btn" onClick={() => refetch()}>Actualiser</button>
         <span className="badge">{games?.length ?? 0} jeu(x)</span>
       </div>

@@ -123,6 +123,10 @@ body {
   width: 100%;
 }
 .input:focus, .select:focus { outline: none; border-color: var(--accent); }
+.select option {
+  background: var(--bg-2);
+  color: var(--text);
+}
 
 .grid {
   display: grid;
