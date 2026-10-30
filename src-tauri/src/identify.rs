@@ -55,6 +55,38 @@ pub fn infer_platform_from_path(path: &str, platforms: &[Platform]) -> Option<St
     None
 }
 
+/// Parse a systems.txt file (format "slug: Name" per line).
+pub fn parse_systems_txt(content: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some((slug, name)) = line.split_once(':') {
+            let slug = slug.trim().to_lowercase();
+            let name = name.trim().to_string();
+            if !slug.is_empty() && !name.is_empty() {
+                out.push((slug, name));
+            }
+        }
+    }
+    out
+}
+
+/// Ensure platforms exist for each (slug, name) from systems.txt.
+pub fn ensure_platforms(conn: &rusqlite::Connection, systems: &[(String, String)]) -> crate::error::Result<()> {
+    for (slug, name) in systems {
+        let id = slug.clone();
+        let exts = "[]";
+        conn.execute(
+            "INSERT OR IGNORE INTO platforms (id,name,slug,manufacturer,generation,release_year,extensions) VALUES (?1,?2,?3,NULL,NULL,NULL,?4)",
+            rusqlite::params![id, name, slug, exts],
+        )?;
+    }
+    Ok(())
+}
+
 pub fn clean_title(filename: &str) -> String {
     let stem = Path::new(filename)
         .file_stem()
