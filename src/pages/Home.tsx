@@ -1,8 +1,10 @@
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { Stats } from "../types";
 
 export default function Home() {
+  const navigate = useNavigate();
   const { data: stats } = useQuery<Stats>({
     queryKey: ["stats"],
     queryFn: () => api.stats(),
@@ -35,7 +37,7 @@ export default function Home() {
       ) : (
         <div className="grid games" style={{ marginTop: 14 }}>
           {recent.map((e: any) => (
-            <div className="game-card" key={e.game.id}>
+            <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
               <div className="cover">🎮</div>
               <div className="info">
                 <div className="title">{e.game.title}</div>

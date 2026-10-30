@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { LibraryEntry, Platform } from "../types";
 
 export default function Library() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [platform, setPlatform] = useState<string | undefined>(undefined);
 
@@ -54,7 +56,7 @@ export default function Library() {
       ) : (
         <div className="grid games">
           {games!.map((e) => (
-            <div className="game-card" key={e.game.id}>
+            <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
               <div className="cover">🎮</div>
               <div className="info">
                 <div className="title">{e.game.title}</div>

@@ -1,6 +1,7 @@
 import { NavLink, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Library from "./pages/Library";
+import GameDetail from "./pages/GameDetail";
 import Platforms from "./pages/Platforms";
 import Sources from "./pages/Sources";
 import Settings from "./pages/Settings";
@@ -40,6 +41,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/game/:id" element={<GameDetail />} />
           <Route path="/platforms" element={<Platforms />} />
           <Route path="/sources" element={<Sources />} />
           <Route path="/settings" element={<Settings />} />
