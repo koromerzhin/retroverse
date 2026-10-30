@@ -16,11 +16,43 @@ export default function Sources() {
 
   // remote
   const [rName, setRName] = useState("");
+  const [rUrl, setRUrl] = useState("");
   const [rHost, setRHost] = useState("");
   const [rPort, setRPort] = useState("22");
   const [rUser, setRUser] = useState("deck");
-  const [rKey, setRKey] = useState("");
-  const [rPath, setRPath] = useState("/home/deck/Emulation/roms/");
+  const [rKey, setRKey] = useState("/home/koromerzhin/.ssh/id_ed25519");
+  const [rPath, setRPath] = useState("/run/media/deck/WDC1/Emulation/");
+
+  function parseUrl(v: string) {
+    setRUrl(v);
+    // sftp://user@host:port/path
+    if (!v.toLowerCase().startsWith("sftp://")) return;
+    let rest = v.slice(7);
+    let user = "";
+    if (rest.includes("@")) {
+      const idx = rest.indexOf("@");
+      user = rest.slice(0, idx);
+      rest = rest.slice(idx + 1);
+    }
+    let host = rest;
+    let port = "";
+    let path = "";
+    const slashIdx = rest.indexOf("/");
+    if (slashIdx >= 0) {
+      path = rest.slice(slashIdx);
+      host = rest.slice(0, slashIdx);
+    }
+    if (host.includes(":")) {
+      const ci = host.indexOf(":");
+      port = host.slice(ci + 1);
+      host = host.slice(0, ci);
+    }
+    if (user) setRUser(user);
+    if (host) setRHost(host);
+    if (port) setRPort(port);
+    if (path) setRPath(path);
+    if (host && !rName) setRName(host);
+  }
   const [testMsg, setTestMsg] = useState<string | null>(null);
 
   const [scanning, setScanning] = useState<string | null>(null);
@@ -115,6 +147,9 @@ export default function Sources() {
       <div className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ marginTop: 0 }}>Ajouter une source distante (SSH/SFTP)</h3>
         <div className="row">
+          <input className="input" placeholder="URL sftp://user@host:port/chemin (optionnel)" value={rUrl} onChange={(e) => parseUrl(e.target.value)} />
+        </div>
+        <div className="row" style={{ marginTop: 10 }}>
           <input className="input" placeholder="Nom" value={rName} onChange={(e) => setRName(e.target.value)} style={{ maxWidth: 200 }} />
           <input className="input" placeholder="Hôte (IP ou nom)" value={rHost} onChange={(e) => setRHost(e.target.value)} style={{ maxWidth: 200 }} />
           <input className="input" placeholder="Port" value={rPort} onChange={(e) => setRPort(e.target.value)} style={{ maxWidth: 80 }} />

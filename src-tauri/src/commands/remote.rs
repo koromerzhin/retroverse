@@ -13,10 +13,6 @@ pub async fn test_remote_connection(
     username: String,
     key_path: String,
 ) -> Result<String> {
-    // validate key path
-    if !std::path::Path::new(&key_path).exists() {
-        return Err(RetroError::Invalid("key file not found".into()));
-    }
     let sess = remote::connect(&host, port, &username, &key_path).await?;
     // get current dir
     let cwd = sess
@@ -42,10 +38,7 @@ pub async fn add_remote_source(
     key_path: String,
     remote_path: String,
 ) -> Result<GameSource> {
-    if !std::path::Path::new(&key_path).exists() {
-        return Err(RetroError::Invalid("key file not found".into()));
-    }
-    // test connection first
+    // test connection first (key path may be empty -> default key)
     let sess = remote::connect(&host, port, &username, &key_path).await?;
     let _ = sess
         .session
@@ -223,6 +216,10 @@ pub async fn scan_remote_source(
                 } else {
                     format!("{}/{}", dir, name)
                 };
+                // Skip media/asset directories
+                if full.contains("/media/") || full.contains("/images/") || full.contains("/assets/") {
+                    continue;
+                }
                 if is_dir {
                     Box::pin(walk(sftp, &full, platforms_ext, out)).await;
                 } else {

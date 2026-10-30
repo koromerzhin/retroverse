@@ -36,7 +36,12 @@ pub fn scan_source(conn: &mut Connection, source_id: &str) -> Result<ScanResult>
             continue;
         }
         let p = entry.path();
-        let ext = identify::ext_of(p.to_string_lossy().as_ref());
+        let pstr = p.to_string_lossy();
+        // Skip media/asset directories to avoid scanning thousands of images
+        if pstr.contains("/media/") || pstr.contains("/images/") || pstr.contains("/assets/") {
+            continue;
+        }
+        let ext = identify::ext_of(pstr.as_ref());
         if ext.is_empty() {
             continue;
         }
