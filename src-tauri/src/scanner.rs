@@ -16,12 +16,19 @@ pub fn scan_source(conn: &mut Connection, source_id: &str, app: Option<tauri::Ap
         )
         .map_err(|_| RetroError::NotFound("source".into()))?;
 
-    let root = Path::new(&path);
+    let mut root = std::path::Path::new(&path).to_path_buf();
     if !root.exists() {
         return Err(RetroError::Invalid(format!(
             "path does not exist: {}",
             path
         )));
+    }
+    // If a 'roms' subfolder exists, scan it as the primary source.
+    if !root.ends_with("roms") {
+        let roms = root.join("roms");
+        if roms.is_dir() {
+            root = roms;
+        }
     }
 
     let platforms = identify::load_platforms(conn)?;
