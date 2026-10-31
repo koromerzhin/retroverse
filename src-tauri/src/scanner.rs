@@ -11,16 +11,20 @@ pub fn scan_source(
     source_id: &str,
     app: Option<tauri::AppHandle>,
     cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    folder_override: Option<String>,
 ) -> Result<ScanResult> {
     use tauri::Emitter;
 
-    let (path,): (String,) = conn
-        .query_row(
+    let path = if let Some(f) = folder_override {
+        f
+    } else {
+        conn.query_row(
             "SELECT path FROM game_sources WHERE id = ?1",
             [source_id],
-            |r| Ok((r.get(0)?,)),
+            |r| r.get(0),
         )
-        .map_err(|_| RetroError::NotFound("source".into()))?;
+        .map_err(|_| RetroError::NotFound("source".into()))?
+    };
 
     let mut root = std::path::Path::new(&path).to_path_buf();
     if !root.exists() {
@@ -110,6 +114,26 @@ pub fn scan_source(
                 Vec::new()
             }
         };
+        // Load gamelist for this platform folder (if any) to know already-processed games.
+        let gamelist_known: std::collections::HashSet<String> = {
+            let slug = top.file_name().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+            let emulation_root = top.parent().and_then(|p| p.parent()).map(|p| p.to_path_buf());
+            if let Some(er) = emulation_root {
+                let gp = er.join("saves").join("es-de").join("gamelists").join(&slug).join("gamelist.xml");
+                if gp.is_file() {
+                    if let Ok(content) = std::fs::read_to_string(&gp) {
+                        identify::parse_gamelist_paths(&content)
+                    } else {
+                        std::collections::HashSet::new()
+                    }
+                } else {
+                    std::collections::HashSet::new()
+                }
+            } else {
+                std::collections::HashSet::new()
+            }
+        };
+
         let mut files: Vec<(String, u64, i64, Vec<String>)> = Vec::new();
         for entry in WalkDir::new(top)
             .follow_links(false)
@@ -224,6 +248,20 @@ pub fn scan_source(
             };
             files_found += 1;
             found_paths.push(fpath.clone());
+
+            // If this game is already in ES-DE gamelist, skip re-processing.
+            if gamelist_known.contains(&filename.to_lowercase()) {
+                // still emit progress
+                if let Some(a) = &app
+                    && (idx.is_multiple_of(50) || idx + 1 == files.len())
+                {
+                    let _ = a.emit(
+                        "scan-progress",
+                        serde_json::json!({"source_id": source_id, "scanned": idx + 1, "total": files.len(), "status": "scanning"}),
+                    );
+                }
+                continue;
+            }
 
             let gf = GameFile {
                 id: file_id.clone(),

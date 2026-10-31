@@ -57,6 +57,8 @@ export default function Sources() {
   const [testMsg, setTestMsg] = useState<string | null>(null);
 
   const [scanning, setScanning] = useState<string | null>(null);
+  const [folderSource, setFolderSource] = useState<string>("");
+  const [folderPath, setFolderPath] = useState<string>("");
   const [progress, setProgress] = useState<{ scanned: number; total: number; status: string } | null>(null);
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +145,37 @@ export default function Sources() {
     try { await api.cancelScan(); } catch {}
   }
 
+  async function handleScanFolder() {
+    if (!folderSource || !folderPath.trim()) return;
+    const s = sources?.find((x) => x.id === folderSource);
+    if (!s) return;
+    setScanning(s.id);
+    setError(null);
+    setProgress({ scanned: 0, total: 0, status: "scanning" });
+    let unlisten: (() => void) | null = null;
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen<any>("scan-progress", (ev) => {
+        if (ev.payload?.source_id === s.id) {
+          setProgress({ scanned: ev.payload.scanned ?? 0, total: ev.payload.total ?? 0, status: ev.payload.status ?? "scanning" });
+        }
+      });
+      const res = s.kind === "remote"
+        ? await api.scanRemoteFolder(s.id, folderPath.trim())
+        : await api.scanLocalFolder(s.id, folderPath.trim());
+      setLastResult(res);
+      setProgress({ scanned: res.files_found, total: res.files_found, status: "done" });
+      qc.invalidateQueries({ queryKey: ["games"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      qc.invalidateQueries({ queryKey: ["sources"] });
+    } catch (e: any) {
+      setError(String(e));
+    } finally {
+      if (unlisten) unlisten();
+      setScanning(null);
+    }
+  }
+
   return (
     <>
       <h1 className="page-title">Sources</h1>
@@ -197,6 +230,23 @@ export default function Sources() {
       )}
 
       {error && <p style={{ color: "var(--danger)", marginBottom: 12 }}>{error}</p>}
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Scanner un dossier précis</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13, marginTop: 0 }}>
+          Permet de scanner un sous-dossier (ex. une plateforme) sans rescanner toute la source.
+        </p>
+        <div className="row">
+          <select className="select" style={{ maxWidth: 260 }} value={folderSource} onChange={(e) => setFolderSource(e.target.value)}>
+            <option value="">Choisir une source</option>
+            {sources?.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.kind})</option>)}
+          </select>
+          <input className="input" placeholder="Chemin du dossier (ex. /run/.../roms/nes/)" value={folderPath} onChange={(e) => setFolderPath(e.target.value)} />
+          <button className="btn primary" onClick={handleScanFolder} disabled={!folderSource || !folderPath.trim() || !!scanning}>
+            {scanning ? <><span className="spinner" /> Scan…</> : "Scanner ce dossier"}
+          </button>
+        </div>
+      </div>
 
       {scanning && progress && (
         <div className="card" style={{ marginBottom: 12, borderColor: "var(--accent)" }}>

@@ -185,6 +185,7 @@ pub async fn scan_remote_source_inner(
     source_id: String,
     app: Option<tauri::AppHandle>,
     cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    folder_override: Option<String>,
 ) -> Result<ScanResult> {
     // gather connection info
     let (host, port, username, key_path, mut base_path) = {
@@ -208,6 +209,10 @@ pub async fn scan_remote_source_inner(
             rp.unwrap_or_else(|| "/".into()),
         )
     };
+
+    if let Some(f) = folder_override {
+        base_path = f;
+    }
 
     let sess = remote::connect(&host, port, &username, &key_path).await?;
 
@@ -321,6 +326,30 @@ pub async fn scan_remote_source_inner(
         }
     }
 
+    // Load gamelist known games (best-effort) from saves/es-de/gamelists/.
+    let mut gamelist_known: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let emulation_root = if base_path.ends_with("roms/") || base_path.ends_with("roms") {
+        base_path.trim_end_matches('/').trim_end_matches("roms").trim_end_matches('/')
+    } else {
+        base_path.trim_end_matches('/')
+    };
+    if let Ok(rd) = sess.sftp.read_dir(&format!("{}/saves/es-de/gamelists", emulation_root)).await {
+        let dirs: Vec<_> = rd.collect();
+        for d in dirs {
+            if !d.metadata().is_dir() { continue; }
+            let platform = d.file_name();
+            let gp = format!("{}/saves/es-de/gamelists/{}/gamelist.xml", emulation_root, platform);
+            if let Ok(mut f) = sess.sftp.open(&gp).await {
+                use tokio::io::AsyncReadExt;
+                let mut buf = Vec::new();
+                let _ = f.read_to_end(&mut buf).await;
+                if let Ok(content) = String::from_utf8(buf) {
+                    gamelist_known.extend(crate::identify::parse_gamelist_paths(&content));
+                }
+            }
+        }
+    }
+
     // Try to load systems.txt from the (possibly roms/) folder.
     if let Ok(mut f) = sess.sftp.open(&format!("{}/systems.txt", base_path.trim_end_matches('/'))).await {
         use tokio::io::AsyncReadExt;
@@ -412,6 +441,11 @@ pub async fn scan_remote_source_inner(
                 id
             };
             files_found += 1;
+
+            // Skip game creation if already in ES-DE gamelist.
+            if gamelist_known.contains(&filename.to_lowercase()) {
+                continue;
+            }
 
             let gf = crate::models::GameFile {
                 id: file_id.clone(),
@@ -530,9 +564,21 @@ pub async fn scan_remote_source(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
     source_id: String,
+    folder: Option<String>,
 ) -> Result<ScanResult> {
     state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
-    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone()).await
+    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone(), folder).await
+}
+
+#[tauri::command]
+pub async fn scan_remote_folder(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    source_id: String,
+    folder_path: String,
+) -> Result<ScanResult> {
+    state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
+    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone(), Some(folder_path)).await
 }
 
 #[tauri::command]

@@ -28,6 +28,8 @@ pub fn run() {
             commands::remove_source,
             commands::scan_source,
             commands::scan_source_cmd,
+            commands::scan_local_folder,
+            commands::scan_remote_folder,
             commands::cancel_scan,
             commands::test_remote_connection,
             commands::add_remote_source,

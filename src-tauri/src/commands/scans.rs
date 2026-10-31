@@ -6,5 +6,5 @@ use tauri::State;
 #[tauri::command]
 pub fn scan_source_cmd(state: State<AppState>, source_id: String) -> Result<ScanResult> {
     let mut conn = state.db.lock().unwrap();
-    crate::scanner::scan_source(&mut conn, &source_id, None, state.cancel_scan.clone())
+    crate::scanner::scan_source(&mut conn, &source_id, None, state.cancel_scan.clone(), None)
 }
