@@ -35,6 +35,7 @@ export const api = {
   clearLibrary: () => invoke<void>("clear_library"),
   getSystemLocale: () => invoke<string>("get_system_locale"),
   computeHashes: (sourceId?: string) => invoke<number>("compute_hashes", { sourceId }),
+  computeHashesForGame: (gameId: string) => invoke<number>("compute_hashes_for_game", { gameId }),
   exportBackup: (destPath: string) => invoke<string>("export_backup", { destPath }),
   importBackup: (srcPath: string) => invoke<number>("import_backup", { srcPath }),
   listTransferJobs: () => invoke<any[]>("list_transfer_jobs"),
