@@ -195,6 +195,7 @@ export default function Sources() {
                           alert(`Import terminé : ${n} jeu(x) ajouté(s).`);
                           qc.invalidateQueries({ queryKey: ["games"] });
                           qc.invalidateQueries({ queryKey: ["stats"] });
+                          qc.invalidateQueries({ queryKey: ["platforms"] });
                         } catch (e: any) {
                           alert(String(e));
                         }
