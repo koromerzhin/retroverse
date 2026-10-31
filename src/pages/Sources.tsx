@@ -188,6 +188,21 @@ export default function Sources() {
                 <td>
                   <div className="row">
                     <button
+                      className="btn"
+                      onClick={async () => {
+                        try {
+                          const n = await api.importGamelists(s.id);
+                          alert(`Import terminé : ${n} jeu(x) ajouté(s).`);
+                          qc.invalidateQueries({ queryKey: ["games"] });
+                          qc.invalidateQueries({ queryKey: ["stats"] });
+                        } catch (e: any) {
+                          alert(String(e));
+                        }
+                      }}
+                    >
+                      Importer gamelists ES-DE
+                    </button>
+                    <button
                       className="btn danger"
                       onClick={() => { if (confirm("Supprimer cette source ?")) removeMutation.mutate(s.id); }}
                     >

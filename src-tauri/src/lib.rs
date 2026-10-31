@@ -67,6 +67,7 @@ pub fn run() {
             commands::reset_database,
             commands::clear_library,
             commands::get_system_locale,
+            commands::import_gamelists,
         ])
         .setup(|app| {
             let _ = app;

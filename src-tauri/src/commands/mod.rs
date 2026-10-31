@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod companion;
+pub mod gamelists;
 pub mod library;
 pub mod metadata;
 pub mod platforms;
@@ -10,6 +11,7 @@ pub mod sources;
 
 pub use backup::*;
 pub use companion::*;
+pub use gamelists::*;
 pub use library::*;
 pub use metadata::*;
 pub use platforms::*;

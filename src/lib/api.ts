@@ -34,6 +34,7 @@ export const api = {
   resetDatabase: () => invoke<void>("reset_database"),
   clearLibrary: () => invoke<void>("clear_library"),
   getSystemLocale: () => invoke<string>("get_system_locale"),
+  importGamelists: (sourceId: string) => invoke<number>("import_gamelists", { sourceId }),
   computeHashes: (sourceId?: string) => invoke<number>("compute_hashes", { sourceId }),
   computeHashesForGame: (gameId: string) => invoke<number>("compute_hashes_for_game", { gameId }),
   exportBackup: (destPath: string) => invoke<string>("export_backup", { destPath }),
