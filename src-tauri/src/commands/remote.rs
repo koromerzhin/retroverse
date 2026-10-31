@@ -417,10 +417,24 @@ pub async fn scan_remote_source_inner(
                 )
                 .ok();
 
-            // Incremental: skip unchanged files (keep existing hashes).
+            // Incremental: skip unchanged files only if hashes already present.
+            let needs_hash = tx
+                .query_row(
+                    "SELECT hash, crc32, md5, sha1 FROM game_files WHERE source_id=?1 AND path=?2",
+                    params![source_id, fpath],
+                    |r| {
+                        let h: Option<String> = r.get(0)?;
+                        let c: Option<String> = r.get(1)?;
+                        let m: Option<String> = r.get(2)?;
+                        let s: Option<String> = r.get(3)?;
+                        Ok(h.is_none() || c.is_none() || m.is_none() || s.is_none())
+                    },
+                )
+                .unwrap_or(true);
             if let Some((_id, old_size, old_mtime)) = &existing
                 && *old_size == *size
                 && *old_mtime == *mtime
+                && !needs_hash
             {
                 files_found += 1;
                 continue;
