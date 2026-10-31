@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatBytes } from "../lib/format";
+import { useI18n } from "../i18n";
 
 export default function Preservation() {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const { data: jobs } = useQuery({ queryKey: ["transfer-jobs"], queryFn: () => api.listTransferJobs() });
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -44,8 +46,8 @@ export default function Preservation() {
 
   return (
     <>
-      <h1 className="page-title">Préservation</h1>
-      <p className="page-sub">Sauvegarde, restauration et intégrité des collections.</p>
+      <h1 className="page-title">{t("preservation.title")}</h1>
+      <p className="page-sub">{t("preservation.subtitle")}</p>
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Intégrité</h3>

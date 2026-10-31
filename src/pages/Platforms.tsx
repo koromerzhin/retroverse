@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
+import { useI18n } from "../i18n";
 import type { Platform, GameSource } from "../types";
 
 export default function Platforms() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { t } = useI18n();
   const { data: platforms } = useQuery<Platform[]>({
     queryKey: ["platforms"],
     queryFn: () => api.listPlatforms(),
@@ -97,19 +99,19 @@ export default function Platforms() {
 
   return (
     <>
-      <h1 className="page-title">Plateformes</h1>
-      <p className="page-sub">Parcourez votre collection par plateforme. Cliquez sur une machine pour voir ses jeux.</p>
+      <h1 className="page-title">{t("platforms.title")}</h1>
+      <p className="page-sub">{t("platforms.subtitle")}</p>
 
       {msg && <p style={{ color: "var(--text-dim)", marginBottom: 12, fontSize: 13 }}>{msg}</p>}
 
       <div className="row" style={{ marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 13, color: "var(--text-dim)" }}>Trier par :</span>
+        <span style={{ fontSize: 13, color: "var(--text-dim)" }}>{t("platforms.sortBy")}</span>
         <select className="select" style={{ maxWidth: 180 }} value={sortBy} onChange={(e) => setSortBy(e.target.value as "name" | "count")}>
-          <option value="name">Nom</option>
-          <option value="count">Nombre de jeux</option>
+          <option value="name">{t("platforms.sort.name")}</option>
+          <option value="count">{t("platforms.sort.count")}</option>
         </select>
         <button className="btn primary" onClick={handleScanAll} disabled={scanningAll} style={{ marginLeft: "auto" }}>
-          {scanningAll ? <><span className="spinner" /> Scan en cours…</> : "Tout scanner"}
+          {scanningAll ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scanAll")}
         </button>
       </div>
 
@@ -122,7 +124,7 @@ export default function Platforms() {
               {p.manufacturer ?? "—"} {p.release_year ? `· ${p.release_year}` : ""}
             </div>
             <div style={{ marginTop: 8 }}>
-              <span className="badge">{formatNumber(counts[p.id] ?? 0)} jeu(x)</span>
+              <span className="badge">{formatNumber(counts[p.id] ?? 0)} {t("platforms.games")}</span>
             </div>
             <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", gap: 8, flexWrap: "nowrap" }}>
               <button
@@ -130,7 +132,7 @@ export default function Platforms() {
                 style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}
                 onClick={(e) => { e.stopPropagation(); navigate(`/library?platform=${p.id}`); }}
               >
-                Voir la bibliothèque
+                {t("platforms.viewLibrary")}
               </button>
               <button
                 className="btn"
@@ -138,7 +140,7 @@ export default function Platforms() {
                 disabled={scanning === p.id}
                 onClick={(e) => { e.stopPropagation(); handleScanPlatform(p); }}
               >
-                {scanning === p.id ? <><span className="spinner" /> Scan…</> : "Scanner"}
+                {scanning === p.id ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scan")}
               </button>
             </div>
           </div>

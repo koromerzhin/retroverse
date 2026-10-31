@@ -3,11 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
 import { formatBytes } from "../lib/format";
+import { useI18n } from "../i18n";
 import type { LibraryEntry, GameSource } from "../types";
 
 export default function GameDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const qc = useQueryClient();
   const { data, isLoading } = useQuery<LibraryEntry>({
     queryKey: ["game", id],
@@ -79,19 +81,19 @@ export default function GameDetail() {
 
   return (
     <>
-      <button className="btn" onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>← Retour</button>
+      <button className="btn" onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>{t("common.back")}</button>
       <h1 className="page-title">{data.game.title}</h1>
       <p className="page-sub">{data.platform?.name ?? "Plateforme inconnue"}</p>
 
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Informations</h3>
+        <h3 style={{ marginTop: 0 }}>{t("gameDetail.info")}</h3>
         <div className="row">
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} style={{ maxWidth: 400 }} />
           <button className="btn primary" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <span className="spinner" /> : "Enregistrer le titre"}
+            {saveMutation.isPending ? <span className="spinner" /> : t("gameDetail.saveTitle")}
           </button>
         </div>
-        {saveMutation.isSuccess && <p style={{ color: "var(--success)", marginTop: 8 }}>Titre mis à jour.</p>}
+        {saveMutation.isSuccess && <p style={{ color: "var(--success)", marginTop: 8 }}>{t("gameDetail.titleUpdated")}</p>}
         {isRemote && (
           <div style={{ marginTop: 12 }}>
             <button className="btn primary" onClick={handleCopy}>Copier localement…</button>
@@ -104,12 +106,12 @@ export default function GameDetail() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Enrichissement (RetroData)</h3>
+        <h3 style={{ marginTop: 0 }}>{t("gameDetail.enrichment")}</h3>
         <div className="row">
           <select className="select" style={{ maxWidth: 220 }} value={provider} onChange={(e) => setProvider(e.target.value)}>
             {(providers || []).map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
-          <button className="btn primary" onClick={handleEnrich}>Enrichir</button>
+          <button className="btn primary" onClick={handleEnrich}>{t("gameDetail.enrich")}</button>
         </div>
         {enrichMsg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{enrichMsg}</p>}
         {metadata && metadata.length > 0 && (
@@ -127,7 +129,7 @@ export default function GameDetail() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Fichiers ({data.files.length})</h3>
+        <h3 style={{ marginTop: 0 }}>{t("gameDetail.files")} ({data.files.length})</h3>
         <table className="table">
           <thead>
             <tr>
@@ -151,7 +153,7 @@ export default function GameDetail() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Empreintes</h3>
+        <h3 style={{ marginTop: 0 }}>{t("gameDetail.hashes")}</h3>
         {data.files.map((f: any) => (
           <div key={f.id} style={{ marginBottom: 10, fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>
             <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>{f.filename}</div>

@@ -2,10 +2,12 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
+import { useI18n } from "../i18n";
 import type { Stats } from "../types";
 
 export default function Home() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { data: stats } = useQuery<Stats>({
     queryKey: ["stats"],
     queryFn: () => api.stats(),
@@ -19,21 +21,21 @@ export default function Home() {
 
   return (
     <>
-      <h1 className="page-title">Accueil</h1>
-      <p className="page-sub">Bienvenue dans RETROVERSE — votre compagnon de collection vidéoludique.</p>
+      <h1 className="page-title">{t("home.title")}</h1>
+      <p className="page-sub">{t("home.subtitle")}</p>
 
       <div className="stat-grid">
-        <div className="stat"><div className="label">Jeux</div><div className="value">{formatNumber(stats?.games ?? 0)}</div></div>
-        <div className="stat"><div className="label">Fichiers</div><div className="value">{formatNumber(stats?.files ?? 0)}</div></div>
-        <div className="stat"><div className="label">Sources</div><div className="value">{formatNumber(stats?.sources ?? 0)}</div></div>
-        <div className="stat"><div className="label">Plateformes</div><div className="value">{formatNumber(stats?.platforms ?? 0)}</div></div>
+        <div className="stat"><div className="label">{t("home.stat.games")}</div><div className="value">{formatNumber(stats?.games ?? 0)}</div></div>
+        <div className="stat"><div className="label">{t("home.stat.files")}</div><div className="value">{formatNumber(stats?.files ?? 0)}</div></div>
+        <div className="stat"><div className="label">{t("home.stat.sources")}</div><div className="value">{formatNumber(stats?.sources ?? 0)}</div></div>
+        <div className="stat"><div className="label">{t("home.stat.platforms")}</div><div className="value">{formatNumber(stats?.platforms ?? 0)}</div></div>
       </div>
 
-      <h2 style={{ marginTop: 28, fontSize: 18 }}>Jeux récemment découverts</h2>
+      <h2 style={{ marginTop: 28, fontSize: 18 }}>{t("home.recent")}</h2>
       {recent.length === 0 ? (
         <div className="empty">
           <div className="icon">🎮</div>
-          <p>Aucun jeu pour le moment. Ajoutez une source pour commencer.</p>
+          <p>{t("home.empty")}</p>
         </div>
       ) : (
         <div className="grid games" style={{ marginTop: 14 }}>

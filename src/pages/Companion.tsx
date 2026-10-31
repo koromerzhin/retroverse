@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
+import { useI18n } from "../i18n";
 
 export default function Companion() {
+  const { t } = useI18n();
   const { data: emudeck } = useQuery({ queryKey: ["emudeck"], queryFn: () => api.detectEmudeck() });
   const { data: emus } = useQuery({ queryKey: ["emus"], queryFn: () => api.detectEmulators() });
   const { data: stats } = useQuery({ queryKey: ["session-stats"], queryFn: () => api.sessionStats() });
@@ -10,8 +12,8 @@ export default function Companion() {
 
   return (
     <>
-      <h1 className="page-title">Companion</h1>
-      <p className="page-sub">Intégration avec les logiciels existants et historique de jeu.</p>
+      <h1 className="page-title">{t("companion.title")}</h1>
+      <p className="page-sub">{t("companion.subtitle")}</p>
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>EmuDeck</h3>

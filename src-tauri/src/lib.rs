@@ -64,6 +64,8 @@ pub fn run() {
             commands::list_platforms,
             commands::app_info,
             commands::reset_database,
+            commands::clear_library,
+            commands::get_system_locale,
         ])
         .setup(|app| {
             let _ = app;
