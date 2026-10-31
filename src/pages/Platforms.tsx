@@ -22,6 +22,7 @@ export default function Platforms() {
   });
 
   const [scanning, setScanning] = useState<string | null>(null);
+  const [scanningAll, setScanningAll] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "count">("name");
 
@@ -67,6 +68,33 @@ export default function Platforms() {
     qc.invalidateQueries({ queryKey: ["stats"] });
   }
 
+  async function handleScanAll() {
+    if (!sources || sources.length === 0) {
+      setMsg("Aucune source configurée.");
+      return;
+    }
+    setScanningAll(true);
+    setMsg(null);
+    let totalFiles = 0;
+    let totalGames = 0;
+    for (const s of sources) {
+      try {
+        const res = s.kind === "remote"
+          ? await api.scanRemoteSource(s.id)
+          : await api.scanSource(s.id);
+        totalFiles += res.files_found;
+        totalGames += res.games_created;
+      } catch (e: any) {
+        // ignore per-source errors
+      }
+    }
+    setMsg(`Scan complet terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
+    setScanningAll(false);
+    qc.invalidateQueries({ queryKey: ["games"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+    qc.invalidateQueries({ queryKey: ["platforms"] });
+  }
+
   return (
     <>
       <h1 className="page-title">Plateformes</h1>
@@ -74,12 +102,15 @@ export default function Platforms() {
 
       {msg && <p style={{ color: "var(--text-dim)", marginBottom: 12, fontSize: 13 }}>{msg}</p>}
 
-      <div className="row" style={{ marginBottom: 16, alignItems: "center" }}>
+      <div className="row" style={{ marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, color: "var(--text-dim)" }}>Trier par :</span>
         <select className="select" style={{ maxWidth: 180 }} value={sortBy} onChange={(e) => setSortBy(e.target.value as "name" | "count")}>
           <option value="name">Nom</option>
           <option value="count">Nombre de jeux</option>
         </select>
+        <button className="btn primary" onClick={handleScanAll} disabled={scanningAll} style={{ marginLeft: "auto" }}>
+          {scanningAll ? <><span className="spinner" /> Scan en cours…</> : "Tout scanner"}
+        </button>
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
