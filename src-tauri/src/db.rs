@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 6;
+pub const SCHEMA_VERSION: i32 = 7;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -49,6 +49,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 6 {
         apply_v6(conn)?;
+    }
+    if current < 7 {
+        apply_v7(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -340,6 +343,31 @@ fn apply_v6(conn: &Connection) -> Result<()> {
         );
         "#,
     )?;
+    Ok(())
+}
+
+fn apply_v7(conn: &Connection) -> Result<()> {
+    // Deduplicate platforms by name: keep the one with the smallest id, reassign references.
+    let mut stmt = conn.prepare("SELECT name FROM platforms GROUP BY name HAVING COUNT(*) > 1")?;
+    let dup_names: Vec<String> = stmt
+        .query_map([], |r| r.get(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for name in dup_names {
+        // find all ids for this name
+        let mut stmt = conn.prepare("SELECT id FROM platforms WHERE name=?1 ORDER BY id")?;
+        let ids: Vec<String> = stmt
+            .query_map([name.clone()], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        if ids.len() < 2 {
+            continue;
+        }
+        let kept = ids[0].clone();
+        for dup in &ids[1..] {
+            conn.execute("UPDATE games SET platform_id=?1 WHERE platform_id=?2", params![kept, dup])?;
+            conn.execute("UPDATE game_files SET platform_id=?1 WHERE platform_id=?2", params![kept, dup])?;
+            conn.execute("DELETE FROM platforms WHERE id=?1", [dup.clone()])?;
+        }
+    }
     Ok(())
 }
 

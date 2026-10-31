@@ -287,6 +287,18 @@ pub fn parse_systems_txt(content: &str) -> Vec<(String, String)> {
 /// Ensure platforms exist for each (slug, name) from systems.txt.
 pub fn ensure_platforms(conn: &rusqlite::Connection, systems: &[(String, String)]) -> crate::error::Result<()> {
     for (slug, name) in systems {
+        // Skip if a platform with this name already exists.
+        let exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM platforms WHERE name=?1",
+                [name.clone()],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+        if exists {
+            continue;
+        }
         let id = slug.clone();
         let exts = "[]";
         conn.execute(
