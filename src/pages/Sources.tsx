@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
+import { useI18n } from "../i18n";
 import type { GameSource } from "../types";
 
 export default function Sources() {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const { data: sources, isLoading } = useQuery<GameSource[]>({
     queryKey: ["sources"],
     queryFn: () => api.listSources(),
@@ -111,8 +113,8 @@ export default function Sources() {
 
   return (
     <>
-      <h1 className="page-title">Sources</h1>
-      <p className="page-sub">Gérez les bibliothèques locales et distantes. Le scan se fait par dossier (voir ci-dessous).</p>
+      <h1 className="page-title">{t("sources.title")}</h1>
+      <p className="page-sub">{t("sources.subtitle")}</p>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ marginTop: 0 }}>Ajouter une source locale</h3>

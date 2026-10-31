@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
+import { useI18n } from "../i18n";
 
 export default function Discovery() {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const { data: duplicates } = useQuery({ queryKey: ["duplicates"], queryFn: () => api.findDuplicates() });
   const { data: collections } = useQuery({ queryKey: ["collections"], queryFn: () => api.listCollections() });
   const { data: games } = useQuery({ queryKey: ["games"], queryFn: () => api.listGames() });
@@ -20,8 +22,8 @@ export default function Discovery() {
 
   return (
     <>
-      <h1 className="page-title">Découverte</h1>
-      <p className="page-sub">Explorez et organisez votre collection.</p>
+      <h1 className="page-title">{t("discovery.title")}</h1>
+      <p className="page-sub">{t("discovery.subtitle")}</p>
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Doublons détectés</h3>
