@@ -74,18 +74,20 @@ export default function Platforms() {
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
               {p.manufacturer ?? "—"} {p.release_year ? `· ${p.release_year}` : ""}
             </div>
-            <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ marginTop: 8 }}>
               <span className="badge">{formatNumber(counts[p.id] ?? 0)} jeu(x)</span>
+            </div>
+            <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "nowrap" }}>
               <button
                 className="btn"
-                style={{ fontSize: 11, padding: "4px 8px" }}
+                style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}
                 onClick={(e) => { e.stopPropagation(); navigate(`/library?platform=${p.id}`); }}
               >
                 Voir la bibliothèque
               </button>
               <button
                 className="btn"
-                style={{ fontSize: 11, padding: "4px 8px" }}
+                style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}
                 disabled={scanning === p.id}
                 onClick={(e) => { e.stopPropagation(); handleScanPlatform(p); }}
               >
