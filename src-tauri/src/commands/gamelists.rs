@@ -168,7 +168,7 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
     // Pre-load existing metadata records into a set for O(1) lookup.
     let mut existing_meta: std::collections::HashSet<String> = std::collections::HashSet::new();
     {
-        let mut stmt = tx.prepare("SELECT game_id, field FROM metadata_records WHERE provider='es-de'")?;
+        let mut stmt = tx.prepare("SELECT game_id, field FROM metadata_records")?;
         let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
         for r in rows {
             let (gid, field) = r?;

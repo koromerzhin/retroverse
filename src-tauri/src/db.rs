@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 5;
+pub const SCHEMA_VERSION: i32 = 6;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -46,6 +46,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 5 {
         apply_v5(conn)?;
+    }
+    if current < 6 {
+        apply_v6(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -314,6 +317,29 @@ fn apply_v5(conn: &Connection) -> Result<()> {
     for s in alters {
         let _ = conn.execute(s, []);
     }
+    Ok(())
+}
+
+fn apply_v6(conn: &Connection) -> Result<()> {
+    // Deduplicate metadata_records: keep only the most recent per (game_id, field).
+    conn.execute_batch(
+        r#"
+        DELETE FROM metadata_records
+        WHERE id NOT IN (
+            SELECT id FROM (
+                SELECT id, ROW_NUMBER() OVER (PARTITION BY game_id, field ORDER BY fetched_at DESC) as rn
+                FROM metadata_records
+            ) WHERE rn = 1
+        );
+        DELETE FROM media_assets
+        WHERE id NOT IN (
+            SELECT id FROM (
+                SELECT id, ROW_NUMBER() OVER (PARTITION BY game_id, kind ORDER BY COALESCE(cached_at,'') DESC) as rn
+                FROM media_assets
+            ) WHERE rn = 1
+        );
+        "#,
+    )?;
     Ok(())
 }
 

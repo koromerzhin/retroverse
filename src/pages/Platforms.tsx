@@ -130,6 +130,7 @@ export default function Platforms() {
               <button
                 className="btn"
                 style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}
+                disabled={(counts[p.id] ?? 0) === 0}
                 onClick={(e) => { e.stopPropagation(); navigate(`/library?platform=${p.id}`); }}
               >
                 {t("platforms.viewLibrary")}
