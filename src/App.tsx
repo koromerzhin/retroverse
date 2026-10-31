@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { api } from "./lib/api";
 import { formatNumber } from "./lib/format";
 import { NavLink, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
@@ -55,21 +54,7 @@ export default function App() {
     return () => { if (unlisten) unlisten(); };
   }, []);
 
-  // Auto-scan all sources on startup
-  useEffect(() => {
-    (async () => {
-      try {
-        const sources = await api.listSources();
-        for (const s of sources || []) {
-          if (s.kind === "remote") {
-            api.scanRemoteSource(s.id).catch(() => {});
-          } else {
-            api.scanSource(s.id).catch(() => {});
-          }
-        }
-      } catch {}
-    })();
-  }, []);
+  // No auto-scan on startup (user request).
 
   return (
     <div className="app">

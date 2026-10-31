@@ -190,6 +190,29 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
     (None, None, None, None, None)
 }
 
+/// Parse gamelist.xml and return a set of game file basenames (lowercased).
+pub fn parse_gamelist_paths(content: &str) -> std::collections::HashSet<String> {
+    let mut set = std::collections::HashSet::new();
+    // simple regex-free parse: find <path>...</path>
+    let mut rest = content;
+    while let Some(start) = rest.find("<path>") {
+        rest = &rest[start + 6..];
+        if let Some(end) = rest.find("</path>") {
+            let p = rest[..end].trim();
+            let base = std::path::Path::new(p)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or(p)
+                .to_lowercase();
+            set.insert(base);
+            rest = &rest[end + 7..];
+        } else {
+            break;
+        }
+    }
+    set
+}
+
 /// Parse a systems.txt file (format "slug: Name" per line).
 pub fn parse_systems_txt(content: &str) -> Vec<(String, String)> {
     let mut out = Vec::new();

@@ -4,7 +4,8 @@ export const api = {
   listSources: () => invoke<any[]>("list_sources"),
   addSource: (name: string, path: string) => invoke<any>("add_source", { name, path }),
   removeSource: (id: string) => invoke<void>("remove_source", { id }),
-  scanSource: (sourceId: string) => invoke<any>("scan_source", { sourceId }),
+  scanSource: (sourceId: string, folder?: string) => invoke<any>("scan_source", { sourceId, folder }),
+  scanLocalFolder: (sourceId: string, folderPath: string) => invoke<any>("scan_local_folder", { sourceId, folderPath }),
   cancelScan: () => invoke<void>("cancel_scan"),
   testRemoteConnection: (host: string, port: number, username: string, keyPath: string) =>
     invoke<string>("test_remote_connection", { host, port, username, keyPath }),
@@ -12,7 +13,8 @@ export const api = {
     invoke<any>("add_remote_source", { name, host, port, username, keyPath, remotePath }),
   listRemoteDir: (sourceId: string, path?: string) =>
     invoke<any[]>("list_remote_dir", { sourceId, path }),
-  scanRemoteSource: (sourceId: string) => invoke<any>("scan_remote_source", { sourceId }),
+  scanRemoteSource: (sourceId: string, folder?: string) => invoke<any>("scan_remote_source", { sourceId, folder }),
+  scanRemoteFolder: (sourceId: string, folderPath: string) => invoke<any>("scan_remote_folder", { sourceId, folderPath }),
   copyRemoteFiles: (sourceId: string, fileIds: string[], destDir: string) =>
     invoke<any>("copy_remote_files", { sourceId, fileIds, destDir }),
   listGames: (platform?: string, search?: string) => invoke<any[]>("list_games", { platform, search }),
