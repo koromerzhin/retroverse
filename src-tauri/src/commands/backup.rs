@@ -2,7 +2,7 @@ use crate::error::{Result, RetroError};
 use crate::state::AppState;
 use rusqlite::params;
 use serde_json::json;
-use sha2::{Digest, Sha256};
+
 use std::fs;
 use tauri::State;
 
@@ -21,13 +21,11 @@ pub fn compute_hashes(state: State<AppState>, source_id: Option<String>) -> Resu
 
     let mut done = 0usize;
     for (id, path) in rows {
-        if let Ok(data) = fs::read(&path) {
-            let mut hasher = Sha256::new();
-            hasher.update(&data);
-            let hash = format!("{:x}", hasher.finalize());
+        let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(&path, &[]);
+        if sha256.is_some() {
             conn.execute(
-                "UPDATE game_files SET hash=?1 WHERE id=?2",
-                params![hash, id],
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5 WHERE id=?6",
+                params![sha256, crc32, md5, sha1, zip_inner, id],
             )?;
             done += 1;
         }
