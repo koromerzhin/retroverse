@@ -102,11 +102,7 @@ pub fn scan_source(
             let si = top.join("systeminfo.txt");
             if si.is_file() {
                 if let Ok(content) = std::fs::read_to_string(&si) {
-                    if let Some((_, exts)) = identify::parse_systeminfo_txt(&content) {
-                        exts
-                    } else {
-                        Vec::new()
-                    }
+                    identify::parse_systeminfo_txt(&content).unwrap_or_default()
                 } else {
                     Vec::new()
                 }

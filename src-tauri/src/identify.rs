@@ -55,9 +55,8 @@ pub fn infer_platform_from_path(path: &str, platforms: &[Platform]) -> Option<St
     None
 }
 
-/// Parse a systeminfo.txt file. Returns (system_name, Vec<extensions>).
-pub fn parse_systeminfo_txt(content: &str) -> Option<(String, Vec<String>)> {
-    let mut name = None;
+/// Parse a systeminfo.txt file. Returns the list of supported extensions.
+pub fn parse_systeminfo_txt(content: &str) -> Option<Vec<String>> {
     let mut exts = Vec::new();
     let mut in_exts = false;
     for line in content.lines() {
@@ -66,12 +65,8 @@ pub fn parse_systeminfo_txt(content: &str) -> Option<(String, Vec<String>)> {
             in_exts = false;
             continue;
         }
-        if let Some(rest) = line.strip_prefix("System name:") {
-            name = Some(rest.trim().to_string());
-            in_exts = false;
-        } else if line.starts_with("Supported file extensions:") {
+        if line.starts_with("Supported file extensions:") {
             in_exts = true;
-            // extensions may be on same line
             let after = line.strip_prefix("Supported file extensions:").unwrap_or("").trim();
             if !after.is_empty() {
                 for e in after.split_whitespace() {
@@ -80,9 +75,8 @@ pub fn parse_systeminfo_txt(content: &str) -> Option<(String, Vec<String>)> {
                 in_exts = false;
             }
         } else if in_exts {
-            // continuation lines of extensions
             let toks: Vec<&str> = line.split_whitespace().collect();
-            if toks.iter().all(|t| t.starts_with('.')) {
+            if !toks.is_empty() && toks.iter().all(|t| t.starts_with('.')) {
                 for e in toks {
                     exts.push(e.to_lowercase());
                 }
@@ -91,7 +85,7 @@ pub fn parse_systeminfo_txt(content: &str) -> Option<(String, Vec<String>)> {
             }
         }
     }
-    name.map(|n| (n, exts))
+    if exts.is_empty() { None } else { Some(exts) }
 }
 
 use crc::Crc;

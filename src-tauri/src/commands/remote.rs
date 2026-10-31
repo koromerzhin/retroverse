@@ -255,7 +255,7 @@ pub async fn scan_remote_source_inner(
             let mut buf = Vec::new();
             let _ = f.read_to_end(&mut buf).await;
             if let Ok(content) = String::from_utf8(buf)
-                && let Some((_, exts)) = crate::identify::parse_systeminfo_txt(&content)
+                && let Some(exts) = crate::identify::parse_systeminfo_txt(&content)
                 && !exts.is_empty()
             {
                 dir_allowed = exts;
