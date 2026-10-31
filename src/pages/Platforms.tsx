@@ -87,7 +87,7 @@ export default function Platforms() {
               </button>
               <button
                 className="btn"
-                style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}
+                style={{ fontSize: 11, padding: "4px 8px", flex: 1, justifyContent: "center", textAlign: "center" }}
                 disabled={scanning === p.id}
                 onClick={(e) => { e.stopPropagation(); handleScanPlatform(p); }}
               >

@@ -9,7 +9,7 @@ export default function Library() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [platform, setPlatform] = useState<string | undefined>(searchParams.get("platform") || undefined);
+  const [platform] = useState<string | undefined>(searchParams.get("platform") || undefined);
 
   const { data: platforms } = useQuery<Platform[]>({
     queryKey: ["platforms"],
@@ -37,17 +37,6 @@ export default function Library() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select
-          className="select"
-          style={{ maxWidth: 320 }}
-          value={platform ?? ""}
-          onChange={(e) => setPlatform(e.target.value || undefined)}
-        >
-          <option value="">Toutes les plateformes</option>
-          {platforms?.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
         {platform && (
           <span className="badge">{platforms?.find((p) => p.id === platform)?.name}</span>
         )}
