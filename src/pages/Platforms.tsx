@@ -79,6 +79,13 @@ export default function Platforms() {
               <button
                 className="btn"
                 style={{ fontSize: 11, padding: "4px 8px" }}
+                onClick={(e) => { e.stopPropagation(); navigate(`/library?platform=${p.id}`); }}
+              >
+                Voir la bibliothèque
+              </button>
+              <button
+                className="btn"
+                style={{ fontSize: 11, padding: "4px 8px" }}
                 disabled={scanning === p.id}
                 onClick={(e) => { e.stopPropagation(); handleScanPlatform(p); }}
               >
