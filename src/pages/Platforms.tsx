@@ -23,11 +23,19 @@ export default function Platforms() {
 
   const [scanning, setScanning] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"name" | "count">("name");
 
   const counts: Record<string, number> = {};
   games?.forEach((g: any) => {
     const pid = g.game.platform_id;
     if (pid) counts[pid] = (counts[pid] || 0) + 1;
+  });
+
+  const sortedPlatforms = [...(platforms || [])].sort((a, b) => {
+    if (sortBy === "count") {
+      return (counts[b.id] ?? 0) - (counts[a.id] ?? 0) || a.name.localeCompare(b.name);
+    }
+    return a.name.localeCompare(b.name);
   });
 
   async function handleScanPlatform(p: Platform) {
@@ -66,8 +74,16 @@ export default function Platforms() {
 
       {msg && <p style={{ color: "var(--text-dim)", marginBottom: 12, fontSize: 13 }}>{msg}</p>}
 
+      <div className="row" style={{ marginBottom: 16, alignItems: "center" }}>
+        <span style={{ fontSize: 13, color: "var(--text-dim)" }}>Trier par :</span>
+        <select className="select" style={{ maxWidth: 180 }} value={sortBy} onChange={(e) => setSortBy(e.target.value as "name" | "count")}>
+          <option value="name">Nom</option>
+          <option value="count">Nombre de jeux</option>
+        </select>
+      </div>
+
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-        {platforms?.map((p) => (
+        {sortedPlatforms.map((p) => (
           <div className="card" key={p.id} style={{ cursor: "pointer", display: "flex", flexDirection: "column", minHeight: 160 }}>
             <div style={{ fontSize: 28, marginBottom: 8 }} onClick={() => navigate(`/library?platform=${p.id}`)}>🎮</div>
             <div style={{ fontWeight: 600 }} onClick={() => navigate(`/library?platform=${p.id}`)}>{p.name}</div>
