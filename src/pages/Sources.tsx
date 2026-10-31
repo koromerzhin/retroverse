@@ -115,32 +115,6 @@ export default function Sources() {
     }
   }
 
-  async function handleScan(s: GameSource) {
-    setScanning(s.id);
-    setError(null);
-    setProgress({ scanned: 0, total: 0, status: "scanning" });
-    let unlisten: (() => void) | null = null;
-    try {
-      const { listen } = await import("@tauri-apps/api/event");
-      unlisten = await listen<any>("scan-progress", (ev) => {
-        if (ev.payload?.source_id === s.id) {
-          setProgress({ scanned: ev.payload.scanned ?? 0, total: ev.payload.total ?? 0, status: ev.payload.status ?? "scanning" });
-        }
-      });
-      const res = s.kind === "remote" ? await api.scanRemoteSource(s.id) : await api.scanSource(s.id);
-      setLastResult(res);
-      setProgress({ scanned: res.files_found, total: res.files_found, status: "done" });
-      qc.invalidateQueries({ queryKey: ["games"] });
-      qc.invalidateQueries({ queryKey: ["stats"] });
-      qc.invalidateQueries({ queryKey: ["sources"] });
-    } catch (e: any) {
-      setError(String(e));
-    } finally {
-      if (unlisten) unlisten();
-      setScanning(null);
-    }
-  }
-
   async function handleCancel() {
     try { await api.cancelScan(); } catch {}
   }
@@ -179,7 +153,7 @@ export default function Sources() {
   return (
     <>
       <h1 className="page-title">Sources</h1>
-      <p className="page-sub">Gérez les bibliothèques locales et distantes.</p>
+      <p className="page-sub">Gérez les bibliothèques locales et distantes. Le scan se fait par dossier (voir ci-dessous).</p>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ marginTop: 0 }}>Ajouter une source locale</h3>
@@ -262,6 +236,9 @@ export default function Sources() {
               transition: "width .2s",
             }} />
           </div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <button className="btn danger" onClick={handleCancel} style={{ fontSize: 11, padding: "4px 8px" }}>Arrêter</button>
+          </div>
         </div>
       )}
 
@@ -292,15 +269,6 @@ export default function Sources() {
                 <td>{s.last_scan_at ? new Date(s.last_scan_at).toLocaleString() : "—"}</td>
                 <td>
                   <div className="row">
-                    {scanning === s.id ? (
-                      <button className="btn danger" onClick={handleCancel}>
-                        Arrêter
-                      </button>
-                    ) : (
-                      <button className="btn primary" onClick={() => handleScan(s)}>
-                        Scanner
-                      </button>
-                    )}
                     <button
                       className="btn danger"
                       onClick={() => { if (confirm("Supprimer cette source ?")) removeMutation.mutate(s.id); }}
