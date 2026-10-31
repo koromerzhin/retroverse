@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
@@ -7,8 +7,9 @@ import type { LibraryEntry, Platform } from "../types";
 
 export default function Library() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [platform, setPlatform] = useState<string | undefined>(undefined);
+  const [platform, setPlatform] = useState<string | undefined>(searchParams.get("platform") || undefined);
 
   const { data: platforms } = useQuery<Platform[]>({
     queryKey: ["platforms"],
