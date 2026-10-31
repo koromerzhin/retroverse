@@ -68,7 +68,7 @@ export default function Platforms() {
 
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
         {platforms?.map((p) => (
-          <div className="card" key={p.id} style={{ cursor: "pointer" }}>
+          <div className="card" key={p.id} style={{ cursor: "pointer", display: "flex", flexDirection: "column", minHeight: 160 }}>
             <div style={{ fontSize: 28, marginBottom: 8 }} onClick={() => navigate(`/library?platform=${p.id}`)}>🎮</div>
             <div style={{ fontWeight: 600 }} onClick={() => navigate(`/library?platform=${p.id}`)}>{p.name}</div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
@@ -77,7 +77,7 @@ export default function Platforms() {
             <div style={{ marginTop: 8 }}>
               <span className="badge">{formatNumber(counts[p.id] ?? 0)} jeu(x)</span>
             </div>
-            <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "nowrap" }}>
+            <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", gap: 8, flexWrap: "nowrap" }}>
               <button
                 className="btn"
                 style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}
