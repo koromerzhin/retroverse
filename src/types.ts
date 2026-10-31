@@ -30,6 +30,10 @@ export interface GameFile {
   size: number;
   modified_at: number;
   hash: string | null;
+  crc32: string | null;
+  md5: string | null;
+  sha1: string | null;
+  zip_inner: string | null;
   platform_id: string | null;
   created_at: string;
 }

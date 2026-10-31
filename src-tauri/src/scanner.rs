@@ -93,7 +93,24 @@ pub fn scan_source(
             });
         }
         // Collect files in this top-level folder.
-        let mut files: Vec<(String, u64, i64)> = Vec::new();
+        // Determine allowed extensions from systeminfo.txt if present.
+        let allowed_exts: Vec<String> = {
+            let si = top.join("systeminfo.txt");
+            if si.is_file() {
+                if let Ok(content) = std::fs::read_to_string(&si) {
+                    if let Some((_, exts)) = identify::parse_systeminfo_txt(&content) {
+                        exts
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            }
+        };
+        let mut files: Vec<(String, u64, i64, Vec<String>)> = Vec::new();
         for entry in WalkDir::new(top)
             .follow_links(false)
             .into_iter()
@@ -114,9 +131,13 @@ pub fn scan_source(
                 continue;
             }
             let ext = identify::ext_of(pstr.as_ref());
-            let ext_known = identify::guess_platform(&ext, &platforms).is_some();
-            let path_known = identify::infer_platform_from_path(pstr.as_ref(), &platforms).is_some();
-            if !ext_known && !path_known {
+            let ext_ok = if !allowed_exts.is_empty() {
+                allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&format!(".{}", ext)))
+            } else {
+                identify::guess_platform(&ext, &platforms).is_some()
+                    || identify::infer_platform_from_path(pstr.as_ref(), &platforms).is_some()
+            };
+            if !ext_ok {
                 continue;
             }
             let meta = match std::fs::metadata(p) {
@@ -129,7 +150,7 @@ pub fn scan_source(
                 .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
-            files.push((p.to_string_lossy().to_string(), meta.len(), mtime));
+            files.push((p.to_string_lossy().to_string(), meta.len(), mtime, allowed_exts.clone()));
         }
 
         // Emit progress start for this folder.
@@ -147,7 +168,7 @@ pub fn scan_source(
         let tx = conn.transaction()?;
         // collect found paths for missing detection
         let mut found_paths: Vec<String> = Vec::new();
-        for (idx, (fpath, size, mtime)) in files.iter().enumerate() {
+        for (idx, (fpath, size, mtime, allowed)) in files.iter().enumerate() {
             if cancel.load(std::sync::atomic::Ordering::SeqCst) {
                 break;
             }
@@ -160,6 +181,8 @@ pub fn scan_source(
             let platform_id = identify::infer_platform_from_path(fpath, &platforms)
                 .or_else(|| identify::guess_platform(&ext, &platforms));
 
+            let (sha256, crc32, md5, sha1, zip_inner) = identify::compute_hashes(fpath, allowed);
+
             let existing: Option<String> = tx
                 .query_row(
                     "SELECT id FROM game_files WHERE source_id=?1 AND path=?2",
@@ -170,15 +193,15 @@ pub fn scan_source(
 
             let file_id = if let Some(id) = existing {
                 tx.execute(
-                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,missing=0 WHERE id=?6",
-                    rusqlite::params![filename, ext, *size as i64, *mtime, platform_id, id],
+                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,hash=?6,crc32=?7,md5=?8,sha1=?9,zip_inner=?10,missing=0 WHERE id=?11",
+                    rusqlite::params![filename, ext, *size as i64, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, id],
                 )?;
                 id
             } else {
                 let id = crate::models::new_id();
                 tx.execute(
-                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                    rusqlite::params![id, source_id, fpath, filename, ext, *size as i64, *mtime, platform_id, Utc::now().to_rfc3339()],
+                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,hash,crc32,md5,sha1,zip_inner,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+                    rusqlite::params![id, source_id, fpath, filename, ext, *size as i64, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, Utc::now().to_rfc3339()],
                 )?;
                 id
             };
@@ -193,7 +216,11 @@ pub fn scan_source(
                 extension: ext.clone(),
                 size: *size as i64,
                 modified_at: *mtime,
-                hash: None,
+                hash: sha256.clone(),
+                crc32: crc32.clone(),
+                md5: md5.clone(),
+                sha1: sha1.clone(),
+                zip_inner: zip_inner.clone(),
                 platform_id: platform_id.clone(),
                 created_at: Utc::now(),
             };

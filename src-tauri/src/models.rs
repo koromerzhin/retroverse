@@ -67,6 +67,10 @@ pub struct GameFile {
     pub size: i64,
     pub modified_at: i64,
     pub hash: Option<String>,
+    pub crc32: Option<String>,
+    pub md5: Option<String>,
+    pub sha1: Option<String>,
+    pub zip_inner: Option<String>,
     pub platform_id: Option<String>,
     pub created_at: DateTime<Utc>,
 }

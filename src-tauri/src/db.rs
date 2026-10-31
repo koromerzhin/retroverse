@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 4;
+pub const SCHEMA_VERSION: i32 = 5;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -43,6 +43,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 4 {
         apply_v4(conn)?;
+    }
+    if current < 5 {
+        apply_v5(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -298,6 +301,19 @@ fn apply_v4(conn: &Connection) -> Result<()> {
         );
         "#,
     )?;
+    Ok(())
+}
+
+fn apply_v5(conn: &Connection) -> Result<()> {
+    let alters = [
+        "ALTER TABLE game_files ADD COLUMN crc32 TEXT",
+        "ALTER TABLE game_files ADD COLUMN md5 TEXT",
+        "ALTER TABLE game_files ADD COLUMN sha1 TEXT",
+        "ALTER TABLE game_files ADD COLUMN zip_inner TEXT",
+    ];
+    for s in alters {
+        let _ = conn.execute(s, []);
+    }
     Ok(())
 }
 

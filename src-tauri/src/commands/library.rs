@@ -63,11 +63,11 @@ pub fn list_games(
         let game = gr?;
         // files
         let mut fstmt = conn.prepare(
-            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.platform_id,gf.created_at \
+            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.zip_inner,gf.platform_id,gf.created_at \
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
         )?;
         let frows = fstmt.query_map([game.id.clone()], |r| {
-            let created: String = r.get(9)?;
+            let created: String = r.get(13)?;
             Ok(crate::models::GameFile {
                 id: r.get(0)?,
                 source_id: r.get(1)?,
@@ -77,7 +77,11 @@ pub fn list_games(
                 size: r.get(5)?,
                 modified_at: r.get(6)?,
                 hash: r.get(7)?,
-                platform_id: r.get(8)?,
+                crc32: r.get(8)?,
+                md5: r.get(9)?,
+                sha1: r.get(10)?,
+                zip_inner: r.get(11)?,
+                platform_id: r.get(12)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
             })
         })?;
@@ -123,11 +127,11 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
     )?;
 
     let mut fstmt = conn.prepare(
-        "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.platform_id,gf.created_at \
+        "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.zip_inner,gf.platform_id,gf.created_at \
          FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
     )?;
     let frows = fstmt.query_map([game.id.clone()], |r| {
-        let created: String = r.get(9)?;
+        let created: String = r.get(13)?;
         Ok(crate::models::GameFile {
             id: r.get(0)?,
             source_id: r.get(1)?,
@@ -137,7 +141,11 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
             size: r.get(5)?,
             modified_at: r.get(6)?,
             hash: r.get(7)?,
-            platform_id: r.get(8)?,
+            crc32: r.get(8)?,
+            md5: r.get(9)?,
+            sha1: r.get(10)?,
+            zip_inner: r.get(11)?,
+            platform_id: r.get(12)?,
             created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
         })
     })?;
@@ -248,11 +256,11 @@ pub fn search_games_fts(state: State<AppState>, query: String) -> Result<Vec<Lib
     let mut entries = Vec::new();
     for game in rows {
         let mut fstmt = conn.prepare(
-            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.platform_id,gf.created_at \
+            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.zip_inner,gf.platform_id,gf.created_at \
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
         )?;
         let frows = fstmt.query_map([game.id.clone()], |r| {
-            let created: String = r.get(9)?;
+            let created: String = r.get(13)?;
             Ok(crate::models::GameFile {
                 id: r.get(0)?,
                 source_id: r.get(1)?,
@@ -262,7 +270,11 @@ pub fn search_games_fts(state: State<AppState>, query: String) -> Result<Vec<Lib
                 size: r.get(5)?,
                 modified_at: r.get(6)?,
                 hash: r.get(7)?,
-                platform_id: r.get(8)?,
+                crc32: r.get(8)?,
+                md5: r.get(9)?,
+                sha1: r.get(10)?,
+                zip_inner: r.get(11)?,
+                platform_id: r.get(12)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
             })
         })?;
