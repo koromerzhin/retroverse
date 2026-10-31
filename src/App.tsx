@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { api } from "./lib/api";
 import { formatNumber } from "./lib/format";
 import { NavLink, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
@@ -66,6 +67,7 @@ export default function App() {
           display: "flex", alignItems: "center", gap: 12,
         }}>
           <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s)</span>
+          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => api.cancelScan().catch(() => {})}>Arrêter</button>
           <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
             <div style={{
               height: "100%",
