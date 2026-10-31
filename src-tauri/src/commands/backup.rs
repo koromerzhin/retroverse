@@ -396,9 +396,8 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     Ok(imported)
 }
 
-#[tauri::command]
-pub async fn compute_hashes_for_game(
-    state: State<'_, AppState>,
+pub async fn compute_hashes_for_game_inner(
+    state: &AppState,
     game_id: String,
 ) -> Result<usize> {
     // gather files + source info
@@ -463,6 +462,14 @@ pub async fn compute_hashes_for_game(
         }
     }
     Ok(done)
+}
+
+#[tauri::command]
+pub async fn compute_hashes_for_game(
+    state: State<'_, AppState>,
+    game_id: String,
+) -> Result<usize> {
+    compute_hashes_for_game_inner(&state, game_id).await
 }
 
 #[tauri::command]
