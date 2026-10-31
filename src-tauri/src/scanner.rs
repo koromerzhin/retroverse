@@ -188,7 +188,7 @@ pub fn scan_source(
         let tx = conn.transaction()?;
         // collect found paths for missing detection
         let mut found_paths: Vec<String> = Vec::new();
-        for (idx, (fpath, size, mtime, _allowed)) in files.iter().enumerate() {
+        for (idx, (fpath, size, mtime, allowed)) in files.iter().enumerate() {
             if cancel.load(std::sync::atomic::Ordering::SeqCst) {
                 break;
             }
@@ -209,7 +209,7 @@ pub fn scan_source(
                 )
                 .ok();
 
-            // Incremental: skip unchanged files.
+            // Incremental: skip unchanged files (keep existing hashes).
             if let Some((_id, old_size, old_mtime)) = &existing
                 && *old_size == *size as i64
                 && *old_mtime == *mtime
@@ -228,17 +228,19 @@ pub fn scan_source(
                 continue;
             }
 
+            let (sha256, crc32, md5, sha1, zip_inner) = identify::compute_hashes(fpath, allowed);
+
             let file_id = if let Some((id, _, _)) = existing {
                 tx.execute(
-                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,missing=0 WHERE id=?6",
-                    rusqlite::params![filename, ext, *size as i64, *mtime, platform_id, id],
+                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,hash=?6,crc32=?7,md5=?8,sha1=?9,zip_inner=?10,missing=0 WHERE id=?11",
+                    rusqlite::params![filename, ext, *size as i64, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, id],
                 )?;
                 id
             } else {
                 let id = crate::models::new_id();
                 tx.execute(
-                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                    rusqlite::params![id, source_id, fpath, filename, ext, *size as i64, *mtime, platform_id, Utc::now().to_rfc3339()],
+                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,hash,crc32,md5,sha1,zip_inner,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+                    rusqlite::params![id, source_id, fpath, filename, ext, *size as i64, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, Utc::now().to_rfc3339()],
                 )?;
                 id
             };
@@ -267,11 +269,11 @@ pub fn scan_source(
                 extension: ext.clone(),
                 size: *size as i64,
                 modified_at: *mtime,
-                hash: None,
-                crc32: None,
-                md5: None,
-                sha1: None,
-                zip_inner: None,
+                hash: sha256.clone(),
+                crc32: crc32.clone(),
+                md5: md5.clone(),
+                sha1: sha1.clone(),
+                zip_inner: zip_inner.clone(),
                 platform_id: platform_id.clone(),
                 created_at: Utc::now(),
             };
