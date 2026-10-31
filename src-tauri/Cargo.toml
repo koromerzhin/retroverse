@@ -30,6 +30,7 @@ sha1 = "0.11"
 md5 = "0.8"
 crc = "3"
 zip = "2"
+sevenz-rust = "0.6"
 russh = "0.65"
 russh-sftp = "3.0"
 ureq = { version = "3", features = ["rustls", "json"] }
