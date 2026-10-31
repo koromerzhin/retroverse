@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -12,6 +12,10 @@ export default function Library() {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [platform] = useState<string | undefined>(searchParams.get("platform") || undefined);
+  const [page, setPage] = useState(1);
+  const pageSize = 24;
+
+  useEffect(() => { setPage(1); }, [search, platform]);
 
   const { data: platforms } = useQuery<Platform[]>({
     queryKey: ["platforms"],
@@ -25,6 +29,9 @@ export default function Library() {
       return base;
     },
   });
+
+  const totalPages = Math.max(1, Math.ceil((games?.length ?? 0) / pageSize));
+  const paged = (games || []).slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <>
@@ -54,8 +61,9 @@ export default function Library() {
           <p>{t("library.empty")}</p>
         </div>
       ) : (
+        <>
         <div className="grid games">
-          {games!.map((e) => (
+          {paged.map((e) => (
             <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
               <div className="cover">🎮</div>
               <div className="info">
@@ -65,6 +73,14 @@ export default function Library() {
             </div>
           ))}
         </div>
+        {totalPages > 1 && (
+          <div className="row" style={{ marginTop: 20, justifyContent: "center", gap: 8 }}>
+            <button className="btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
+            <span className="badge">{page} / {totalPages}</span>
+            <button className="btn" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>→</button>
+          </div>
+        )}
+        </>
       )}
     </>
   );
