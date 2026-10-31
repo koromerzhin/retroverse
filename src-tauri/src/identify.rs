@@ -55,6 +55,141 @@ pub fn infer_platform_from_path(path: &str, platforms: &[Platform]) -> Option<St
     None
 }
 
+/// Parse a systeminfo.txt file. Returns (system_name, Vec<extensions>).
+pub fn parse_systeminfo_txt(content: &str) -> Option<(String, Vec<String>)> {
+    let mut name = None;
+    let mut exts = Vec::new();
+    let mut in_exts = false;
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            in_exts = false;
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("System name:") {
+            name = Some(rest.trim().to_string());
+            in_exts = false;
+        } else if line.starts_with("Supported file extensions:") {
+            in_exts = true;
+            // extensions may be on same line
+            let after = line.strip_prefix("Supported file extensions:").unwrap_or("").trim();
+            if !after.is_empty() {
+                for e in after.split_whitespace() {
+                    exts.push(e.to_lowercase());
+                }
+                in_exts = false;
+            }
+        } else if in_exts {
+            // continuation lines of extensions
+            let toks: Vec<&str> = line.split_whitespace().collect();
+            if toks.iter().all(|t| t.starts_with('.')) {
+                for e in toks {
+                    exts.push(e.to_lowercase());
+                }
+            } else {
+                in_exts = false;
+            }
+        }
+    }
+    name.map(|n| (n, exts))
+}
+
+use crc::Crc;
+use md5::Context as Md5Context;
+use sha1::{Digest as Sha1Digest, Sha1};
+use sha2::{Digest as Sha2Digest, Sha256};
+use std::io::Read;
+
+/// Compute hashes for a file. For .zip, reads the first inner ROM entry.
+/// Returns (sha256, crc32, md5, sha1, zip_inner).
+pub type Hashes = (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+
+pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
+    let lower = path.to_lowercase();
+    if lower.ends_with(".zip")
+        && let Ok(file) = std::fs::File::open(path)
+        && let Ok(mut archive) = zip::ZipArchive::new(file)
+    {
+                // find first file entry with a supported extension
+                let mut idx = None;
+                for i in 0..archive.len() {
+                    if let Ok(e) = archive.by_index(i) {
+                        if e.is_dir() { continue; }
+                        let name = e.name().to_string();
+                        let ext = std::path::Path::new(&name)
+                            .extension()
+                            .and_then(|x| x.to_str())
+                            .map(|x| format!(".{}", x.to_lowercase()))
+                            .unwrap_or_default();
+                        if allowed_exts.is_empty() || allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&ext)) {
+                            idx = Some(i);
+                            break;
+                        }
+                    }
+                }
+                if let Some(i) = idx
+                    && let Ok(mut entry) = archive.by_index(i)
+                {
+                        let inner_name = entry.name().to_string();
+                        let mut buf = [0u8; 65536];
+                        let mut sha256 = Sha256::new();
+                        let mut md5h = Md5Context::new();
+                        let mut sha1h = Sha1::new();
+                        let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+                        let mut crc_digest = crc.digest();
+                        loop {
+                            match entry.read(&mut buf) {
+                                Ok(0) => break,
+                                Ok(n) => {
+                                    sha256.update(&buf[..n]);
+                                    md5h.consume(&buf[..n]);
+                                    sha1h.update(&buf[..n]);
+                                    crc_digest.update(&buf[..n]);
+                                }
+                                Err(_) => break,
+                            }
+                        }
+                        return (
+                            Some(format!("{:x}", sha256.finalize())),
+                            Some(format!("{:08x}", crc_digest.finalize())),
+                            Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+                            Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+                            Some(inner_name),
+                        );
+        }
+        // fallback: hash the zip itself
+    }
+    // hash the file itself
+    if let Ok(mut f) = std::fs::File::open(path) {
+        let mut buf = [0u8; 65536];
+        let mut sha256 = Sha256::new();
+        let mut md5h = Md5Context::new();
+        let mut sha1h = Sha1::new();
+        let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+        let mut crc_digest = crc.digest();
+        loop {
+            match f.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    sha256.update(&buf[..n]);
+                    md5h.consume(&buf[..n]);
+                    sha1h.update(&buf[..n]);
+                    crc_digest.update(&buf[..n]);
+                }
+                Err(_) => break,
+            }
+        }
+        return (
+            Some(format!("{:x}", sha256.finalize())),
+            Some(format!("{:08x}", crc_digest.finalize())),
+            Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+            Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+            None,
+        );
+    }
+    (None, None, None, None, None)
+}
+
 /// Parse a systems.txt file (format "slug: Name" per line).
 pub fn parse_systems_txt(content: &str) -> Vec<(String, String)> {
     let mut out = Vec::new();

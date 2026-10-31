@@ -227,14 +227,15 @@ pub async fn scan_remote_source_inner(
     }
 
     // recursive collect files via sftp
-    let mut collected: Vec<(String, i64, i64)> = Vec::new(); // path, size, mtime
+    let mut collected: Vec<(String, i64, i64, Vec<String>)> = Vec::new(); // path, size, mtime, allowed_exts
     #[allow(clippy::too_many_arguments)]
     async fn walk(
         sftp: &russh_sftp::client::SftpSession,
         dir: &str,
         platforms_ext: &[String],
         platform_slugs: &[String],
-        out: &mut Vec<(String, i64, i64)>,
+        allowed_exts: Vec<String>,
+        out: &mut Vec<(String, i64, i64, Vec<String>)>,
         app: Option<&tauri::AppHandle>,
         source_id: &str,
         cancel: Option<&std::sync::Arc<std::sync::atomic::AtomicBool>>,
@@ -242,6 +243,20 @@ pub async fn scan_remote_source_inner(
         if cancel.map(|c| c.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
             return;
         }
+        // Load allowed extensions from systeminfo.txt in this dir if present.
+        let mut dir_allowed = allowed_exts.clone();
+        if let Ok(mut f) = sftp.open(&format!("{}/systeminfo.txt", dir.trim_end_matches('/'))).await {
+            use tokio::io::AsyncReadExt;
+            let mut buf = Vec::new();
+            let _ = f.read_to_end(&mut buf).await;
+            if let Ok(content) = String::from_utf8(buf)
+                && let Some((_, exts)) = crate::identify::parse_systeminfo_txt(&content)
+                && !exts.is_empty()
+            {
+                dir_allowed = exts;
+            }
+        }
+
         if let Ok(entries) = sftp.read_dir(dir).await {
             for e in entries {
                 if cancel.map(|c| c.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
@@ -269,7 +284,7 @@ pub async fn scan_remote_source_inner(
                     continue;
                 }
                 if is_dir {
-                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, out, app, source_id, cancel)).await;
+                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, dir_allowed.clone(), out, app, source_id, cancel)).await;
                 } else {
                     let ext = std::path::Path::new(&name)
                         .extension()
@@ -285,10 +300,15 @@ pub async fn scan_remote_source_inner(
                         let low = seg.to_lowercase();
                         platform_slugs.iter().any(|s| s == &low)
                     });
-                    if ext_known || folder_platform {
+                    let ext_ok = if !dir_allowed.is_empty() {
+                        dir_allowed.iter().any(|a| a.eq_ignore_ascii_case(&ext_dot))
+                    } else {
+                        ext_known || folder_platform
+                    };
+                    if ext_ok {
                         let size = meta.size.unwrap_or(0) as i64;
                         let mtime = meta.mtime.unwrap_or(0) as i64;
-                        out.push((full, size, mtime));
+                        out.push((full, size, mtime, dir_allowed.clone()));
                         if let Some(a) = app
                             && out.len().is_multiple_of(500)
                         {
@@ -322,7 +342,7 @@ pub async fn scan_remote_source_inner(
         .flat_map(|p| p.extensions.clone())
         .collect();
     let slugs: Vec<String> = platforms.iter().map(|p| p.slug.clone()).collect();
-    walk(&sess.sftp, &base_path, &exts, &slugs, &mut collected, app.as_ref(), &source_id, Some(&cancel)).await;
+    walk(&sess.sftp, &base_path, &exts, &slugs, Vec::new(), &mut collected, app.as_ref(), &source_id, Some(&cancel)).await;
 
     // process into db in chunks to avoid locking the DB for too long
     let mut files_found = 0usize;
@@ -350,7 +370,7 @@ pub async fn scan_remote_source_inner(
         }
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
-        for (fpath, size, mtime) in chunk {
+        for (fpath, size, mtime, allowed) in chunk {
             let filename = std::path::Path::new(fpath)
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -359,6 +379,8 @@ pub async fn scan_remote_source_inner(
             let ext = crate::identify::ext_of(fpath);
             let platform_id = crate::identify::infer_platform_from_path(fpath, &platforms2)
                 .or_else(|| crate::identify::guess_platform(&ext, &platforms2));
+
+            let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(fpath, allowed);
 
             let existing: Option<String> = tx
                 .query_row(
@@ -370,15 +392,15 @@ pub async fn scan_remote_source_inner(
 
             let file_id = if let Some(id) = existing {
                 tx.execute(
-                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,missing=0 WHERE id=?6",
-                    params![filename, ext, *size, *mtime, platform_id, id],
+                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,hash=?6,crc32=?7,md5=?8,sha1=?9,zip_inner=?10,missing=0 WHERE id=?11",
+                    params![filename, ext, *size, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, id],
                 )?;
                 id
             } else {
                 let id = crate::models::new_id();
                 tx.execute(
-                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                    params![id, source_id, fpath, filename, ext, *size, *mtime, platform_id, Utc::now().to_rfc3339()],
+                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,hash,crc32,md5,sha1,zip_inner,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+                    params![id, source_id, fpath, filename, ext, *size, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, Utc::now().to_rfc3339()],
                 )?;
                 id
             };
@@ -392,7 +414,11 @@ pub async fn scan_remote_source_inner(
                 extension: ext.clone(),
                 size: *size,
                 modified_at: *mtime,
-                hash: None,
+                hash: sha256.clone(),
+                crc32: crc32.clone(),
+                md5: md5.clone(),
+                sha1: sha1.clone(),
+                zip_inner: zip_inner.clone(),
                 platform_id: platform_id.clone(),
                 created_at: Utc::now(),
             };
@@ -454,7 +480,7 @@ pub async fn scan_remote_source_inner(
             let mut sql = String::from("UPDATE game_files SET missing=0 WHERE source_id=?1 AND path IN (");
             let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
             params_vec.push(rusqlite::types::Value::Text(source_id.clone()));
-            for (i, (fp, _, _)) in chunk.iter().enumerate() {
+            for (i, (fp, _, _, _)) in chunk.iter().enumerate() {
                 if i > 0 { sql.push(','); }
                 sql.push('?');
                 params_vec.push(rusqlite::types::Value::Text(fp.clone()));

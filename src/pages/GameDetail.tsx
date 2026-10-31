@@ -149,6 +149,19 @@ export default function GameDetail() {
           </tbody>
         </table>
       </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Empreintes</h3>
+        {data.files.map((f: any) => (
+          <div key={f.id} style={{ marginBottom: 10, fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>
+            <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>{f.filename}</div>
+            <div>CRC32 : {f.crc32 ?? "—"}</div>
+            <div>MD5 : {f.md5 ?? "—"}</div>
+            <div>SHA1 : {f.sha1 ?? "—"}</div>
+            {f.zip_inner && <div>ZIP interne : {f.zip_inner}</div>}
+          </div>
+        ))}
+      </div>
     </>
   );
 }
