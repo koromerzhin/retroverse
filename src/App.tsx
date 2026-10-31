@@ -26,18 +26,25 @@ const nav = [
 export default function App() {
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [splash, setSplash] = useState(true);
 
-  // Splash screen: hide once initial data is loaded (or after timeout)
+  // Hide static splash once initial data is loaded
   useEffect(() => {
-    const timer = setTimeout(() => setSplash(false), 2500);
+    const hide = () => {
+      const el = document.getElementById("splash");
+      if (el) {
+        el.style.transition = "opacity .4s";
+        el.style.opacity = "0";
+        setTimeout(() => el.remove(), 400);
+      }
+    };
+    const timer = setTimeout(hide, 3000);
     (async () => {
       try {
         await api.listPlatforms();
         await api.listSources();
-        setTimeout(() => setSplash(false), 400);
+        setTimeout(hide, 600);
       } catch {
-        setTimeout(() => setSplash(false), 1000);
+        setTimeout(hide, 1200);
       }
     })();
     return () => clearTimeout(timer);
@@ -74,25 +81,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {splash && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 10000,
-          background: "var(--bg)",
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          gap: 20,
-        }}>
-          <div style={{
-            width: 80, height: 80, borderRadius: 18,
-            background: "linear-gradient(135deg, var(--accent), var(--accent-2))",
-            display: "grid", placeItems: "center",
-            fontSize: 44, fontWeight: 800, color: "white",
-            boxShadow: "0 12px 40px rgba(124,92,255,.4)",
-          }}>R</div>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1 }}>RETROVERSE</div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>The Universal Video Game Collection Companion</div>
-          <div className="spinner" style={{ width: 24, height: 24, marginTop: 10 }} />
-        </div>
-      )}
       {scanProgress && (
         <div style={{
           position: "fixed", top: 0, left: 240, right: 0, zIndex: 200,
