@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./lib/api";
 import { formatNumber } from "./lib/format";
@@ -26,6 +26,7 @@ const nav = [
 export default function App() {
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const lastProgressUpdate = useRef(0);
 
   // Hide static splash once initial data is loaded
   useEffect(() => {
@@ -53,6 +54,11 @@ export default function App() {
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     listen<any>("scan-progress", (ev) => {
+      const now = Date.now();
+      if (ev.payload?.status !== "done" && ev.payload?.status !== "cancelled" && now - lastProgressUpdate.current < 200) {
+        return;
+      }
+      lastProgressUpdate.current = now;
       if (ev.payload?.status === "cancelled") {
         setScanProgress(null);
         setToast("Scan annulé");

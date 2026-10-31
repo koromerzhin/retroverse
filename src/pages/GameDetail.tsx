@@ -35,6 +35,7 @@ export default function GameDetail() {
   const [enrichMsg, setEnrichMsg] = useState<string | null>(null);
   const [provider, setProvider] = useState("wikipedia");
   const [hashMsg, setHashMsg] = useState<string | null>(null);
+  const [hashing, setHashing] = useState(false);
   useEffect(() => {
     if (data) setTitle(data.game.title);
   }, [data]);
@@ -54,12 +55,15 @@ export default function GameDetail() {
   async function handleComputeHashes() {
     if (!id) return;
     setHashMsg(null);
+    setHashing(true);
     try {
       const n = await api.computeHashesForGame(id);
       setHashMsg(`${n} fichier(s) traité(s).`);
       qc.invalidateQueries({ queryKey: ["game", id] });
     } catch (e: any) {
       setHashMsg(String(e));
+    } finally {
+      setHashing(false);
     }
   }
 
@@ -167,7 +171,9 @@ export default function GameDetail() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.hashes")}</h3>
-        <button className="btn" onClick={handleComputeHashes} style={{ marginBottom: 10 }}>{t("preservation.computeHashes")}</button>
+        <button className="btn" onClick={handleComputeHashes} disabled={hashing} style={{ marginBottom: 10 }}>
+          {hashing ? <><span className="spinner" /> Calcul…</> : t("preservation.computeHashes")}
+        </button>
         {hashMsg && <p style={{ color: "var(--text-dim)", fontSize: 13, marginBottom: 8 }}>{hashMsg}</p>}
         {data.files.map((f: any) => (
           <div key={f.id} style={{ marginBottom: 10, fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>

@@ -315,7 +315,7 @@ pub async fn scan_remote_source_inner(
                         let mtime = meta.mtime.unwrap_or(0) as i64;
                         out.push((full, size, mtime, dir_allowed.clone()));
                         if let Some(a) = app
-                            && out.len().is_multiple_of(500)
+                            && out.len().is_multiple_of(1000)
                         {
                             use tauri::Emitter;
                             let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": out.len(), "total": 0, "status": "scanning"}));
@@ -440,7 +440,13 @@ pub async fn scan_remote_source_inner(
                 continue;
             }
 
+            if files_found == 0 {
+                eprintln!("DEBUG allowed={:?} ext={}", allowed, ext);
+            }
             let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(fpath, allowed);
+            if files_found == 0 {
+                eprintln!("DEBUG first file hash: {:?} path={}", sha256.as_ref().map(|s| &s[..12]), fpath);
+            }
 
             let file_id = if let Some((id, _, _)) = existing {
                 tx.execute(

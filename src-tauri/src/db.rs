@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 7;
+pub const SCHEMA_VERSION: i32 = 8;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -52,6 +52,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 7 {
         apply_v7(conn)?;
+    }
+    if current < 8 {
+        apply_v8(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -368,6 +371,17 @@ fn apply_v7(conn: &Connection) -> Result<()> {
             conn.execute("DELETE FROM platforms WHERE id=?1", [dup.clone()])?;
         }
     }
+    Ok(())
+}
+
+fn apply_v8(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE INDEX IF NOT EXISTS idx_metadata_records_game_field ON metadata_records(game_id, field);
+        CREATE INDEX IF NOT EXISTS idx_game_files_source_path ON game_files(source_id, path);
+        CREATE INDEX IF NOT EXISTS idx_games_title_platform ON games(title, platform_id);
+        "#,
+    )?;
     Ok(())
 }
 

@@ -232,7 +232,7 @@ pub fn scan_source(
                 files_found += 1;
                 // still emit progress occasionally
                 if let Some(a) = &app
-                    && (idx.is_multiple_of(50) || idx + 1 == files.len())
+                    && (idx.is_multiple_of(200) || idx + 1 == files.len())
                 {
                     let _ = a.emit(
                         "scan-progress",
@@ -265,7 +265,7 @@ pub fn scan_source(
             if gamelist_known.contains(&filename.to_lowercase()) {
                 // still emit progress
                 if let Some(a) = &app
-                    && (idx.is_multiple_of(50) || idx + 1 == files.len())
+                    && (idx.is_multiple_of(200) || idx + 1 == files.len())
                 {
                     let _ = a.emit(
                         "scan-progress",
