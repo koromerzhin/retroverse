@@ -44,6 +44,7 @@ pub fn run() {
             commands::list_sessions,
             commands::session_stats,
             commands::compute_hashes,
+            commands::compute_hashes_for_game,
             commands::export_backup,
             commands::import_backup,
             commands::list_transfer_jobs,

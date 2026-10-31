@@ -397,6 +397,32 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
 }
 
 #[tauri::command]
+pub fn compute_hashes_for_game(state: State<AppState>, game_id: String) -> Result<usize> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT gf.id, gf.path FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id WHERE l.game_id = ?1",
+    )?;
+    let rows: Vec<(String, String)> = stmt
+        .query_map([game_id.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    drop(stmt);
+
+    let mut done = 0usize;
+    for (fid, path) in rows {
+        let allowed: Vec<String> = Vec::new();
+        let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(&path, &allowed);
+        if sha256.is_some() {
+            conn.execute(
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5 WHERE id=?6",
+                params![sha256, crc32, md5, sha1, zip_inner, fid],
+            )?;
+            done += 1;
+        }
+    }
+    Ok(done)
+}
+
+#[tauri::command]
 pub fn list_transfer_jobs(state: State<AppState>) -> Result<Vec<serde_json::Value>> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn.prepare("SELECT id,status,created_at,total_bytes,transferred_bytes,error FROM transfer_jobs ORDER BY created_at DESC")?;
