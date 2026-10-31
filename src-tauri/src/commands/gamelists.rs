@@ -165,8 +165,19 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
             existing_games.insert(format!("{}|{}", title.to_lowercase(), pid.unwrap_or_default()), id);
         }
     }
+    // Pre-load existing metadata records into a set for O(1) lookup.
+    let mut existing_meta: std::collections::HashSet<String> = std::collections::HashSet::new();
+    {
+        let mut stmt = tx.prepare("SELECT game_id, field FROM metadata_records WHERE provider='es-de'")?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+        for r in rows {
+            let (gid, field) = r?;
+            existing_meta.insert(format!("{}|{}", gid, field));
+        }
+    }
 
     for (platform, content) in &gamelists {
+
         let entries = parse_gamelist(content);
         let platform_id: Option<String> = tx.query_row(
             "SELECT id FROM platforms WHERE slug=?1 OR id=?1",
@@ -174,7 +185,7 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
             |r| r.get(0),
         ).ok();
 
-        for e in entries {
+        for e in &entries {
             let key = format!("{}|{}", e.name.to_lowercase(), platform_id.clone().unwrap_or_default());
             let game_id = if let Some(gid) = existing_games.get(&key) {
                 gid.clone()
@@ -198,22 +209,22 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
                 ("release_date", e.releasedate.as_ref()),
             ];
             for (field, val) in fields {
+
                 if let Some(v) = val {
-                    let exists: bool = tx.query_row(
-                        "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND provider='es-de' AND field=?2",
-                        params![game_id, field],
-                        |r| r.get::<_, i64>(0),
-                    ).unwrap_or(0) > 0;
-                    if !exists {
+    
+                    let key = format!("{}|{}", game_id, field);
+                    if !existing_meta.contains(&key) {
                         let id = crate::models::new_id();
                         tx.execute(
                             "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
                             params![id, game_id, "es-de", field, v, "es-de", now],
                         )?;
+                        existing_meta.insert(key);
                     }
                 }
             }
             let _ = json!({});
+
         }
     }
 
