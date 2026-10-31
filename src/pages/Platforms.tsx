@@ -27,6 +27,7 @@ export default function Platforms() {
   const [scanningAll, setScanningAll] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "count">("name");
+  const [hideEmpty, setHideEmpty] = useState(true);
 
   const counts: Record<string, number> = {};
   games?.forEach((g: any) => {
@@ -34,12 +35,14 @@ export default function Platforms() {
     if (pid) counts[pid] = (counts[pid] || 0) + 1;
   });
 
-  const sortedPlatforms = [...(platforms || [])].sort((a, b) => {
-    if (sortBy === "count") {
-      return (counts[b.id] ?? 0) - (counts[a.id] ?? 0) || a.name.localeCompare(b.name);
-    }
-    return a.name.localeCompare(b.name);
-  });
+  const sortedPlatforms = [...(platforms || [])]
+    .filter((p) => !hideEmpty || (counts[p.id] ?? 0) > 0)
+    .sort((a, b) => {
+      if (sortBy === "count") {
+        return (counts[b.id] ?? 0) - (counts[a.id] ?? 0) || a.name.localeCompare(b.name);
+      }
+      return a.name.localeCompare(b.name);
+    });
 
   async function handleScanPlatform(p: Platform) {
     if (!sources || sources.length === 0) {
@@ -110,6 +113,10 @@ export default function Platforms() {
           <option value="name">{t("platforms.sort.name")}</option>
           <option value="count">{t("platforms.sort.count")}</option>
         </select>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)", marginLeft: 12 }}>
+          <input type="checkbox" checked={hideEmpty} onChange={(e) => setHideEmpty(e.target.checked)} />
+          Masquer les plateformes sans jeux
+        </label>
         <button className="btn primary" onClick={handleScanAll} disabled={scanningAll} style={{ marginLeft: "auto" }}>
           {scanningAll ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scanAll")}
         </button>
