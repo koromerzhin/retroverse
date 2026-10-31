@@ -397,21 +397,64 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
 }
 
 #[tauri::command]
-pub fn compute_hashes_for_game(state: State<AppState>, game_id: String) -> Result<usize> {
-    let conn = state.db.lock().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT gf.id, gf.path FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id WHERE l.game_id = ?1",
-    )?;
-    let rows: Vec<(String, String)> = stmt
-        .query_map([game_id.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    drop(stmt);
+pub async fn compute_hashes_for_game(
+    state: State<'_, AppState>,
+    game_id: String,
+) -> Result<usize> {
+    // gather files + source info
+    type FileInfo = (String, String, String, Option<String>, Option<String>);
+    let files: Vec<FileInfo> = {
+        let conn = state.db.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT gf.id, gf.path, gf.source_id, gs.kind, gs.connection_id FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id JOIN game_sources gs ON gs.id = gf.source_id WHERE l.game_id = ?1",
+        )?;
+        let rows = stmt.query_map([game_id.clone()], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    };
 
     let mut done = 0usize;
-    for (fid, path) in rows {
+    for (fid, path, _source_id, kind, connection_id) in files {
         let allowed: Vec<String> = Vec::new();
-        let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(&path, &allowed);
+        let result = if kind.as_deref() == Some("remote") {
+            // download file via SFTP
+            let (host, port, username, key_path) = {
+                let conn = state.db.lock().unwrap();
+                let cid = connection_id.ok_or_else(|| RetroError::Invalid("not remote".into()))?;
+                conn.query_row(
+                    "SELECT host,port,username,key_path FROM remote_connections WHERE id=?1",
+                    [cid],
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u16, r.get::<_, String>(2)?, r.get::<_, String>(3)?)),
+                )?
+            };
+            let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
+            // read file into memory
+            let mut f = sess.sftp.open(&path).await.map_err(|e| RetroError::Other(e.to_string()))?;
+            use tokio::io::AsyncReadExt;
+            let mut buf = Vec::new();
+            f.read_to_end(&mut buf).await.map_err(|e| RetroError::Other(e.to_string()))?;
+            let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+            let filename = std::path::Path::new(&path).file_name().and_then(|s| s.to_str()).unwrap_or(&path);
+            // handle 7z: need a temp file
+            let lower = path.to_lowercase();
+            if lower.ends_with(".7z") {
+                // write to temp file
+                let tmp = std::env::temp_dir().join(format!("retroverse_{}.7z", fid));
+                std::fs::write(&tmp, &buf).map_err(RetroError::Io)?;
+                let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
+                let _ = std::fs::remove_file(&tmp);
+                r
+            } else {
+                crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
+            }
+        } else {
+            crate::identify::compute_hashes(&path, &allowed)
+        };
+
+        let (sha256, crc32, md5, sha1, zip_inner) = result;
         if sha256.is_some() {
+            let conn = state.db.lock().unwrap();
             conn.execute(
                 "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5 WHERE id=?6",
                 params![sha256, crc32, md5, sha1, zip_inner, fid],
