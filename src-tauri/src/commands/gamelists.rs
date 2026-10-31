@@ -81,8 +81,7 @@ fn emulation_root_from_source_path(path: &str) -> String {
     p.parent().unwrap_or(p).to_string_lossy().to_string()
 }
 
-#[tauri::command]
-pub async fn import_gamelists(state: State<'_, AppState>, source_id: String) -> Result<usize> {
+pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Result<usize> {
     // get source info
     let (kind, path, remote_path, connection_id) = {
         let conn = state.db.lock().unwrap();
@@ -99,6 +98,7 @@ pub async fn import_gamelists(state: State<'_, AppState>, source_id: String) -> 
 
     // Collect gamelist contents (local or remote)
     let mut gamelists: Vec<(String, String)> = Vec::new(); // (platform, content)
+
 
     if kind == "remote" {
         let cid = connection_id.ok_or_else(|| RetroError::Invalid("not remote".into()))?;
@@ -129,6 +129,7 @@ pub async fn import_gamelists(state: State<'_, AppState>, source_id: String) -> 
                 }
             }
         }
+    
         let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
     } else {
         let gl_dir = std::path::Path::new(&emu_root).join("saves").join("es-de").join("gamelists");
@@ -148,78 +149,79 @@ pub async fn import_gamelists(state: State<'_, AppState>, source_id: String) -> 
         }
     }
 
-    // Import
+
+    // Import (optimized with in-memory game lookup + transaction)
     let mut imported = 0usize;
-    let conn = state.db.lock().unwrap();
+    let mut conn = state.db.lock().unwrap();
+    let tx = conn.transaction()?;
+
+    // Pre-load existing games into a map for O(1) lookup.
+    let mut existing_games: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    {
+        let mut stmt = tx.prepare("SELECT id, title, platform_id FROM games")?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<String>>(2)?)))?;
+        for r in rows {
+            let (id, title, pid) = r?;
+            existing_games.insert(format!("{}|{}", title.to_lowercase(), pid.unwrap_or_default()), id);
+        }
+    }
+
     for (platform, content) in &gamelists {
         let entries = parse_gamelist(content);
+        let platform_id: Option<String> = tx.query_row(
+            "SELECT id FROM platforms WHERE slug=?1 OR id=?1",
+            [platform.clone()],
+            |r| r.get(0),
+        ).ok();
+
         for e in entries {
-            // find platform id by slug
-            let platform_id: Option<String> = conn.query_row(
-                "SELECT id FROM platforms WHERE slug=?1 OR id=?1",
-                [platform.clone()],
-                |r| r.get(0),
-            ).ok();
-
-            // find or create game
-            let existing_game: Option<String> = conn.query_row(
-                "SELECT id FROM games WHERE LOWER(title)=LOWER(?1) AND (platform_id IS ?2 OR platform_id=?2)",
-                params![e.name, platform_id],
-                |r| r.get(0),
-            ).ok();
-
-            let game_id = if let Some(gid) = existing_game {
-                gid
+            let key = format!("{}|{}", e.name.to_lowercase(), platform_id.clone().unwrap_or_default());
+            let game_id = if let Some(gid) = existing_games.get(&key) {
+                gid.clone()
             } else {
                 let gid = crate::models::new_id();
-                conn.execute(
+                tx.execute(
                     "INSERT INTO games (id,title,platform_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5)",
                     params![gid, e.name, platform_id, chrono::Utc::now().to_rfc3339(), chrono::Utc::now().to_rfc3339()],
                 )?;
+                existing_games.insert(key, gid.clone());
                 imported += 1;
                 gid
             };
 
-            // store metadata
             let now = chrono::Utc::now().to_rfc3339();
-            if let Some(desc) = &e.desc {
-                let id = crate::models::new_id();
-                conn.execute(
-                    "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
-                    params![id, game_id, "es-de", "description", desc, "es-de", now],
-                )?;
-            }
-            if let Some(dev) = &e.developer {
-                let id = crate::models::new_id();
-                conn.execute(
-                    "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
-                    params![id, game_id, "es-de", "developer", dev, "es-de", now],
-                )?;
-            }
-            if let Some(pub_) = &e.publisher {
-                let id = crate::models::new_id();
-                conn.execute(
-                    "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
-                    params![id, game_id, "es-de", "publisher", pub_, "es-de", now],
-                )?;
-            }
-            if let Some(genre) = &e.genre {
-                let id = crate::models::new_id();
-                conn.execute(
-                    "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
-                    params![id, game_id, "es-de", "genre", genre, "es-de", now],
-                )?;
-            }
-            if let Some(rd) = &e.releasedate {
-                let id = crate::models::new_id();
-                conn.execute(
-                    "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
-                    params![id, game_id, "es-de", "release_date", rd, "es-de", now],
-                )?;
+            let fields: Vec<(&str, Option<&String>)> = vec![
+                ("description", e.desc.as_ref()),
+                ("developer", e.developer.as_ref()),
+                ("publisher", e.publisher.as_ref()),
+                ("genre", e.genre.as_ref()),
+                ("release_date", e.releasedate.as_ref()),
+            ];
+            for (field, val) in fields {
+                if let Some(v) = val {
+                    let exists: bool = tx.query_row(
+                        "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND provider='es-de' AND field=?2",
+                        params![game_id, field],
+                        |r| r.get::<_, i64>(0),
+                    ).unwrap_or(0) > 0;
+                    if !exists {
+                        let id = crate::models::new_id();
+                        tx.execute(
+                            "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                            params![id, game_id, "es-de", field, v, "es-de", now],
+                        )?;
+                    }
+                }
             }
             let _ = json!({});
         }
     }
 
+    tx.commit()?;
     Ok(imported)
+}
+
+#[tauri::command]
+pub async fn import_gamelists(state: State<'_, AppState>, source_id: String) -> Result<usize> {
+    import_gamelists_inner(&state, source_id).await
 }
