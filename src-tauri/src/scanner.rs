@@ -386,6 +386,9 @@ pub fn scan_source(
         rusqlite::params![job_id, source_id, "completed", Utc::now().to_rfc3339(), Utc::now().to_rfc3339(), total_files_found as i64],
     )?;
 
+    // Clean up orphan games (no linked files).
+    let _ = crate::db::cleanup_orphan_games(conn);
+
     if let Some(a) = &app {
         let _ = a.emit(
             "scan-progress",

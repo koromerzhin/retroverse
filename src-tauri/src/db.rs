@@ -18,7 +18,17 @@ pub fn open() -> Result<Connection> {
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     migrate(&conn)?;
+    let _ = cleanup_orphan_games(&conn);
     Ok(conn)
+}
+
+pub fn cleanup_orphan_games(conn: &Connection) -> Result<usize> {
+    // Delete games that have no linked files.
+    let n = conn.execute(
+        "DELETE FROM games WHERE id NOT IN (SELECT DISTINCT game_id FROM game_file_links)",
+        [],
+    )?;
+    Ok(n)
 }
 
 pub fn migrate(conn: &Connection) -> Result<()> {
