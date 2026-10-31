@@ -100,6 +100,64 @@ pub type Hashes = (Option<String>, Option<String>, Option<String>, Option<String
 
 pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
     let lower = path.to_lowercase();
+    if lower.ends_with(".7z") {
+        let mut inner_name: Option<String> = None;
+        let mut sha256 = Sha256::new();
+        let mut md5h = Md5Context::new();
+        let mut sha1h = Sha1::new();
+        let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+        let mut crc_digest = crc.digest();
+        let mut found = false;
+        let mut buf = [0u8; 65536];
+        let _ = sevenz_rust::decompress_file_with_extract_fn(
+            path,
+            std::path::Path::new("/dev/null"),
+            |entry, reader, _dest| {
+                if found {
+                    return Ok(false);
+                }
+                if entry.is_directory() {
+                    return Ok(false);
+                }
+                let name = entry.name().to_string();
+                let ext = std::path::Path::new(&name)
+                    .extension()
+                    .and_then(|x| x.to_str())
+                    .map(|x| format!(".{}", x.to_lowercase()))
+                    .unwrap_or_default();
+                if !allowed_exts.is_empty()
+                    && !allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&ext))
+                {
+                    return Ok(false);
+                }
+                inner_name = Some(name);
+                found = true;
+                loop {
+                    match reader.read(&mut buf) {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            sha256.update(&buf[..n]);
+                            md5h.consume(&buf[..n]);
+                            sha1h.update(&buf[..n]);
+                            crc_digest.update(&buf[..n]);
+                        }
+                        Err(_) => break,
+                    }
+                }
+                Ok(false)
+            },
+        );
+        if found {
+            return (
+                Some(format!("{:x}", sha256.finalize())),
+                Some(format!("{:08x}", crc_digest.finalize())),
+                Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+                Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+                inner_name,
+            );
+        }
+    }
+
     if lower.ends_with(".zip")
         && let Ok(file) = std::fs::File::open(path)
         && let Ok(mut archive) = zip::ZipArchive::new(file)
