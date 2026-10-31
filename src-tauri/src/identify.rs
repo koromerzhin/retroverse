@@ -98,8 +98,84 @@ use std::io::Read;
 /// Returns (sha256, crc32, md5, sha1, zip_inner).
 pub type Hashes = (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
 
+/// Compute hashes from raw bytes (for remote files).
+pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[String]) -> Hashes {
+    let lower = filename.to_lowercase();
+    // Try zip
+    if lower.ends_with(".zip")
+        && let Ok(mut archive) = zip::ZipArchive::new(std::io::Cursor::new(data))
+    {
+        let mut idx = None;
+        for i in 0..archive.len() {
+            if let Ok(e) = archive.by_index(i) {
+                if e.is_dir() {
+                    continue;
+                }
+                let name = e.name().to_string();
+                let ext = std::path::Path::new(&name)
+                    .extension()
+                    .and_then(|x| x.to_str())
+                    .map(|x| format!(".{}", x.to_lowercase()))
+                    .unwrap_or_default();
+                if allowed_exts.is_empty() || allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&ext)) {
+                    idx = Some(i);
+                    break;
+                }
+            }
+        }
+        if let Some(i) = idx
+            && let Ok(mut entry) = archive.by_index(i)
+        {
+            let inner_name = entry.name().to_string();
+            let mut buf = [0u8; 65536];
+            let mut sha256 = Sha256::new();
+            let mut md5h = Md5Context::new();
+            let mut sha1h = Sha1::new();
+            let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+            let mut crc_digest = crc.digest();
+            loop {
+                match entry.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        sha256.update(&buf[..n]);
+                        md5h.consume(&buf[..n]);
+                        sha1h.update(&buf[..n]);
+                        crc_digest.update(&buf[..n]);
+                    }
+                    Err(_) => break,
+                }
+            }
+            return (
+                Some(format!("{:x}", sha256.finalize())),
+                Some(format!("{:08x}", crc_digest.finalize())),
+                Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+                Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+                Some(inner_name),
+            );
+        }
+    }
+    // Hash the bytes themselves
+    let mut sha256 = Sha256::new();
+    let mut md5h = Md5Context::new();
+    let mut sha1h = Sha1::new();
+    let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+    let mut crc_digest = crc.digest();
+    sha256.update(data);
+    md5h.consume(data);
+    sha1h.update(data);
+    crc_digest.update(data);
+    (
+        Some(format!("{:x}", sha256.finalize())),
+        Some(format!("{:08x}", crc_digest.finalize())),
+        Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+        Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+        None,
+    )
+}
+
 pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
     let lower = path.to_lowercase();
+    // 7z
     if lower.ends_with(".7z") {
         let mut inner_name: Option<String> = None;
         let mut sha256 = Sha256::new();
@@ -157,92 +233,16 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
             );
         }
     }
-
-    if lower.ends_with(".zip")
-        && let Ok(file) = std::fs::File::open(path)
-        && let Ok(mut archive) = zip::ZipArchive::new(file)
-    {
-                // find first file entry with a supported extension
-                let mut idx = None;
-                for i in 0..archive.len() {
-                    if let Ok(e) = archive.by_index(i) {
-                        if e.is_dir() { continue; }
-                        let name = e.name().to_string();
-                        let ext = std::path::Path::new(&name)
-                            .extension()
-                            .and_then(|x| x.to_str())
-                            .map(|x| format!(".{}", x.to_lowercase()))
-                            .unwrap_or_default();
-                        if allowed_exts.is_empty() || allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&ext)) {
-                            idx = Some(i);
-                            break;
-                        }
-                    }
-                }
-                if let Some(i) = idx
-                    && let Ok(mut entry) = archive.by_index(i)
-                {
-                        let inner_name = entry.name().to_string();
-                        let mut buf = [0u8; 65536];
-                        let mut sha256 = Sha256::new();
-                        let mut md5h = Md5Context::new();
-                        let mut sha1h = Sha1::new();
-                        let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
-                        let mut crc_digest = crc.digest();
-                        loop {
-                            match entry.read(&mut buf) {
-                                Ok(0) => break,
-                                Ok(n) => {
-                                    sha256.update(&buf[..n]);
-                                    md5h.consume(&buf[..n]);
-                                    sha1h.update(&buf[..n]);
-                                    crc_digest.update(&buf[..n]);
-                                }
-                                Err(_) => break,
-                            }
-                        }
-                        return (
-                            Some(format!("{:x}", sha256.finalize())),
-                            Some(format!("{:08x}", crc_digest.finalize())),
-                            Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
-                            Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
-                            Some(inner_name),
-                        );
+    // read file and delegate (zip handled in bytes, normal file hashed directly)
+    if let Ok(data) = std::fs::read(path) {
+        let filename = std::path::Path::new(path).file_name().and_then(|s| s.to_str()).unwrap_or(path);
+        if !lower.ends_with(".7z") {
+            return compute_hashes_from_bytes(&data, filename, allowed_exts);
         }
-        // fallback: hash the zip itself
-    }
-    // hash the file itself
-    if let Ok(mut f) = std::fs::File::open(path) {
-        let mut buf = [0u8; 65536];
-        let mut sha256 = Sha256::new();
-        let mut md5h = Md5Context::new();
-        let mut sha1h = Sha1::new();
-        let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
-        let mut crc_digest = crc.digest();
-        loop {
-            match f.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    sha256.update(&buf[..n]);
-                    md5h.consume(&buf[..n]);
-                    sha1h.update(&buf[..n]);
-                    crc_digest.update(&buf[..n]);
-                }
-                Err(_) => break,
-            }
-        }
-        return (
-            Some(format!("{:x}", sha256.finalize())),
-            Some(format!("{:08x}", crc_digest.finalize())),
-            Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
-            Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
-            None,
-        );
     }
     (None, None, None, None, None)
 }
 
-/// Parse gamelist.xml and return a set of game file basenames (lowercased).
 pub fn parse_gamelist_paths(content: &str) -> std::collections::HashSet<String> {
     let mut set = std::collections::HashSet::new();
     // simple regex-free parse: find <path>...</path>
