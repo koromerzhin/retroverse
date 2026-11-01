@@ -17,9 +17,10 @@ export const api = {
   scanRemoteFolder: (sourceId: string, folderPath: string, platformFilter?: string) => invoke<any>("scan_remote_folder", { sourceId, folderPath, platformFilter }),
   copyRemoteFiles: (sourceId: string, fileIds: string[], destDir: string) =>
     invoke<any>("copy_remote_files", { sourceId, fileIds, destDir }),
-  listGames: (platform?: string, search?: string) => invoke<any[]>("list_games", { platform, search }),
+  listGames: (platform?: string, search?: string, limit?: number, offset?: number) => invoke<any>("list_games", { platform, search, limit, offset }),
   getGame: (id: string) => invoke<any>("get_game", { id }),
-  searchGamesFts: (query: string) => invoke<any[]>("search_games_fts", { query }),
+  searchGamesFts: (query: string, limit?: number, offset?: number) => invoke<any>("search_games_fts", { query, limit, offset }),
+  platformGameCounts: () => invoke<any>("platform_game_counts"),
   findDuplicates: () => invoke<any[]>("find_duplicates"),
   listCollections: () => invoke<any[]>("list_collections"),
   createCollection: (name: string) => invoke<any>("create_collection", { name }),

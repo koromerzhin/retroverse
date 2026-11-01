@@ -28,28 +28,28 @@ export default function Library() {
     queryKey: ["platforms"],
     queryFn: () => api.listPlatforms(),
   });
-  const { data: allGames } = useQuery<LibraryEntry[]>({
-    queryKey: ["games"],
-    queryFn: () => api.listGames(),
+  const { data: platformCountsData } = useQuery<any>({
+    queryKey: ["platform-game-counts"],
+    queryFn: () => api.platformGameCounts(),
+    staleTime: 60_000,
   });
-  const { data: games, isLoading, refetch } = useQuery<LibraryEntry[]>({
-    queryKey: ["games", platform, search],
+  const { data: result, isLoading, refetch } = useQuery<{ items: LibraryEntry[]; total: number }>({
+    queryKey: ["games", platform, search, page],
     queryFn: async () => {
-      const base = search.trim() ? await api.searchGamesFts(search.trim()) : await api.listGames();
-      if (platform) return base.filter((g: any) => g.game.platform_id === platform);
-      return base;
+      const r = search.trim()
+        ? await api.searchGamesFts(search.trim(), pageSize, (page - 1) * pageSize)
+        : await api.listGames(platform, undefined, pageSize, (page - 1) * pageSize);
+      return r;
     },
   });
 
-  const platformCounts: Record<string, number> = {};
-  allGames?.forEach((g: any) => {
-    const pid = g.game.platform_id;
-    if (pid) platformCounts[pid] = (platformCounts[pid] || 0) + 1;
-  });
+  const games = result?.items ?? [];
+  const total = result?.total ?? 0;
+
+  const platformCounts: Record<string, number> = platformCountsData || {};
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
 
-  const totalPages = Math.max(1, Math.ceil((games?.length ?? 0) / pageSize));
-  const paged = (games || []).slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <>
@@ -92,7 +92,7 @@ export default function Library() {
 
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
-      ) : (games?.length ?? 0) === 0 ? (
+      ) : total === 0 ? (
         <div className="empty">
           <div className="icon">📚</div>
           <p>{t("library.empty")}</p>
@@ -101,7 +101,7 @@ export default function Library() {
         <>
         {view === "cards" ? (
         <div className="grid games">
-          {paged.map((e) => (
+          {games.map((e) => (
             <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
               <div className="cover">🎮</div>
               <div className="info">
@@ -121,7 +121,7 @@ export default function Library() {
             </tr>
           </thead>
           <tbody>
-            {paged.map((e) => (
+            {games.map((e) => (
               <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer" }}>
                 <td>{e.game.title}</td>
                 <td>{e.platform?.name ?? "Inconnu"}</td>

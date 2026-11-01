@@ -72,6 +72,7 @@ pub fn run() {
             commands::get_game_metadata,
             commands::get_game,
             commands::search_games_fts,
+            commands::platform_game_counts,
             commands::find_duplicates,
             commands::list_collections,
             commands::create_collection,
