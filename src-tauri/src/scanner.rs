@@ -229,10 +229,25 @@ pub fn scan_source(
                     )
                     .ok();
 
+                // Also reprocess if platform_id is wrong (e.g. old scan set arcade for a .zip in a console folder).
+                let platform_ok = if let Some((_id, _, _, _)) = &existing {
+                    let stored: Option<String> = tx
+                        .query_row(
+                            "SELECT platform_id FROM game_files WHERE source_id=?1 AND path=?2",
+                            rusqlite::params![source_id, fpath],
+                            |r| r.get(0),
+                        )
+                        .ok()
+                        .flatten();
+                    stored == platform_id
+                } else {
+                    true
+                };
                 if let Some((_id, old_size, old_mtime, needs_hash)) = &existing
                     && *old_size == *size as i64
                     && *old_mtime == *mtime
                     && !needs_hash
+                    && platform_ok
                 {
                     found_paths.push(fpath.clone());
                     files_found += 1;

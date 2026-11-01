@@ -481,10 +481,25 @@ pub async fn scan_remote_source_inner(
                 )
                 .unwrap_or(true)
             }).unwrap_or(true);
+            // Also reprocess if platform_id is wrong.
+            let platform_ok = if let Some((_id, _, _)) = &existing {
+                let stored: Option<String> = tx
+                    .query_row(
+                        "SELECT platform_id FROM game_files WHERE source_id=?1 AND path=?2",
+                        params![source_id, fpath],
+                        |r| r.get(0),
+                    )
+                    .ok()
+                    .flatten();
+                stored == platform_id
+            } else {
+                true
+            };
             if let Some((_id, old_size, old_mtime)) = &existing
                 && *old_size == *size
                 && *old_mtime == *mtime
                 && !needs_hash
+                && platform_ok
             {
                 files_found += 1;
                 continue;
