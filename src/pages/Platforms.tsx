@@ -36,17 +36,25 @@ export default function Platforms() {
       if (s.kind !== "local") continue;
       const folder = `${s.path}/${p.id}`;
       try {
-        const { exists } = await import("@tauri-apps/plugin-fs");
-        if (await exists(folder)) {
-          const { openPath } = await import("@tauri-apps/plugin-opener");
-          await openPath(folder);
-          return;
-        }
+        const { openPath } = await import("@tauri-apps/plugin-opener");
+        await openPath(folder);
+        return;
       } catch (e: any) {
-        // try next
+        // try next source
       }
     }
-    // fallback: show path
+    // fallback: try the source path itself
+    const local = sources.find((s) => s.kind === "local");
+    if (local) {
+      try {
+        const { openPath } = await import("@tauri-apps/plugin-opener");
+        await openPath(local.path);
+        return;
+      } catch (e: any) {
+        alert(`Impossible d'ouvrir : ${local.path} (${e})`);
+        return;
+      }
+    }
     const remote = sources.find((s) => s.kind === "remote");
     if (remote) {
       alert(`Dossier distant : ${remote.remote_path || remote.path}/${p.id}`);
