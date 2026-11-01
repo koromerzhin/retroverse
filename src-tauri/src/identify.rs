@@ -22,7 +22,7 @@ pub fn load_platforms(conn: &Connection) -> crate::error::Result<Vec<Platform>> 
     let mut out = Vec::new();
     for r in rows {
         let p = r?;
-        if p.slug == "desktop" || p.slug == "emulators" {
+        if p.slug == "desktop" || p.slug == "emulators" || p.slug == "epic" || p.slug == "steam" {
             continue;
         }
         out.push(p);
@@ -291,6 +291,9 @@ pub fn parse_systems_txt(content: &str) -> Vec<(String, String)> {
 /// Ensure platforms exist for each (slug, name) from systems.txt.
 pub fn ensure_platforms(conn: &rusqlite::Connection, systems: &[(String, String)]) -> crate::error::Result<()> {
     for (slug, name) in systems {
+        if slug == "desktop" || slug == "emulators" || slug == "epic" || slug == "steam" {
+            continue;
+        }
         // Skip if a platform with this name already exists.
         let exists: bool = conn
             .query_row(
