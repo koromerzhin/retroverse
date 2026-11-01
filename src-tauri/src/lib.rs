@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod config;
 pub mod db;
 pub mod error;
 pub mod identify;
@@ -67,6 +68,8 @@ pub fn run() {
             commands::reset_database,
             commands::clear_library,
             commands::get_system_locale,
+            commands::get_provider_config,
+            commands::set_provider_config,
             commands::import_gamelists,
         ])
         .setup(|app| {

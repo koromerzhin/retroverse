@@ -6,7 +6,7 @@ use tauri::State;
 
 #[tauri::command]
 pub fn list_metadata_providers() -> Vec<String> {
-    metadata::providers()
+    metadata::providers_with_config(&crate::config::load())
         .iter()
         .map(|p| p.name().to_string())
         .collect()
@@ -28,7 +28,7 @@ pub async fn enrich_game(
         )?
     };
 
-    let prov = metadata::provider_by_name(&provider)
+    let prov = metadata::provider_by_name_with_config(&provider, &crate::config::load())
         .ok_or_else(|| RetroError::Invalid("unknown provider".into()))?;
 
     let res = prov.fetch(&title, platform.as_deref())?;

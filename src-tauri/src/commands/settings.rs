@@ -1,3 +1,4 @@
+use crate::config;
 use crate::error::Result;
 use crate::state::AppState;
 use serde::Serialize;
@@ -70,6 +71,16 @@ pub fn clear_library(state: State<AppState>) -> Result<()> {
     }
     conn.execute("PRAGMA foreign_keys = ON", [])?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_provider_config() -> config::ProviderConfig {
+    config::load()
+}
+
+#[tauri::command]
+pub fn set_provider_config(cfg: config::ProviderConfig) -> Result<()> {
+    config::save(&cfg)
 }
 
 #[tauri::command]

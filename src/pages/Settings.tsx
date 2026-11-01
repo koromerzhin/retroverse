@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useI18n, LANGS } from "../i18n";
@@ -7,6 +7,9 @@ import type { AppInfo } from "../types";
 export default function Settings() {
   const qc = useQueryClient();
   const { t, lang, setLang } = useI18n();
+  const { data: provCfg } = useQuery({ queryKey: ["providerConfig"], queryFn: () => api.getProviderConfig() });
+  const [pc, setPc] = useState<any>(null);
+  useEffect(() => { if (provCfg) setPc(provCfg); }, [provCfg]);
   const { data } = useQuery<AppInfo>({
     queryKey: ["appInfo"],
     queryFn: () => api.appInfo(),
@@ -67,6 +70,44 @@ export default function Settings() {
         <select className="select" style={{ maxWidth: 260 }} value={lang} onChange={(e) => setLang(e.target.value as any)}>
           {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
         </select>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Fournisseurs de métadonnées</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Configurez les clés API pour ScreenScraper et TheGamesDB.</p>
+        {pc && (
+          <>
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>ScreenScraper dev id</label>
+              <input className="input" value={pc.screenscraper_devid || ""} onChange={(e) => setPc({ ...pc, screenscraper_devid: e.target.value })} />
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>ScreenScraper dev password</label>
+              <input className="input" type="password" value={pc.screenscraper_devpassword || ""} onChange={(e) => setPc({ ...pc, screenscraper_devpassword: e.target.value })} />
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>ScreenScraper user id (ssid)</label>
+              <input className="input" value={pc.screenscraper_ssid || ""} onChange={(e) => setPc({ ...pc, screenscraper_ssid: e.target.value })} />
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>ScreenScraper user password</label>
+              <input className="input" type="password" value={pc.screenscraper_sspassword || ""} onChange={(e) => setPc({ ...pc, screenscraper_sspassword: e.target.value })} />
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>TheGamesDB API key</label>
+              <input className="input" value={pc.tgdb_apikey || ""} onChange={(e) => setPc({ ...pc, tgdb_apikey: e.target.value })} />
+            </div>
+            <button className="btn primary" style={{ marginTop: 12 }} onClick={async () => {
+              try {
+                await api.setProviderConfig(pc);
+                qc.invalidateQueries({ queryKey: ["providerConfig"] });
+                setMsg("Configuration enregistrée.");
+              } catch (e: any) {
+                setMsg(String(e));
+              }
+            }}>Enregistrer</button>
+          </>
+        )}
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
