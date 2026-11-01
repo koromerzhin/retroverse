@@ -31,6 +31,10 @@ export default function App() {
   const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number } | null>(null);
   const [hashDetails, setHashDetails] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const notifyToast = (msg: string) => {
+    setToast(msg);
+    api.showNotification("RETROVERSE", msg).catch(() => {});
+  };
   const [scanDetails, setScanDetails] = useState(false);
   const [sources, setSources] = useState<any[]>([]);
   const lastProgressUpdate = useRef(0);
@@ -74,11 +78,11 @@ export default function App() {
     listen<any>("hash-progress", (ev) => {
       if (ev.payload?.status === "cancelled") {
         setHashProgress(null);
-        setToast("Calcul annulé");
+        notifyToast("Calcul annulé");
         setTimeout(() => setToast(null), 4000);
       } else if (ev.payload?.status === "done") {
         setHashProgress(null);
-        setToast(`Empreintes calculées : ${ev.payload?.done ?? 0} fichier(s)`);
+        notifyToast(`Empreintes calculées : ${ev.payload?.done ?? 0} fichier(s)`);
         setTimeout(() => setToast(null), 5000);
       } else {
         setHashProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", file: ev.payload?.file, done: ev.payload?.done });
@@ -97,11 +101,11 @@ export default function App() {
       lastProgressUpdate.current = now;
       if (ev.payload?.status === "cancelled") {
         setScanProgress(null);
-        setToast("Scan annulé");
+        notifyToast("Scan annulé");
         setTimeout(() => setToast(null), 4000);
       } else if (ev.payload?.status === "skipped") {
         setScanProgress(null);
-        setToast("Source inaccessible — scan ignoré");
+        notifyToast("Source inaccessible — scan ignoré");
         setTimeout(() => setToast(null), 4000);
       } else if (ev.payload?.status === "done") {
         setScanProgress((prev) => ({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id ?? prev?.sourceId, file: ev.payload?.file ?? prev?.file, folder: ev.payload?.folder ?? prev?.folder }));
@@ -114,7 +118,7 @@ export default function App() {
         } else {
           msg += ` : ${formatNumber(files)} fichier(s), aucune nouveauté`;
         }
-        setToast(msg);
+        notifyToast(msg);
         setTimeout(() => setScanProgress(null), 3000);
         setTimeout(() => setToast(null), 5000);
       } else {
