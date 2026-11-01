@@ -93,15 +93,27 @@ pub fn remove_source(state: State<AppState>, id: String) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn scan_source(state: State<AppState>, app: tauri::AppHandle, source_id: String, folder: Option<String>, platform_filter: Option<String>) -> Result<ScanResult> {
+pub async fn scan_source(state: State<'_, AppState>, app: tauri::AppHandle, source_id: String, folder: Option<String>, platform_filter: Option<String>) -> Result<ScanResult> {
     state.cancel_scan.store(false, Ordering::SeqCst);
-    scanner::scan_source(&state, &source_id, Some(app), state.cancel_scan.clone(), folder, platform_filter)
+    let state = state.inner().clone();
+    let cancel = state.cancel_scan.clone();
+    tokio::task::spawn_blocking(move || {
+        scanner::scan_source(&state, &source_id, Some(app), cancel, folder, platform_filter)
+    })
+    .await
+    .map_err(|e| RetroError::Other(e.to_string()))?
 }
 
 #[tauri::command]
-pub fn scan_local_folder(state: State<AppState>, app: tauri::AppHandle, source_id: String, folder_path: String, platform_filter: Option<String>) -> Result<ScanResult> {
+pub async fn scan_local_folder(state: State<'_, AppState>, app: tauri::AppHandle, source_id: String, folder_path: String, platform_filter: Option<String>) -> Result<ScanResult> {
     state.cancel_scan.store(false, Ordering::SeqCst);
-    scanner::scan_source(&state, &source_id, Some(app), state.cancel_scan.clone(), Some(folder_path), platform_filter)
+    let state = state.inner().clone();
+    let cancel = state.cancel_scan.clone();
+    tokio::task::spawn_blocking(move || {
+        scanner::scan_source(&state, &source_id, Some(app), cancel, Some(folder_path), platform_filter)
+    })
+    .await
+    .map_err(|e| RetroError::Other(e.to_string()))?
 }
 
 #[tauri::command]
