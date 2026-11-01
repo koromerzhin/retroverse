@@ -84,12 +84,12 @@ export default function Platforms() {
   }
 
   async function handleScanAll() {
-    if (!sortedPlatforms || sortedPlatforms.length === 0) {
+    if (!platforms || platforms.length === 0) {
       setMsg("Aucune plateforme.");
       return;
     }
     setScanningAll(true);
-    for (const p of sortedPlatforms) {
+    for (const p of platforms) {
       if ((counts[p.id] ?? 0) === 0 && hideEmpty) {
         // skip empty platforms if hidden, but still allow scanning
       }

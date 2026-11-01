@@ -85,7 +85,7 @@ export default function App() {
         setToast("Source inaccessible — scan ignoré");
         setTimeout(() => setToast(null), 4000);
       } else if (ev.payload?.status === "done") {
-        setScanProgress(null);
+        setScanProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id, file: ev.payload?.file });
         const created = ev.payload?.games_created ?? 0;
         const updated = ev.payload?.games_updated ?? 0;
         const files = ev.payload?.files_found ?? 0;
@@ -96,6 +96,7 @@ export default function App() {
           msg += ` : ${formatNumber(files)} fichier(s), aucune nouveauté`;
         }
         setToast(msg);
+        setTimeout(() => setScanProgress(null), 3000);
         setTimeout(() => setToast(null), 5000);
       } else {
         setScanProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", sourceId: ev.payload?.source_id, file: ev.payload?.file });
