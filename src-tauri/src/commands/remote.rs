@@ -443,9 +443,18 @@ pub async fn scan_remote_source_inner(
             if skip {
                 chunk_hashes.push((None, None, None, None, None));
             } else {
-                chunk_hashes.push(crate::remote::compute_hashes(&sess.sftp, fpath, allowed).await);
+                tracing::info!("hashing remote file: {}", fpath);
+                // Timeout per file to avoid hanging.
+                let h = tokio::time::timeout(
+                    std::time::Duration::from_secs(30),
+                    crate::remote::compute_hashes(&sess.sftp, fpath, allowed),
+                )
+                .await
+                .unwrap_or((None, None, None, None, None));
+                chunk_hashes.push(h);
             }
-            if chunk_hashes.len().is_multiple_of(100)
+            // Emit progress with current file (every 5 files to limit IPC overhead).
+            if (chunk_hashes.len().is_multiple_of(5) || chunk_hashes.len() == chunk.len())
                 && let Some(a) = &app
             {
                 use tauri::Emitter;
