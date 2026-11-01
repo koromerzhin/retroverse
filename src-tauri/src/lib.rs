@@ -111,9 +111,10 @@ pub fn run() {
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
 
-            // Backend initialization is complete: reveal the main window.
-            // The splashscreen stays on top until the frontend signals readiness.
-            let _ = main_window.show();
+            tracing::info!("setup: main present={}, splash present={}", app.get_webview_window("main").is_some(), app.get_webview_window("splashscreen").is_some());
+            // Keep the main window hidden during startup; it is revealed by app_ready.
+            // (Config marks it visible so the webview loads and runs the frontend.)
+            let _ = main_window.hide();
 
             Ok(())
         })
