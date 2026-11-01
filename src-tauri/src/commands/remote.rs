@@ -410,35 +410,18 @@ pub async fn scan_remote_source_inner(
                     games_updated,
                 });
             }
-            let needs = {
+            let (old_size, old_mtime, needs) = {
                 let conn = state.db.lock().unwrap();
                 conn.query_row(
-                    "SELECT hash, crc32, md5, sha1 FROM game_files WHERE source_id=?1 AND path=?2",
+                    "SELECT size, modified_at, (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL) FROM game_files WHERE source_id=?1 AND path=?2",
                     params![source_id, fpath],
-                    |r| {
-                        let h: Option<String> = r.get(0)?;
-                        let c: Option<String> = r.get(1)?;
-                        let m: Option<String> = r.get(2)?;
-                        let s: Option<String> = r.get(3)?;
-                        Ok(h.is_none() || c.is_none() || m.is_none() || s.is_none())
-                    },
+                    |r| Ok((r.get::<_, i64>(0).ok(), r.get::<_, i64>(1).ok(), r.get::<_, i64>(2).unwrap_or(1) != 0)),
                 )
-                .unwrap_or(true)
+                .unwrap_or((None, None, true))
             };
-            let skip = {
-                let conn = state.db.lock().unwrap();
-                let row: Option<(i64, i64)> = conn
-                    .query_row(
-                        "SELECT size, modified_at FROM game_files WHERE source_id=?1 AND path=?2",
-                        params![source_id, fpath],
-                        |r| Ok((r.get(0)?, r.get(1)?)),
-                    )
-                    .ok();
-                if let Some((old_size, old_mtime)) = row {
-                    old_size == *_size && old_mtime == *_mtime && !needs
-                } else {
-                    false
-                }
+            let skip = match (old_size, old_mtime) {
+                (Some(os), Some(om)) => os == *_size && om == *_mtime && !needs,
+                _ => false,
             };
             if skip {
                 chunk_hashes.push((None, None, None, None, None));
@@ -485,19 +468,15 @@ pub async fn scan_remote_source_inner(
                 .ok();
 
             // Incremental: skip unchanged files only if hashes already present.
-            let needs_hash = tx
-                .query_row(
-                    "SELECT hash, crc32, md5, sha1 FROM game_files WHERE source_id=?1 AND path=?2",
+            let needs_hash = existing.as_ref().map(|_| {
+                // check hashes
+                tx.query_row(
+                    "SELECT (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL) FROM game_files WHERE source_id=?1 AND path=?2",
                     params![source_id, fpath],
-                    |r| {
-                        let h: Option<String> = r.get(0)?;
-                        let c: Option<String> = r.get(1)?;
-                        let m: Option<String> = r.get(2)?;
-                        let s: Option<String> = r.get(3)?;
-                        Ok(h.is_none() || c.is_none() || m.is_none() || s.is_none())
-                    },
+                    |r| r.get::<_, i64>(0).map(|v| v != 0),
                 )
-                .unwrap_or(true);
+                .unwrap_or(true)
+            }).unwrap_or(true);
             if let Some((_id, old_size, old_mtime)) = &existing
                 && *old_size == *size
                 && *old_mtime == *mtime

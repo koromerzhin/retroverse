@@ -215,29 +215,16 @@ pub fn scan_source(
             let platform_id = identify::infer_platform_from_path(fpath, &platforms)
                 .or_else(|| identify::guess_platform(&ext, &platforms));
 
-            let existing: Option<(String, i64, i64)> = tx
+            let existing: Option<(String, i64, i64, bool)> = tx
                 .query_row(
-                    "SELECT id,size,modified_at FROM game_files WHERE source_id=?1 AND path=?2",
+                    "SELECT id,size,modified_at, (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL) FROM game_files WHERE source_id=?1 AND path=?2",
                     rusqlite::params![source_id, fpath],
-                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_, i64>(3)? != 0)),
                 )
                 .ok();
 
             // Incremental: skip unchanged files only if hashes already present.
-            let needs_hash = tx
-                .query_row(
-                    "SELECT hash, crc32, md5, sha1 FROM game_files WHERE source_id=?1 AND path=?2",
-                    rusqlite::params![source_id, fpath],
-                    |r| {
-                        let h: Option<String> = r.get(0)?;
-                        let c: Option<String> = r.get(1)?;
-                        let m: Option<String> = r.get(2)?;
-                        let s: Option<String> = r.get(3)?;
-                        Ok(h.is_none() || c.is_none() || m.is_none() || s.is_none())
-                    },
-                )
-                .unwrap_or(true);
-            if let Some((_id, old_size, old_mtime)) = &existing
+            if let Some((_id, old_size, old_mtime, needs_hash)) = &existing
                 && *old_size == *size as i64
                 && *old_mtime == *mtime
                 && !needs_hash
@@ -258,7 +245,7 @@ pub fn scan_source(
 
             let (sha256, crc32, md5, sha1, zip_inner) = identify::compute_hashes(fpath, allowed);
 
-            let file_id = if let Some((id, _, _)) = existing {
+            let file_id = if let Some((id, _, _, _)) = existing {
                 tx.execute(
                     "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,hash=?6,crc32=?7,md5=?8,sha1=?9,zip_inner=?10,missing=0 WHERE id=?11",
                     rusqlite::params![filename, ext, *size as i64, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, id],
