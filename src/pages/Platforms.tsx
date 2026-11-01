@@ -85,10 +85,12 @@ export default function Platforms() {
       return;
     }
     setScanningAll(true);
-    setMsg(null);
+    setMsg("Scan en cours…");
     let totalFiles = 0;
     let totalGames = 0;
+    let errors: string[] = [];
     for (const s of sources) {
+      setMsg(`Scan en cours : ${s.name}…`);
       try {
         const res = s.kind === "remote"
           ? await api.scanRemoteSource(s.id)
@@ -96,10 +98,14 @@ export default function Platforms() {
         totalFiles += res.files_found;
         totalGames += res.games_created;
       } catch (e: any) {
-        // ignore per-source errors
+        errors.push(`${s.name}: ${e}`);
       }
     }
-    setMsg(`Scan complet terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
+    if (errors.length > 0) {
+      setMsg(`Scan terminé avec erreurs : ${errors.join("; ")}`);
+    } else {
+      setMsg(`Scan complet terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
+    }
     setScanningAll(false);
     qc.invalidateQueries({ queryKey: ["games"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
