@@ -13,20 +13,28 @@ pub struct LibraryEntry {
     pub file_count: usize,
 }
 
+#[derive(serde::Serialize)]
+pub struct PagedGames {
+    pub items: Vec<LibraryEntry>,
+    pub total: usize,
+}
+
 #[tauri::command]
 pub fn list_games(
     state: State<AppState>,
     platform: Option<String>,
     search: Option<String>,
-) -> Result<Vec<LibraryEntry>> {
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<PagedGames> {
     let conn = state.db.lock().unwrap();
     let platforms = crate::identify::load_platforms(&conn)?;
     let pmap: std::collections::HashMap<String, Platform> =
         platforms.into_iter().map(|p| (p.id.clone(), p)).collect();
 
-    // Build query
-    let mut sql =
-        String::from("SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at FROM games g");
+    let limit = limit.unwrap_or(48).min(500);
+    let offset = offset.unwrap_or(0);
+
     let mut where_clauses: Vec<String> = Vec::new();
     if let Some(plat) = &platform {
         where_clauses.push(format!("g.platform_id = '{}'", plat.replace('\'', "''")));
@@ -39,11 +47,20 @@ pub fn list_games(
             q.to_lowercase().replace('\'', "''").replace('%', "\\%")
         ));
     }
-    if !where_clauses.is_empty() {
-        sql.push_str(" WHERE ");
-        sql.push_str(&where_clauses.join(" AND "));
-    }
-    sql.push_str(" ORDER BY g.title COLLATE NOCASE ASC");
+    let where_sql = if where_clauses.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", where_clauses.join(" AND "))
+    };
+
+    let count_sql = format!("SELECT COUNT(*) FROM games g{}", where_sql);
+    let total: i64 = conn.query_row(&count_sql, [], |r| r.get(0))?;
+    let total = total as usize;
+
+    let sql = format!(
+        "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at FROM games g{} ORDER BY g.title COLLATE NOCASE ASC LIMIT {} OFFSET {}",
+        where_sql, limit, offset
+    );
 
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], |r| {
@@ -61,7 +78,6 @@ pub fn list_games(
     let mut entries = Vec::new();
     for gr in rows {
         let game = gr?;
-        // files
         let mut fstmt = conn.prepare(
             "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.zip_inner,gf.platform_id,gf.created_at \
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
@@ -89,10 +105,7 @@ pub fn list_games(
         for fr in frows {
             files.push(fr?);
         }
-        let platform = game
-            .platform_id
-            .as_ref()
-            .and_then(|pid| pmap.get(pid).cloned());
+        let platform = game.platform_id.as_ref().and_then(|pid| pmap.get(pid).cloned());
         entries.push(LibraryEntry {
             game,
             platform,
@@ -100,7 +113,7 @@ pub fn list_games(
             files,
         });
     }
-    Ok(entries)
+    Ok(PagedGames { items: entries, total })
 }
 
 #[tauri::command]
@@ -196,6 +209,23 @@ pub fn link_file_to_game(state: State<AppState>, file_id: String, game_id: Strin
 }
 
 #[tauri::command]
+pub fn platform_game_counts(state: State<AppState>) -> Result<serde_json::Value> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT platform_id, COUNT(*) FROM games GROUP BY platform_id")?;
+    let rows = stmt.query_map([], |r| {
+        Ok((r.get::<_, Option<String>>(0)?, r.get::<_, i64>(1)?))
+    })?;
+    let mut map = serde_json::Map::new();
+    for r in rows {
+        let (pid, c) = r?;
+        if let Some(p) = pid {
+            map.insert(p, serde_json::json!(c));
+        }
+    }
+    Ok(serde_json::Value::Object(map))
+}
+
+#[tauri::command]
 pub fn stats(state: State<AppState>) -> Result<serde_json::Value> {
     let conn = state.db.lock().unwrap();
     let games: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0))?;
@@ -211,7 +241,7 @@ pub fn stats(state: State<AppState>) -> Result<serde_json::Value> {
 }
 
 #[tauri::command]
-pub fn search_games_fts(state: State<AppState>, query: String) -> Result<Vec<LibraryEntry>> {
+pub fn search_games_fts(state: State<AppState>, query: String, limit: Option<usize>, offset: Option<usize>) -> Result<PagedGames> {
     let conn = state.db.lock().unwrap();
     let platforms = crate::identify::load_platforms(&conn)?;
     let pmap: std::collections::HashMap<String, Platform> =
@@ -253,8 +283,13 @@ pub fn search_games_fts(state: State<AppState>, query: String) -> Result<Vec<Lib
         .collect::<rusqlite::Result<Vec<_>>>()?
     };
 
+    let total = rows.len();
+    let limit = limit.unwrap_or(48).min(500);
+    let offset = offset.unwrap_or(0);
+    let page_rows: Vec<Game> = rows.into_iter().skip(offset).take(limit).collect();
+
     let mut entries = Vec::new();
-    for game in rows {
+    for game in page_rows {
         let mut fstmt = conn.prepare(
             "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.zip_inner,gf.platform_id,gf.created_at \
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
@@ -293,7 +328,7 @@ pub fn search_games_fts(state: State<AppState>, query: String) -> Result<Vec<Lib
             files,
         });
     }
-    Ok(entries)
+    Ok(PagedGames { items: entries, total })
 }
 
 #[tauri::command]

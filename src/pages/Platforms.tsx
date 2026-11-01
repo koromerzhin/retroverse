@@ -14,9 +14,10 @@ export default function Platforms() {
     queryKey: ["platforms"],
     queryFn: () => api.listPlatforms(),
   });
-  const { data: games } = useQuery({
-    queryKey: ["games"],
-    queryFn: () => api.listGames(),
+  const { data: countsData } = useQuery({
+    queryKey: ["platform-game-counts"],
+    queryFn: () => api.platformGameCounts(),
+    staleTime: 60_000,
   });
   const { data: sources } = useQuery<GameSource[]>({
     queryKey: ["sources"],
@@ -63,11 +64,7 @@ export default function Platforms() {
     }
   }
 
-  const counts: Record<string, number> = {};
-  games?.forEach((g: any) => {
-    const pid = g.game.platform_id;
-    if (pid) counts[pid] = (counts[pid] || 0) + 1;
-  });
+  const counts: Record<string, number> = countsData || {};
 
   const sortedPlatforms = [...(platforms || [])]
     .filter((p) => !hideEmpty || (counts[p.id] ?? 0) > 0)
