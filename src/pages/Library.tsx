@@ -10,11 +10,17 @@ export default function Library() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [platform] = useState<string | undefined>(searchParams.get("platform") || undefined);
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
   const pageSize = 24;
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   useEffect(() => { setPage(1); }, [search, platform]);
 
@@ -44,8 +50,8 @@ export default function Library() {
           className="input"
           style={{ maxWidth: 320 }}
           placeholder={t("library.search")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
         />
         {platform && (
           <span className="badge">{platforms?.find((p) => p.id === platform)?.name}</span>
