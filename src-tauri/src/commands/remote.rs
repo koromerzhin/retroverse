@@ -330,7 +330,7 @@ pub async fn scan_remote_source_inner(
                             && out.len().is_multiple_of(500)
                         {
                             use tauri::Emitter;
-                            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": out.len(), "total": 0, "status": "scanning", "file": name}));
+                            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": out.len(), "total": 0, "status": "scanning", "folder": dir, "file": name}));
                         }
                     }
                 }
@@ -452,7 +452,7 @@ pub async fn scan_remote_source_inner(
                 && let Some(a) = &app
             {
                 use tauri::Emitter;
-                let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found + chunk_hashes.len(), "total": collected.len(), "status": "scanning", "file": fpath}));
+                let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found + chunk_hashes.len(), "total": collected.len(), "status": "scanning", "folder": base_path, "file": fpath}));
             }
         }  // close for loop
 
