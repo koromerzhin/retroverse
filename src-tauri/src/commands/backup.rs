@@ -6,10 +6,9 @@ use serde_json::json;
 use std::fs;
 use tauri::State;
 
-#[tauri::command]
-pub async fn compute_hashes(
-    state: State<'_, AppState>,
-    app: tauri::AppHandle,
+pub async fn compute_hashes_inner(
+    state: &AppState,
+    app: Option<tauri::AppHandle>,
     source_id: Option<String>,
 ) -> Result<usize> {
     use tauri::Emitter;
@@ -31,11 +30,15 @@ pub async fn compute_hashes(
 
     let total = rows.len();
     let mut done = 0usize;
-    let _ = app.emit("hash-progress", serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}));
+    if let Some(a) = &app {
+        let _ = a.emit("hash-progress", serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}));
+    }
 
     for (idx, (id, path)) in rows.into_iter().enumerate() {
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
-            let _ = app.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "cancelled"}));
+            if let Some(a) = &app {
+                let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "cancelled"}));
+            }
             return Ok(done);
         }
         let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(&path, &[]);
@@ -47,12 +50,25 @@ pub async fn compute_hashes(
             )?;
             done += 1;
         }
-        if idx % 5 == 0 || idx + 1 == total {
-            let _ = app.emit("hash-progress", serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning", "file": path}));
+        if (idx % 5 == 0 || idx + 1 == total)
+            && let Some(a) = &app
+        {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning", "file": path}));
         }
     }
-    let _ = app.emit("hash-progress", serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done}));
+    if let Some(a) = &app {
+        let _ = a.emit("hash-progress", serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done}));
+    }
     Ok(done)
+}
+
+#[tauri::command]
+pub async fn compute_hashes(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    source_id: Option<String>,
+) -> Result<usize> {
+    compute_hashes_inner(&state, Some(app), source_id).await
 }
 
 #[tauri::command]
