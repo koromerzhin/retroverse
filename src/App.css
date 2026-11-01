@@ -140,7 +140,7 @@ body {
   border-radius: var(--radius-sm);
   font-size: 13px;
   width: 100%;
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 .input:focus, .select:focus { outline: none; border-color: var(--accent); }
 .select option {
