@@ -80,6 +80,10 @@ export default function App() {
         setScanProgress(null);
         setToast("Scan annulé");
         setTimeout(() => setToast(null), 4000);
+      } else if (ev.payload?.status === "skipped") {
+        setScanProgress(null);
+        setToast("Source inaccessible — scan ignoré");
+        setTimeout(() => setToast(null), 4000);
       } else if (ev.payload?.status === "done") {
         setScanProgress(null);
         const created = ev.payload?.games_created ?? 0;

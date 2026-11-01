@@ -16,6 +16,10 @@ pub fn scan_source(
     use tauri::Emitter;
     tracing::info!("scan_source start source_id={} folder={:?}", source_id, folder_override);
 
+    if let Some(a) = &app {
+        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": 0, "total": 0, "status": "scanning"}));
+    }
+
     let path = if let Some(f) = folder_override {
         f
     } else {
