@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./lib/api";
 import { formatNumber } from "./lib/format";
@@ -24,11 +25,12 @@ const nav = [
 ];
 
 export default function App() {
+  const qc = useQueryClient();
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const lastProgressUpdate = useRef(0);
 
-  // Hide static splash once initial data is loaded
+  // Preload data + hide static splash
   useEffect(() => {
     const hide = () => {
       const el = document.getElementById("splash");
@@ -38,18 +40,27 @@ export default function App() {
         setTimeout(() => el.remove(), 400);
       }
     };
-    const timer = setTimeout(hide, 3000);
+    const timer = setTimeout(hide, 4000);
     (async () => {
       try {
-        await api.listPlatforms();
-        await api.listSources();
-        setTimeout(hide, 600);
+        // Prefetch into React Query cache for instant page rendering
+        const [platforms, sources, games, stats] = await Promise.all([
+          api.listPlatforms().catch(() => []),
+          api.listSources().catch(() => []),
+          api.listGames().catch(() => []),
+          api.stats().catch(() => null),
+        ]);
+        qc.setQueryData(["platforms"], platforms);
+        qc.setQueryData(["sources"], sources);
+        qc.setQueryData(["games"], games);
+        if (stats) qc.setQueryData(["stats"], stats);
+        setTimeout(hide, 500);
       } catch {
         setTimeout(hide, 1200);
       }
     })();
     return () => clearTimeout(timer);
-  }, []);
+  }, [qc]);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
