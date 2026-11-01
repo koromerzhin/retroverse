@@ -23,6 +23,33 @@ impl client::Handler for ClientHandler {
     }
 }
 
+pub async fn compute_hashes(
+    sftp: &russh_sftp::client::SftpSession,
+    path: &str,
+    allowed: &[String],
+) -> crate::identify::Hashes {
+    use tokio::io::AsyncReadExt;
+    let mut f = match sftp.open(path).await {
+        Ok(f) => f,
+        Err(_) => return (None, None, None, None, None),
+    };
+    let mut buf = Vec::new();
+    if f.read_to_end(&mut buf).await.is_err() {
+        return (None, None, None, None, None);
+    }
+    let lower = path.to_lowercase();
+    let filename = std::path::Path::new(path).file_name().and_then(|s| s.to_str()).unwrap_or(path);
+    if lower.ends_with(".7z") {
+        let tmp = std::env::temp_dir().join(format!("retroverse_remote_{}.7z", path.len()));
+        if std::fs::write(&tmp, &buf).is_ok() {
+            let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), allowed);
+            let _ = std::fs::remove_file(&tmp);
+            return r;
+        }
+    }
+    crate::identify::compute_hashes_from_bytes(&buf, filename, allowed)
+}
+
 pub fn resolve_key_path(key_path: &str) -> String {
     if !key_path.trim().is_empty() {
         return key_path.trim().to_string();
