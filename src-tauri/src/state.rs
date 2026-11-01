@@ -9,6 +9,7 @@ pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
     pub cancel_scan: Arc<AtomicBool>,
     pub ready: Arc<AtomicBool>,
+    pub started_at: std::time::Instant,
 }
 
 impl AppState {
@@ -18,6 +19,7 @@ impl AppState {
             db: Arc::new(Mutex::new(conn)),
             cancel_scan: Arc::new(AtomicBool::new(false)),
             ready: Arc::new(AtomicBool::new(false)),
+            started_at: std::time::Instant::now(),
         })
     }
 }
