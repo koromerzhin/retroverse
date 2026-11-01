@@ -28,6 +28,7 @@ export default function Platforms() {
   const [msg, setMsg] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "count">("name");
   const [hideEmpty, setHideEmpty] = useState(true);
+  const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.platforms.view") as "cards" | "list") || "cards");
 
   const counts: Record<string, number> = {};
   games?.forEach((g: any) => {
@@ -120,8 +121,13 @@ export default function Platforms() {
         <button className="btn primary" onClick={handleScanAll} disabled={scanningAll} style={{ marginLeft: "auto" }}>
           {scanningAll ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scanAll")}
         </button>
+        <div className="row" style={{ gap: 4 }}>
+          <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.platforms.view", "cards"); }} title="Cartes">Cards</button>
+          <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.platforms.view", "list"); }} title="Liste">Liste</button>
+        </div>
       </div>
 
+      {view === "cards" ? (
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", alignItems: "stretch" }}>
         {sortedPlatforms.map((p) => (
           <div className="card" key={p.id} style={{ cursor: "pointer", display: "flex", flexDirection: "column", height: 200, overflow: "hidden" }}>
@@ -154,6 +160,35 @@ export default function Platforms() {
           </div>
         ))}
       </div>
+      ) : (
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Fabricant</th>
+            <th>Année</th>
+            <th>Jeux</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedPlatforms.map((p) => (
+            <tr key={p.id}>
+              <td style={{ fontWeight: 600 }}>{p.name}</td>
+              <td>{p.manufacturer ?? "—"}</td>
+              <td>{p.release_year ?? "—"}</td>
+              <td>{formatNumber(counts[p.id] ?? 0)}</td>
+              <td>
+                <div className="row" style={{ gap: 6 }}>
+                  <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={(counts[p.id] ?? 0) === 0} onClick={() => navigate(`/library?platform=${p.id}`)}>{t("platforms.viewLibrary")}</button>
+                  <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={scanning === p.id} onClick={() => handleScanPlatform(p)}>{scanning === p.id ? t("platforms.scanning") : t("platforms.scan")}</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      )}
     </>
   );
 }
