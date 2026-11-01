@@ -26,9 +26,15 @@ const nav = [
 
 export default function App() {
   const qc = useQueryClient();
-  const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string } | null>(null);
+  const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [scanDetails, setScanDetails] = useState(false);
+  const [sources, setSources] = useState<any[]>([]);
   const lastProgressUpdate = useRef(0);
+
+  useEffect(() => {
+    api.listSources().then((s) => setSources(s || [])).catch(() => {});
+  }, []);
 
   // Preload data + hide static splash
   useEffect(() => {
@@ -88,7 +94,7 @@ export default function App() {
         setToast(msg);
         setTimeout(() => setToast(null), 5000);
       } else {
-        setScanProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning" });
+        setScanProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", sourceId: ev.payload?.source_id });
       }
     }).then((u) => { unlisten = u; });
     return () => { if (unlisten) unlisten(); };
@@ -99,14 +105,17 @@ export default function App() {
   return (
     <div className="app">
       {scanProgress && (
-        <div style={{
-          position: "fixed", top: 0, left: 240, right: 0, zIndex: 200,
-          background: "var(--bg-2)", borderBottom: "1px solid var(--border)",
-          padding: "6px 16px", fontSize: 12, color: "var(--text-dim)",
-          display: "flex", alignItems: "center", gap: 12,
-        }}>
+        <div
+          onClick={() => setScanDetails((v) => !v)}
+          style={{
+            position: "fixed", top: 0, left: 240, right: 0, zIndex: 200,
+            background: "var(--bg-2)", borderBottom: "1px solid var(--border)",
+            padding: "6px 16px", fontSize: 12, color: "var(--text-dim)",
+            display: "flex", alignItems: "center", gap: 12,
+            cursor: "pointer",
+          }}
+        >
           <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s)</span>
-          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => api.cancelScan().catch(() => {})}>Arrêter</button>
           <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
             <div style={{
               height: "100%",
@@ -115,7 +124,28 @@ export default function App() {
               transition: "width .2s",
             }} />
           </div>
-          {scanProgress.status === "done" && <span style={{ color: "var(--success)" }}>Terminé</span>}
+          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>(cliquer pour détails)</span>
+          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); api.cancelScan().catch(() => {}); }}>Arrêter</button>
+        </div>
+      )}
+      {scanDetails && scanProgress && (
+        <div className="modal-backdrop" onClick={() => setScanDetails(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Détails du scan</h3>
+            <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
+              Source : {sources.find((s: any) => s.id === scanProgress.sourceId)?.name || scanProgress.sourceId || "—"}
+            </p>
+            <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
+              Progression : {formatNumber(scanProgress.scanned)} / {formatNumber(scanProgress.total || 0)} fichier(s)
+            </p>
+            <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
+              Statut : {scanProgress.status}
+            </p>
+            <div className="row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
+              <button className="btn" onClick={() => setScanDetails(false)}>Fermer</button>
+              <button className="btn danger" onClick={() => { api.cancelScan().catch(() => {}); setScanDetails(false); }}>Arrêter</button>
+            </div>
+          </div>
         </div>
       )}
       {toast && (
