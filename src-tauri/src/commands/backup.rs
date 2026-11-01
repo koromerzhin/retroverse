@@ -7,29 +7,51 @@ use std::fs;
 use tauri::State;
 
 #[tauri::command]
-pub fn compute_hashes(state: State<AppState>, source_id: Option<String>) -> Result<usize> {
-    let conn = state.db.lock().unwrap();
-    let rows: Vec<(String, String)> = if let Some(sid) = &source_id {
-        let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1")?;
-        stmt.query_map([sid.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<rusqlite::Result<Vec<_>>>()?
-    } else {
-        let mut stmt = conn.prepare("SELECT id,path FROM game_files")?;
-        stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<rusqlite::Result<Vec<_>>>()?
+pub async fn compute_hashes(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    source_id: Option<String>,
+) -> Result<usize> {
+    use tauri::Emitter;
+    state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
+    let cancel = state.cancel_scan.clone();
+
+    let rows: Vec<(String, String)> = {
+        let conn = state.db.lock().unwrap();
+        if let Some(sid) = &source_id {
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1")?;
+            stmt.query_map([sid.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?
+        } else {
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files")?;
+            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?
+        }
     };
 
+    let total = rows.len();
     let mut done = 0usize;
-    for (id, path) in rows {
+    let _ = app.emit("hash-progress", serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}));
+
+    for (idx, (id, path)) in rows.into_iter().enumerate() {
+        if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+            let _ = app.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "cancelled"}));
+            return Ok(done);
+        }
         let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(&path, &[]);
         if sha256.is_some() {
+            let conn = state.db.lock().unwrap();
             conn.execute(
                 "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5 WHERE id=?6",
                 params![sha256, crc32, md5, sha1, zip_inner, id],
             )?;
             done += 1;
         }
+        if idx % 5 == 0 || idx + 1 == total {
+            let _ = app.emit("hash-progress", serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning", "file": path}));
+        }
     }
+    let _ = app.emit("hash-progress", serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done}));
     Ok(done)
 }
 

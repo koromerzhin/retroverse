@@ -28,6 +28,7 @@ const nav = [
 export default function App() {
   const qc = useQueryClient();
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string; folder?: string } | null>(null);
+  const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [scanDetails, setScanDetails] = useState(false);
   const [sources, setSources] = useState<any[]>([]);
@@ -66,6 +67,24 @@ export default function App() {
     })();
     return () => clearTimeout(timer);
   }, [qc]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    listen<any>("hash-progress", (ev) => {
+      if (ev.payload?.status === "cancelled") {
+        setHashProgress(null);
+        setToast("Calcul annulé");
+        setTimeout(() => setToast(null), 4000);
+      } else if (ev.payload?.status === "done") {
+        setHashProgress(null);
+        setToast(`Empreintes calculées : ${ev.payload?.done ?? 0} fichier(s)`);
+        setTimeout(() => setToast(null), 5000);
+      } else {
+        setHashProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", file: ev.payload?.file, done: ev.payload?.done });
+      }
+    }).then((u) => { unlisten = u; });
+    return () => { if (unlisten) unlisten(); };
+  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -162,6 +181,25 @@ export default function App() {
               <button className="btn danger" onClick={async () => { try { await api.cancelScan(); } catch {} setScanDetails(false); }}>Arrêter</button>
             </div>
           </div>
+        </div>
+      )}
+      {hashProgress && (
+        <div style={{
+          position: "fixed", top: scanProgress ? 40 : 0, left: 240, right: 0, zIndex: 199,
+          background: "var(--bg-2)", borderBottom: "1px solid var(--border)",
+          padding: "6px 16px", fontSize: 12, color: "var(--text-dim)",
+          display: "flex", alignItems: "center", gap: 12,
+        }}>
+          <span>Calcul des empreintes… {formatNumber(hashProgress.scanned)} / {formatNumber(hashProgress.total)}{hashProgress.file ? ` — ${hashProgress.file}` : ""}</span>
+          <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
+            <div style={{
+              height: "100%",
+              width: hashProgress.total > 0 ? `${Math.min(100, (hashProgress.scanned / hashProgress.total) * 100)}%` : "100%",
+              background: "var(--accent-2)",
+              transition: "width .2s",
+            }} />
+          </div>
+          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => api.cancelScan().catch(() => {})}>Arrêter</button>
         </div>
       )}
       {toast && (
