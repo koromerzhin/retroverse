@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 8;
+pub const SCHEMA_VERSION: i32 = 9;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -68,6 +68,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 8 {
         apply_v8(conn)?;
+    }
+    if current < 9 {
+        apply_v9(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -395,6 +398,11 @@ fn apply_v8(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_games_title_platform ON games(title, platform_id);
         "#,
     )?;
+    Ok(())
+}
+
+fn apply_v9(conn: &Connection) -> Result<()> {
+    let _ = conn.execute("ALTER TABLE game_sources ADD COLUMN root_mtime INTEGER", []);
     Ok(())
 }
 

@@ -237,6 +237,36 @@ pub async fn scan_remote_source_inner(
         }
     }
 
+    // Check if the folder has already been scanned (root mtime unchanged).
+    let current_mtime: i64 = if let Ok(meta) = sess.sftp.metadata(&base_path).await {
+        meta.mtime.unwrap_or(0) as i64
+    } else {
+        0
+    };
+    let stored_mtime: i64 = {
+        let conn = state.db.lock().unwrap();
+        conn.query_row(
+            "SELECT COALESCE(root_mtime, 0) FROM game_sources WHERE id = ?1",
+            [source_id.clone()],
+            |r| r.get(0),
+        )
+        .unwrap_or(0)
+    };
+    if current_mtime != 0 && current_mtime == stored_mtime {
+        // Folder unchanged: skip scan.
+        if let Some(a) = &app {
+            use tauri::Emitter;
+            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": 0, "total": 0, "status": "skipped"}));
+        }
+        let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+        return Ok(ScanResult {
+            source_id,
+            files_found: 0,
+            games_created: 0,
+            games_updated: 0,
+        });
+    }
+
     // recursive collect files via sftp
     let mut collected: Vec<(String, i64, i64, Vec<String>)> = Vec::new(); // path, size, mtime, allowed_exts
     #[allow(clippy::too_many_arguments)]
@@ -622,8 +652,8 @@ pub async fn scan_remote_source_inner(
             tx.execute(&sql, rusqlite::params_from_iter(params_vec))?;
         }
         tx.execute(
-            "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL WHERE id=?2",
-            params![Utc::now().to_rfc3339(), source_id],
+            "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL, root_mtime=?2 WHERE id=?3",
+            params![Utc::now().to_rfc3339(), current_mtime, source_id],
         )?;
         let job_id = crate::models::new_id();
         tx.execute(
