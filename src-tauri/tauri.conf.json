@@ -12,11 +12,26 @@
   "app": {
     "windows": [
       {
+        "label": "splashscreen",
         "title": "RETROVERSE",
+        "width": 440,
+        "height": 280,
+        "resizable": false,
+        "decorations": false,
+        "center": true,
+        "visible": true,
+        "alwaysOnTop": true,
+        "url": "splash.html"
+      },
+      {
+        "title": "RETROVERSE",
+        "label": "main",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
-        "minHeight": 600
+        "minHeight": 600,
+        "visible": false,
+        "center": true
       }
     ],
     "security": {

@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
     pub cancel_scan: Arc<AtomicBool>,
+    pub ready: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -16,6 +17,7 @@ impl AppState {
         Ok(Self {
             db: Arc::new(Mutex::new(conn)),
             cancel_scan: Arc::new(AtomicBool::new(false)),
+            ready: Arc::new(AtomicBool::new(false)),
         })
     }
 }

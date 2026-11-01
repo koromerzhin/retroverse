@@ -43,20 +43,10 @@ export default function App() {
     api.listSources().then((s) => setSources(s || [])).catch(() => {});
   }, []);
 
-  // Preload data + hide static splash
+  // Preload data, then ask Rust to reveal the main window and close the splashscreen.
   useEffect(() => {
-    const hide = () => {
-      const el = document.getElementById("splash");
-      if (el) {
-        el.style.transition = "opacity .4s";
-        el.style.opacity = "0";
-        setTimeout(() => el.remove(), 400);
-      }
-    };
-    const timer = setTimeout(hide, 4000);
     (async () => {
       try {
-        // Prefetch into React Query cache for instant page rendering
         const [platforms, sources, stats] = await Promise.all([
           api.listPlatforms().catch(() => []),
           api.listSources().catch(() => []),
@@ -65,12 +55,12 @@ export default function App() {
         qc.setQueryData(["platforms"], platforms);
         qc.setQueryData(["sources"], sources);
         if (stats) qc.setQueryData(["stats"], stats);
-        setTimeout(hide, 500);
       } catch {
-        setTimeout(hide, 1200);
+        // Non-fatal: the app can still start.
+      } finally {
+        try { await api.appReady(); } catch { /* ignore */ }
       }
     })();
-    return () => clearTimeout(timer);
   }, [qc]);
 
   useEffect(() => {

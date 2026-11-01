@@ -1,3 +1,4 @@
+pub mod app;
 pub mod backup;
 pub mod companion;
 pub mod gamelists;
@@ -10,6 +11,7 @@ pub mod scans;
 pub mod settings;
 pub mod sources;
 
+pub use app::*;
 pub use backup::*;
 pub use companion::*;
 pub use gamelists::*;
