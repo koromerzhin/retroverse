@@ -34,8 +34,15 @@ pub async fn compute_hashes(
         Err(_) => return (None, None, None, None, None),
     };
     let mut buf = Vec::new();
-    if f.read_to_end(&mut buf).await.is_err() {
-        return (None, None, None, None, None);
+    // Timeout per file to avoid hanging on stalled connections.
+    let read_result = tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        f.read_to_end(&mut buf),
+    )
+    .await;
+    match read_result {
+        Ok(Ok(_)) => {}
+        _ => return (None, None, None, None, None),
     }
     let lower = path.to_lowercase();
     let filename = std::path::Path::new(path).file_name().and_then(|s| s.to_str()).unwrap_or(path);
