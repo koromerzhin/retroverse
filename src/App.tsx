@@ -145,7 +145,12 @@ export default function App() {
             </p>
             {scanProgress.file && (
               <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                Fichier en cours : {scanProgress.file}
+                Dossier en cours : {scanProgress.file.substring(0, scanProgress.file.lastIndexOf("/"))}
+              </p>
+            )}
+            {scanProgress.file && (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
+                Fichier en cours : {scanProgress.file.substring(scanProgress.file.lastIndexOf("/") + 1)}
               </p>
             )}
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
