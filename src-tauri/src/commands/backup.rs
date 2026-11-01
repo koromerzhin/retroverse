@@ -19,11 +19,11 @@ pub async fn compute_hashes(
     let rows: Vec<(String, String)> = {
         let conn = state.db.lock().unwrap();
         if let Some(sid) = &source_id {
-            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1")?;
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL)")?;
             stmt.query_map([sid.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         } else {
-            let mut stmt = conn.prepare("SELECT id,path FROM game_files")?;
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL")?;
             stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         }
