@@ -120,7 +120,7 @@ export default function App() {
             cursor: "pointer",
           }}
         >
-          <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s)</span>
+          <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s){scanProgress.total > 0 ? ` (${Math.round((scanProgress.scanned / scanProgress.total) * 100)}%)` : ""}</span>
           <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
             <div style={{
               height: "100%",
@@ -141,7 +141,7 @@ export default function App() {
               Source : {sources.find((s: any) => s.id === scanProgress.sourceId)?.name || scanProgress.sourceId || "—"}
             </p>
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
-              Progression : {formatNumber(scanProgress.scanned)} / {formatNumber(scanProgress.total || 0)} fichier(s)
+              Progression : {formatNumber(scanProgress.scanned)} / {formatNumber(scanProgress.total || 0)} fichier(s){scanProgress.total ? ` (${Math.round((scanProgress.scanned / scanProgress.total) * 100)}%)` : ""}
             </p>
             {scanProgress.file && (
               <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
