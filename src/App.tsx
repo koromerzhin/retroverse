@@ -115,7 +115,7 @@ export default function App() {
             cursor: "pointer",
           }}
         >
-          <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s){scanProgress.file ? ` — ${scanProgress.file}` : ""}</span>
+          <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s)</span>
           <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
             <div style={{
               height: "100%",
