@@ -319,7 +319,7 @@ pub async fn scan_remote_source_inner(
                             && out.len().is_multiple_of(1000)
                         {
                             use tauri::Emitter;
-                            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": out.len(), "total": 0, "status": "scanning"}));
+                            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": out.len(), "total": 0, "status": "scanning", "file": name}));
                         }
                     }
                 }
@@ -440,12 +440,14 @@ pub async fn scan_remote_source_inner(
 
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
+        let mut last_file = String::new();
         for (i, (fpath, size, mtime, _allowed)) in chunk.iter().enumerate() {
             let filename = std::path::Path::new(fpath)
                 .file_name()
                 .and_then(|s| s.to_str())
                 .unwrap_or("")
                 .to_string();
+            last_file = filename.clone();
             let ext = crate::identify::ext_of(fpath);
             let platform_id = crate::identify::infer_platform_from_path(fpath, &platforms2)
                 .or_else(|| crate::identify::guess_platform(&ext, &platforms2));
@@ -564,7 +566,7 @@ pub async fn scan_remote_source_inner(
         tx.commit()?;
         if let Some(a) = &app {
             use tauri::Emitter;
-            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": collected.len(), "status": "scanning"}));
+            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": collected.len(), "status": "scanning", "file": last_file}));
         }
     }
 
