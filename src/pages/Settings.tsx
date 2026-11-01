@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useI18n, LANGS } from "../i18n";
+import { useTheme } from "../lib/theme";
 import type { AppInfo } from "../types";
 
 export default function Settings() {
   const qc = useQueryClient();
   const { t, lang, setLang } = useI18n();
+  const { theme, setTheme, resolved } = useTheme();
   const { data: provCfg } = useQuery({ queryKey: ["providerConfig"], queryFn: () => api.getProviderConfig() });
   const [pc, setPc] = useState<any>(null);
   useEffect(() => { if (provCfg) setPc(provCfg); }, [provCfg]);
@@ -62,6 +64,17 @@ export default function Settings() {
         <button className="btn danger" onClick={handleClearLibrary}>{t("settings.clearLibrary")}</button>
         <button className="btn danger" onClick={handleReset} style={{ marginLeft: 8 }}>{t("settings.clearDb")}</button>
         {msg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{msg}</p>}
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Thème</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Choisir le thème de l'interface.</p>
+        <select className="select" style={{ maxWidth: 260 }} value={theme} onChange={(e) => setTheme(e.target.value as any)}>
+          <option value="system">Système</option>
+          <option value="dark">Sombre</option>
+          <option value="light">Clair</option>
+        </select>
+        <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 8 }}>Actuel : {resolved}</p>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
