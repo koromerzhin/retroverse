@@ -316,7 +316,7 @@ pub async fn scan_remote_source_inner(
                         let mtime = meta.mtime.unwrap_or(0) as i64;
                         out.push((full, size, mtime, dir_allowed.clone()));
                         if let Some(a) = app
-                            && out.len().is_multiple_of(1000)
+                            && out.len().is_multiple_of(500)
                         {
                             use tauri::Emitter;
                             let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": out.len(), "total": 0, "status": "scanning", "file": name}));
@@ -444,6 +444,12 @@ pub async fn scan_remote_source_inner(
                 chunk_hashes.push((None, None, None, None, None));
             } else {
                 chunk_hashes.push(crate::remote::compute_hashes(&sess.sftp, fpath, allowed).await);
+            }
+            if chunk_hashes.len().is_multiple_of(100)
+                && let Some(a) = &app
+            {
+                use tauri::Emitter;
+                let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found + chunk_hashes.len(), "total": collected.len(), "status": "scanning", "file": fpath}));
             }
         }  // close for loop
 
