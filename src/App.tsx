@@ -16,6 +16,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 
 const nav = [
   { to: "/", label: "Accueil", icon: "🏠" },
+  { to: "/library", label: "Bibliothèque", icon: "📚" },
   { to: "/platforms", label: "Plateformes", icon: "🎮" },
   { to: "/sources", label: "Sources", icon: "📁" },
   { to: "/companion", label: "Companion", icon: "🕹️" },
