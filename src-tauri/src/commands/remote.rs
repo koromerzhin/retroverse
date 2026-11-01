@@ -439,57 +439,16 @@ pub async fn scan_remote_source_inner(
                 games_updated,
             });
         }
-        // Pre-compute hashes for this chunk (download, no DB lock).
-        let mut chunk_hashes: Vec<crate::identify::Hashes> = Vec::with_capacity(chunk.len());
-        for (fpath, _size, _mtime, allowed) in chunk {
-            if cancel.load(std::sync::atomic::Ordering::SeqCst) {
-                // cancelled during pre-compute
-                return Ok(ScanResult {
-                    source_id,
-                    files_found,
-                    games_created,
-                    games_updated,
-                });
-            }
-            let (old_size, old_mtime, needs) = {
-                let conn = state.db.lock().unwrap();
-                conn.query_row(
-                    "SELECT size, modified_at, (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL) FROM game_files WHERE source_id=?1 AND path=?2",
-                    params![source_id, fpath],
-                    |r| Ok((r.get::<_, i64>(0).ok(), r.get::<_, i64>(1).ok(), r.get::<_, i64>(2).unwrap_or(1) != 0)),
-                )
-                .unwrap_or((None, None, true))
-            };
-            let skip = match (old_size, old_mtime) {
-                (Some(os), Some(om)) => os == *_size && om == *_mtime && !needs,
-                _ => false,
-            };
-            if skip {
-                chunk_hashes.push((None, None, None, None, None));
-            } else {
-                tracing::info!("hashing remote file: {}", fpath);
-                // Timeout per file to avoid hanging.
-                let h = tokio::time::timeout(
-                    std::time::Duration::from_secs(30),
-                    crate::remote::compute_hashes(&sess.sftp, fpath, allowed),
-                )
-                .await
-                .unwrap_or((None, None, None, None, None));
-                chunk_hashes.push(h);
-            }
-            // Emit progress with current file (every 5 files to limit IPC overhead).
-            if (chunk_hashes.len().is_multiple_of(5) || chunk_hashes.len() == chunk.len())
-                && let Some(a) = &app
-            {
-                use tauri::Emitter;
-                let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found + chunk_hashes.len(), "total": collected.len(), "status": "scanning", "folder": base_path, "file": fpath}));
-            }
-        }  // close for loop
+        // Emit progress for this chunk.
+        if let Some(a) = &app {
+            use tauri::Emitter;
+            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": collected.len(), "status": "scanning"}));
+        }
 
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
         let mut last_file = String::new();
-        for (i, (fpath, size, mtime, _allowed)) in chunk.iter().enumerate() {
+        for (fpath, size, mtime, _allowed) in chunk {
             let filename = std::path::Path::new(fpath)
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -546,19 +505,17 @@ pub async fn scan_remote_source_inner(
                 continue;
             }
 
-            let (sha256, crc32, md5, sha1, zip_inner) = chunk_hashes[i].clone();
-
             let file_id = if let Some((id, _, _)) = existing {
                 tx.execute(
-                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,hash=?6,crc32=?7,md5=?8,sha1=?9,zip_inner=?10,missing=0 WHERE id=?11",
-                    params![filename, ext, *size, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, id],
+                    "UPDATE game_files SET filename=?1,extension=?2,size=?3,modified_at=?4,platform_id=?5,missing=0 WHERE id=?6",
+                    params![filename, ext, *size, *mtime, platform_id, id],
                 )?;
                 id
             } else {
                 let id = crate::models::new_id();
                 tx.execute(
-                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,hash,crc32,md5,sha1,zip_inner,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
-                    params![id, source_id, fpath, filename, ext, *size, *mtime, platform_id, sha256, crc32, md5, sha1, zip_inner, Utc::now().to_rfc3339()],
+                    "INSERT INTO game_files (id,source_id,path,filename,extension,size,modified_at,platform_id,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+                    params![id, source_id, fpath, filename, ext, *size, *mtime, platform_id, Utc::now().to_rfc3339()],
                 )?;
                 id
             };
@@ -577,11 +534,11 @@ pub async fn scan_remote_source_inner(
                 extension: ext.clone(),
                 size: *size,
                 modified_at: *mtime,
-                hash: sha256.clone(),
-                crc32: crc32.clone(),
-                md5: md5.clone(),
-                sha1: sha1.clone(),
-                zip_inner: zip_inner.clone(),
+                hash: None,
+                crc32: None,
+                md5: None,
+                sha1: None,
+                zip_inner: None,
                 platform_id: platform_id.clone(),
                 created_at: Utc::now(),
             };
