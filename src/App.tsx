@@ -190,7 +190,7 @@ export default function App() {
           padding: "6px 16px", fontSize: 12, color: "var(--text-dim)",
           display: "flex", alignItems: "center", gap: 12,
         }}>
-          <span>Calcul des empreintes… {formatNumber(hashProgress.scanned)} / {formatNumber(hashProgress.total)}{hashProgress.file ? ` — ${hashProgress.file}` : ""}</span>
+          <span>Calcul des empreintes… {formatNumber(hashProgress.scanned)} / {formatNumber(hashProgress.total)}{hashProgress.total > 0 ? ` (${Math.round((hashProgress.scanned / hashProgress.total) * 100)}%)` : ""}</span>
           <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
             <div style={{
               height: "100%",
