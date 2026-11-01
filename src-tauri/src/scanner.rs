@@ -137,6 +137,19 @@ pub fn scan_source(
             .into_iter()
             .filter_map(|e| e.ok())
         {
+            if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+                // cancelled during walk
+                if let Some(a) = &app {
+                    use tauri::Emitter;
+                    let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": total_files_found, "total": total_files_found, "status": "cancelled"}));
+                }
+                return Ok(ScanResult {
+                    source_id: source_id.to_string(),
+                    files_found: total_files_found,
+                    games_created: total_created,
+                    games_updated: total_updated,
+                });
+            }
             if !entry.file_type().is_file() {
                 continue;
             }
