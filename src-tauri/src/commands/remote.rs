@@ -187,6 +187,7 @@ pub async fn scan_remote_source_inner(
     cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
     folder_override: Option<String>,
 ) -> Result<ScanResult> {
+    tracing::info!("scan_remote_source start source_id={} folder={:?}", source_id, folder_override);
     // gather connection info
     let (host, port, username, key_path, mut base_path) = {
         let conn = state.db.lock().unwrap();
@@ -613,6 +614,10 @@ pub async fn scan_remote_source_inner(
         .disconnect(russh::Disconnect::ByApplication, "", "")
         .await;
 
+    tracing::info!(
+        "scan_remote_source done source_id={} files={} created={} updated={}",
+        source_id, files_found, games_created, games_updated
+    );
     Ok(ScanResult {
         source_id,
         files_found,
