@@ -26,7 +26,7 @@ const nav = [
 
 export default function App() {
   const qc = useQueryClient();
-  const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string } | null>(null);
+  const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string; folder?: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [scanDetails, setScanDetails] = useState(false);
   const [sources, setSources] = useState<any[]>([]);
@@ -85,7 +85,7 @@ export default function App() {
         setToast("Source inaccessible — scan ignoré");
         setTimeout(() => setToast(null), 4000);
       } else if (ev.payload?.status === "done") {
-        setScanProgress((prev) => ({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id ?? prev?.sourceId, file: ev.payload?.file ?? prev?.file }));
+        setScanProgress((prev) => ({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id ?? prev?.sourceId, file: ev.payload?.file ?? prev?.file, folder: ev.payload?.folder ?? prev?.folder }));
         const created = ev.payload?.games_created ?? 0;
         const updated = ev.payload?.games_updated ?? 0;
         const files = ev.payload?.files_found ?? 0;
@@ -105,6 +105,7 @@ export default function App() {
           status: ev.payload?.status ?? "scanning",
           sourceId: ev.payload?.source_id ?? prev?.sourceId,
           file: ev.payload?.file ?? prev?.file,
+          folder: ev.payload?.folder ?? prev?.folder,
         }));
       }
     }).then((u) => { unlisten = u; });
@@ -149,9 +150,9 @@ export default function App() {
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Progression : {formatNumber(scanProgress.scanned)} / {formatNumber(scanProgress.total || 0)} fichier(s){scanProgress.total ? ` (${Math.round((scanProgress.scanned / scanProgress.total) * 100)}%)` : ""}
             </p>
-            {scanProgress.file && (
+            {(scanProgress.folder || scanProgress.file) && (
               <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                Dossier en cours : {scanProgress.file.substring(0, scanProgress.file.lastIndexOf("/"))}
+                Dossier en cours : {scanProgress.folder || (scanProgress.file ? scanProgress.file.substring(0, scanProgress.file.lastIndexOf("/")) : "—")}
               </p>
             )}
             {scanProgress.file && (
