@@ -21,7 +21,11 @@ pub fn load_platforms(conn: &Connection) -> crate::error::Result<Vec<Platform>> 
     })?;
     let mut out = Vec::new();
     for r in rows {
-        out.push(r?);
+        let p = r?;
+        if p.slug == "desktop" || p.slug == "emulators" {
+            continue;
+        }
+        out.push(p);
     }
     Ok(out)
 }
