@@ -188,6 +188,10 @@ pub async fn scan_remote_source_inner(
     folder_override: Option<String>,
 ) -> Result<ScanResult> {
     tracing::info!("scan_remote_source start source_id={} folder={:?}", source_id, folder_override);
+    if let Some(a) = &app {
+        use tauri::Emitter;
+        let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": 0, "total": 0, "status": "scanning"}));
+    }
     // gather connection info
     let (host, port, username, key_path, mut base_path) = {
         let conn = state.db.lock().unwrap();

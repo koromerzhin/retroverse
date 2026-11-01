@@ -54,6 +54,7 @@ export default function Platforms() {
     setMsg(null);
     let totalFiles = 0;
     let totalGames = 0;
+    let errors: string[] = [];
     for (const s of sources) {
       const folder = s.kind === "remote"
         ? `${s.remote_path || s.path}/${p.id}`.replace(/\/+/g, "/")
@@ -65,10 +66,14 @@ export default function Platforms() {
         totalFiles += res.files_found;
         totalGames += res.games_created;
       } catch (e: any) {
-        // folder may not exist for this source; ignore
+        errors.push(String(e));
       }
     }
-    setMsg(`Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
+    if (errors.length > 0 && totalFiles === 0) {
+      setMsg(`Scan ${p.name} : dossier introuvable ou vide.`);
+    } else {
+      setMsg(`Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
+    }
     setScanning(null);
     qc.invalidateQueries({ queryKey: ["games"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
