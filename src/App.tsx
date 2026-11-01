@@ -29,6 +29,7 @@ export default function App() {
   const qc = useQueryClient();
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string; folder?: string } | null>(null);
   const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number } | null>(null);
+  const [hashDetails, setHashDetails] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [scanDetails, setScanDetails] = useState(false);
   const [sources, setSources] = useState<any[]>([]);
@@ -184,12 +185,16 @@ export default function App() {
         </div>
       )}
       {hashProgress && (
-        <div style={{
-          position: "fixed", top: scanProgress ? 40 : 0, left: 240, right: 0, zIndex: 199,
-          background: "var(--bg-2)", borderBottom: "1px solid var(--border)",
-          padding: "6px 16px", fontSize: 12, color: "var(--text-dim)",
-          display: "flex", alignItems: "center", gap: 12,
-        }}>
+        <div
+          onClick={() => setHashDetails((v) => !v)}
+          style={{
+            position: "fixed", top: scanProgress ? 40 : 0, left: 240, right: 0, zIndex: 199,
+            background: "var(--bg-2)", borderBottom: "1px solid var(--border)",
+            padding: "6px 16px", fontSize: 12, color: "var(--text-dim)",
+            display: "flex", alignItems: "center", gap: 12,
+            cursor: "pointer",
+          }}
+        >
           <span>Calcul des empreintes… {formatNumber(hashProgress.scanned)} / {formatNumber(hashProgress.total)}{hashProgress.total > 0 ? ` (${Math.round((hashProgress.scanned / hashProgress.total) * 100)}%)` : ""}</span>
           <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
             <div style={{
@@ -199,7 +204,27 @@ export default function App() {
               transition: "width .2s",
             }} />
           </div>
-          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => api.cancelScan().catch(() => {})}>Arrêter</button>
+          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>(cliquer pour détails)</span>
+          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); api.cancelScan().catch(() => {}); }}>Arrêter</button>
+        </div>
+      )}
+      {hashDetails && hashProgress && (
+        <div className="modal-backdrop" onClick={() => setHashDetails(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Détails du calcul des empreintes</h3>
+            <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
+              Progression : {formatNumber(hashProgress.scanned)} / {formatNumber(hashProgress.total)}{hashProgress.total > 0 ? ` (${Math.round((hashProgress.scanned / hashProgress.total) * 100)}%)` : ""}
+            </p>
+            {hashProgress.file && (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
+                Fichier en cours : {hashProgress.file.substring(hashProgress.file.lastIndexOf("/") + 1)}
+              </p>
+            )}
+            <div className="row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
+              <button className="btn" onClick={() => setHashDetails(false)}>Fermer</button>
+              <button className="btn danger" onClick={() => { api.cancelScan().catch(() => {}); setHashDetails(false); }}>Arrêter</button>
+            </div>
+          </div>
         </div>
       )}
       {toast && (
