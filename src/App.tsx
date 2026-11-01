@@ -51,15 +51,13 @@ export default function App() {
     (async () => {
       try {
         // Prefetch into React Query cache for instant page rendering
-        const [platforms, sources, games, stats] = await Promise.all([
+        const [platforms, sources, stats] = await Promise.all([
           api.listPlatforms().catch(() => []),
           api.listSources().catch(() => []),
-          api.listGames().catch(() => []),
           api.stats().catch(() => null),
         ]);
         qc.setQueryData(["platforms"], platforms);
         qc.setQueryData(["sources"], sources);
-        qc.setQueryData(["games"], games);
         if (stats) qc.setQueryData(["stats"], stats);
         setTimeout(hide, 500);
       } catch {
