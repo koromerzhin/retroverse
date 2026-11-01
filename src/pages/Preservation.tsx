@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { useI18n } from "../i18n";
@@ -9,15 +9,21 @@ export default function Preservation() {
   const { t } = useI18n();
   const { data: jobs } = useQuery({ queryKey: ["transfer-jobs"], queryFn: () => api.listTransferJobs() });
   const [msg, setMsg] = useState<string | null>(null);
+  const [hashing, setHashing] = useState(false);
 
-  const hashMut = useMutation({
-    mutationFn: async () => {
+  async function handleComputeHashes() {
+    setHashing(true);
+    setMsg(null);
+    try {
       const n = await api.computeHashes();
-      return n;
-    },
-    onSuccess: (n) => setMsg(`Empreintes calculées pour ${n} fichier(s).`),
-    onError: (e: any) => setMsg(String(e)),
-  });
+      setMsg(`Empreintes calculées pour ${n} fichier(s).`);
+      qc.invalidateQueries({ queryKey: ["game"] });
+    } catch (e: any) {
+      setMsg(String(e));
+    } finally {
+      setHashing(false);
+    }
+  }
 
   async function handleExport() {
     const { save } = await import("@tauri-apps/plugin-dialog");
@@ -52,8 +58,8 @@ export default function Preservation() {
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Intégrité</h3>
         <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Calcule les empreintes SHA-256 des fichiers locaux.</p>
-        <button className="btn primary" onClick={() => hashMut.mutate()} disabled={hashMut.isPending}>
-          {hashMut.isPending ? <span className="spinner" /> : "Calculer les empreintes"}
+        <button className="btn primary" onClick={handleComputeHashes} disabled={hashing}>
+          {hashing ? <span className="spinner" /> : "Calculer les empreintes"}
         </button>
       </div>
 
