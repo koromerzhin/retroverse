@@ -401,6 +401,15 @@ pub async fn scan_remote_source_inner(
         // Pre-compute hashes for this chunk (download, no DB lock).
         let mut chunk_hashes: Vec<crate::identify::Hashes> = Vec::with_capacity(chunk.len());
         for (fpath, _size, _mtime, allowed) in chunk {
+            if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+                // cancelled during pre-compute
+                return Ok(ScanResult {
+                    source_id,
+                    files_found,
+                    games_created,
+                    games_updated,
+                });
+            }
             let needs = {
                 let conn = state.db.lock().unwrap();
                 conn.query_row(

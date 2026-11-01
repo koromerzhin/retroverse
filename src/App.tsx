@@ -125,7 +125,7 @@ export default function App() {
             }} />
           </div>
           <span style={{ fontSize: 10, color: "var(--text-muted)" }}>(cliquer pour détails)</span>
-          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); api.cancelScan().catch(() => {}); }}>Arrêter</button>
+          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={async (e) => { e.stopPropagation(); try { await api.cancelScan(); } catch (err) { console.error(err); } }}>Arrêter</button>
         </div>
       )}
       {scanDetails && scanProgress && (
@@ -148,7 +148,7 @@ export default function App() {
             </p>
             <div className="row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
               <button className="btn" onClick={() => setScanDetails(false)}>Fermer</button>
-              <button className="btn danger" onClick={() => { api.cancelScan().catch(() => {}); setScanDetails(false); }}>Arrêter</button>
+              <button className="btn danger" onClick={async () => { try { await api.cancelScan(); } catch {} setScanDetails(false); }}>Arrêter</button>
             </div>
           </div>
         </div>
