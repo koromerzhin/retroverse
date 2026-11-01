@@ -18,6 +18,24 @@
   --shadow: 0 8px 30px rgba(0,0,0,.35);
 }
 
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f6fa;
+  --bg-2: #ffffff;
+  --bg-3: #eef0f5;
+  --bg-4: #e2e5ed;
+  --border: #d0d4de;
+  --text: #1a1d24;
+  --text-dim: #4a5060;
+  --text-muted: #8a90a0;
+  --accent: #7c5cff;
+  --accent-2: #3a9fff;
+  --success: #22a06b;
+  --warning: #b8860b;
+  --danger: #dc3545;
+  --shadow: 0 8px 30px rgba(0,0,0,.12);
+}
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
