@@ -55,10 +55,12 @@ export default function Platforms() {
     let totalFiles = 0;
     let totalGames = 0;
     let errors: string[] = [];
+    let scannedFolders: string[] = [];
     for (const s of sources) {
       const folder = s.kind === "remote"
         ? `${s.remote_path || s.path}/${p.id}`.replace(/\/+/g, "/")
         : `${s.path}/${p.id}`;
+      scannedFolders.push(folder);
       try {
         const res = s.kind === "remote"
           ? await api.scanRemoteFolder(s.id, folder)
@@ -66,11 +68,13 @@ export default function Platforms() {
         totalFiles += res.files_found;
         totalGames += res.games_created;
       } catch (e: any) {
-        errors.push(String(e));
+        errors.push(`${s.name}: ${e}`);
       }
     }
-    if (errors.length > 0 && totalFiles === 0) {
-      setMsg(`Scan ${p.name} : dossier introuvable ou vide.`);
+    if (errors.length > 0) {
+      setMsg(`Scan ${p.name} : ${errors.join(" | ")}`);
+    } else if (totalFiles === 0) {
+      setMsg(`Scan ${p.name} : aucun fichier trouvé dans ${scannedFolders.join(", ")}`);
     } else {
       setMsg(`Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
     }
