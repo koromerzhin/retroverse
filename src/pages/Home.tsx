@@ -14,10 +14,10 @@ export default function Home() {
   });
   const { data: games } = useQuery({
     queryKey: ["games", "recent"],
-    queryFn: () => api.listGames(),
+    queryFn: () => api.listGames(undefined, undefined, 8, 0),
   });
 
-  const recent = (games || []).slice(0, 8);
+  const recent = (games?.items || []).slice(0, 8);
 
   return (
     <>
