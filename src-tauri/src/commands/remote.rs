@@ -397,9 +397,49 @@ pub async fn scan_remote_source_inner(
                 games_updated,
             });
         }
+        // Pre-compute hashes for this chunk (download, no DB lock).
+        let mut chunk_hashes: Vec<crate::identify::Hashes> = Vec::with_capacity(chunk.len());
+        for (fpath, _size, _mtime, allowed) in chunk {
+            let needs = {
+                let conn = state.db.lock().unwrap();
+                conn.query_row(
+                    "SELECT hash, crc32, md5, sha1 FROM game_files WHERE source_id=?1 AND path=?2",
+                    params![source_id, fpath],
+                    |r| {
+                        let h: Option<String> = r.get(0)?;
+                        let c: Option<String> = r.get(1)?;
+                        let m: Option<String> = r.get(2)?;
+                        let s: Option<String> = r.get(3)?;
+                        Ok(h.is_none() || c.is_none() || m.is_none() || s.is_none())
+                    },
+                )
+                .unwrap_or(true)
+            };
+            let skip = {
+                let conn = state.db.lock().unwrap();
+                let row: Option<(i64, i64)> = conn
+                    .query_row(
+                        "SELECT size, modified_at FROM game_files WHERE source_id=?1 AND path=?2",
+                        params![source_id, fpath],
+                        |r| Ok((r.get(0)?, r.get(1)?)),
+                    )
+                    .ok();
+                if let Some((old_size, old_mtime)) = row {
+                    old_size == *_size && old_mtime == *_mtime && !needs
+                } else {
+                    false
+                }
+            };
+            if skip {
+                chunk_hashes.push((None, None, None, None, None));
+            } else {
+                chunk_hashes.push(crate::remote::compute_hashes(&sess.sftp, fpath, allowed).await);
+            }
+        }  // close for loop
+
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
-        for (fpath, size, mtime, allowed) in chunk {
+        for (i, (fpath, size, mtime, _allowed)) in chunk.iter().enumerate() {
             let filename = std::path::Path::new(fpath)
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -440,13 +480,7 @@ pub async fn scan_remote_source_inner(
                 continue;
             }
 
-            if files_found == 0 {
-                eprintln!("DEBUG allowed={:?} ext={}", allowed, ext);
-            }
-            let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(fpath, allowed);
-            if files_found == 0 {
-                eprintln!("DEBUG first file hash: {:?} path={}", sha256.as_ref().map(|s| &s[..12]), fpath);
-            }
+            let (sha256, crc32, md5, sha1, zip_inner) = chunk_hashes[i].clone();
 
             let file_id = if let Some((id, _, _)) = existing {
                 tx.execute(
