@@ -44,6 +44,7 @@ pub fn run() {
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::list_sources,
+            commands::app_ready,
             commands::show_notification,
             commands::add_source,
             commands::remove_source,
@@ -109,6 +110,10 @@ pub fn run() {
             // Spawn system tray (KDE/freedesktop StatusNotifierItem, pure Rust).
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
+
+            // Backend initialization is complete: reveal the main window.
+            // The splashscreen stays on top until the frontend signals readiness.
+            let _ = main_window.show();
 
             Ok(())
         })
