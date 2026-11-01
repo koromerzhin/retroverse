@@ -150,11 +150,6 @@ export default function App() {
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Progression : {formatNumber(scanProgress.scanned)} / {formatNumber(scanProgress.total || 0)} fichier(s){scanProgress.total ? ` (${Math.round((scanProgress.scanned / scanProgress.total) * 100)}%)` : ""}
             </p>
-            {(scanProgress.folder || scanProgress.file) && (
-              <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                Dossier en cours : {scanProgress.folder || (scanProgress.file ? scanProgress.file.substring(0, scanProgress.file.lastIndexOf("/")) : "—")}
-              </p>
-            )}
             {scanProgress.file && (
               <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
                 Fichier en cours : {scanProgress.file.substring(scanProgress.file.lastIndexOf("/") + 1)}
