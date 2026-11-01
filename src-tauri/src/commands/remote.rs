@@ -237,35 +237,12 @@ pub async fn scan_remote_source_inner(
         }
     }
 
-    // Check if the folder has already been scanned (root mtime unchanged).
+    // Compute root mtime for tracking (but don't skip the whole scan; file-level incremental handles already-present files).
     let current_mtime: i64 = if let Ok(meta) = sess.sftp.metadata(&base_path).await {
         meta.mtime.unwrap_or(0) as i64
     } else {
         0
     };
-    let stored_mtime: i64 = {
-        let conn = state.db.lock().unwrap();
-        conn.query_row(
-            "SELECT COALESCE(root_mtime, 0) FROM game_sources WHERE id = ?1",
-            [source_id.clone()],
-            |r| r.get(0),
-        )
-        .unwrap_or(0)
-    };
-    if current_mtime != 0 && current_mtime == stored_mtime {
-        // Folder unchanged: skip scan.
-        if let Some(a) = &app {
-            use tauri::Emitter;
-            let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": 0, "total": 0, "status": "skipped"}));
-        }
-        let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
-        return Ok(ScanResult {
-            source_id,
-            files_found: 0,
-            games_created: 0,
-            games_updated: 0,
-        });
-    }
 
     // recursive collect files via sftp
     let mut collected: Vec<(String, i64, i64, Vec<String>)> = Vec::new(); // path, size, mtime, allowed_exts
