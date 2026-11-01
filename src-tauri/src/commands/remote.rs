@@ -186,6 +186,7 @@ pub async fn scan_remote_source_inner(
     app: Option<tauri::AppHandle>,
     cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
     folder_override: Option<String>,
+    platform_filter: Option<String>,
 ) -> Result<ScanResult> {
     tracing::info!("scan_remote_source start source_id={} folder={:?}", source_id, folder_override);
     if let Some(a) = &app {
@@ -249,6 +250,7 @@ pub async fn scan_remote_source_inner(
         app: Option<&tauri::AppHandle>,
         source_id: &str,
         cancel: Option<&std::sync::Arc<std::sync::atomic::AtomicBool>>,
+        platform_filter: Option<&String>,
     ) {
         if cancel.map(|c| c.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
             return;
@@ -294,7 +296,7 @@ pub async fn scan_remote_source_inner(
                     continue;
                 }
                 if is_dir {
-                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, dir_allowed.clone(), out, app, source_id, cancel)).await;
+                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, dir_allowed.clone(), out, app, source_id, cancel, platform_filter)).await;
                 } else {
                     let ext = std::path::Path::new(&name)
                         .extension()
@@ -315,7 +317,12 @@ pub async fn scan_remote_source_inner(
                     } else {
                         ext_known || folder_platform
                     };
-                    if ext_ok {
+                    // Platform filter
+                    let pf_ok = match platform_filter {
+                        Some(pf) => full.to_lowercase().contains(&format!("/{}/", pf.to_lowercase())),
+                        None => true,
+                    };
+                    if ext_ok && pf_ok {
                         let size = meta.size.unwrap_or(0) as i64;
                         let mtime = meta.mtime.unwrap_or(0) as i64;
                         out.push((full, size, mtime, dir_allowed.clone()));
@@ -376,7 +383,7 @@ pub async fn scan_remote_source_inner(
         .flat_map(|p| p.extensions.clone())
         .collect();
     let slugs: Vec<String> = platforms.iter().map(|p| p.slug.clone()).collect();
-    walk(&sess.sftp, &base_path, &exts, &slugs, Vec::new(), &mut collected, app.as_ref(), &source_id, Some(&cancel)).await;
+    walk(&sess.sftp, &base_path, &exts, &slugs, Vec::new(), &mut collected, app.as_ref(), &source_id, Some(&cancel), platform_filter.as_ref()).await;
 
     // process into db in chunks to avoid locking the DB for too long
     let mut files_found = 0usize;
@@ -460,8 +467,12 @@ pub async fn scan_remote_source_inner(
                 .to_string();
             last_file = filename.clone();
             let ext = crate::identify::ext_of(fpath);
-            let platform_id = crate::identify::infer_platform_from_path(fpath, &platforms2)
-                .or_else(|| crate::identify::guess_platform(&ext, &platforms2));
+            let platform_id = if let Some(pf) = &platform_filter {
+                Some(pf.clone())
+            } else {
+                crate::identify::infer_platform_from_path(fpath, &platforms2)
+                    .or_else(|| crate::identify::guess_platform(&ext, &platforms2))
+            };
 
             let existing: Option<(String, i64, i64)> = tx
                 .query_row(
@@ -656,9 +667,10 @@ pub async fn scan_remote_source(
     app: tauri::AppHandle,
     source_id: String,
     folder: Option<String>,
+    platform_filter: Option<String>,
 ) -> Result<ScanResult> {
     state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
-    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone(), folder).await
+    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone(), folder, platform_filter).await
 }
 
 #[tauri::command]
@@ -667,9 +679,10 @@ pub async fn scan_remote_folder(
     app: tauri::AppHandle,
     source_id: String,
     folder_path: String,
+    platform_filter: Option<String>,
 ) -> Result<ScanResult> {
     state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
-    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone(), Some(folder_path)).await
+    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone(), Some(folder_path), platform_filter).await
 }
 
 #[tauri::command]

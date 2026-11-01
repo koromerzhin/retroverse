@@ -13,6 +13,7 @@ pub fn scan_source(
     app: Option<tauri::AppHandle>,
     cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
     folder_override: Option<String>,
+    platform_filter: Option<String>,
 ) -> Result<ScanResult> {
     use tauri::Emitter;
 
@@ -180,6 +181,13 @@ pub fn scan_source(
             if !ext_ok {
                 continue;
             }
+            // Platform filter: only include files under a folder matching the platform slug.
+            if let Some(pf) = &platform_filter {
+                let low = pf.to_lowercase();
+                if !pstr.to_lowercase().contains(&format!("/{}/", low)) {
+                    continue;
+                }
+            }
             let meta = match std::fs::metadata(p) {
                 Ok(m) => m,
                 Err(_) => continue,
@@ -218,8 +226,12 @@ pub fn scan_source(
                     .unwrap_or("")
                     .to_string();
                 let ext = identify::ext_of(fpath);
-                let platform_id = identify::infer_platform_from_path(fpath, &platforms)
-                    .or_else(|| identify::guess_platform(&ext, &platforms));
+                let platform_id = if let Some(pf) = &platform_filter {
+                    Some(pf.clone())
+                } else {
+                    identify::infer_platform_from_path(fpath, &platforms)
+                        .or_else(|| identify::guess_platform(&ext, &platforms))
+                };
 
                 let existing: Option<(String, i64, i64, bool)> = tx
                     .query_row(

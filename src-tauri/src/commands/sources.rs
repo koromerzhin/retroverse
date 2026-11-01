@@ -93,15 +93,15 @@ pub fn remove_source(state: State<AppState>, id: String) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn scan_source(state: State<AppState>, app: tauri::AppHandle, source_id: String, folder: Option<String>) -> Result<ScanResult> {
+pub fn scan_source(state: State<AppState>, app: tauri::AppHandle, source_id: String, folder: Option<String>, platform_filter: Option<String>) -> Result<ScanResult> {
     state.cancel_scan.store(false, Ordering::SeqCst);
-    scanner::scan_source(&state, &source_id, Some(app), state.cancel_scan.clone(), folder)
+    scanner::scan_source(&state, &source_id, Some(app), state.cancel_scan.clone(), folder, platform_filter)
 }
 
 #[tauri::command]
-pub fn scan_local_folder(state: State<AppState>, app: tauri::AppHandle, source_id: String, folder_path: String) -> Result<ScanResult> {
+pub fn scan_local_folder(state: State<AppState>, app: tauri::AppHandle, source_id: String, folder_path: String, platform_filter: Option<String>) -> Result<ScanResult> {
     state.cancel_scan.store(false, Ordering::SeqCst);
-    scanner::scan_source(&state, &source_id, Some(app), state.cancel_scan.clone(), Some(folder_path))
+    scanner::scan_source(&state, &source_id, Some(app), state.cancel_scan.clone(), Some(folder_path), platform_filter)
 }
 
 #[tauri::command]
