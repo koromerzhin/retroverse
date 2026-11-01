@@ -1,18 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./lib/api";
 import { formatNumber } from "./lib/format";
 import { NavLink, Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/Home";
-import Library from "./pages/Library";
-import GameDetail from "./pages/GameDetail";
-import Platforms from "./pages/Platforms";
-import Sources from "./pages/Sources";
-import Companion from "./pages/Companion";
-import Discovery from "./pages/Discovery";
-import Preservation from "./pages/Preservation";
-import Settings from "./pages/Settings";
+const Home = lazy(() => import("./pages/Home"));
+const Library = lazy(() => import("./pages/Library"));
+const GameDetail = lazy(() => import("./pages/GameDetail"));
+const Platforms = lazy(() => import("./pages/Platforms"));
+const Sources = lazy(() => import("./pages/Sources"));
+const Companion = lazy(() => import("./pages/Companion"));
+const Discovery = lazy(() => import("./pages/Discovery"));
+const Preservation = lazy(() => import("./pages/Preservation"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 const nav = [
   { to: "/", label: "Accueil", icon: "🏠" },
@@ -181,6 +181,7 @@ export default function App() {
         ))}
       </aside>
       <main className="main">
+        <Suspense fallback={<div className="empty"><div className="spinner" /></div>}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/library" element={<Library />} />
@@ -193,6 +194,7 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </main>
     </div>
   );

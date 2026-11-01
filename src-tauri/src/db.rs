@@ -17,6 +17,9 @@ pub fn open() -> Result<Connection> {
     let conn = Connection::open(&path)?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
+    conn.pragma_update(None, "synchronous", "NORMAL")?;
+    conn.pragma_update(None, "cache_size", -8000)?;
+    conn.pragma_update(None, "temp_store", "MEMORY")?;
     migrate(&conn)?;
     let _ = cleanup_orphan_games(&conn);
     Ok(conn)
