@@ -44,6 +44,7 @@ pub fn run() {
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::list_sources,
+            commands::show_notification,
             commands::add_source,
             commands::remove_source,
             commands::scan_source,

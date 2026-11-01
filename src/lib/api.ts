@@ -52,6 +52,7 @@ export const api = {
   listMetadataProviders: () => invoke<string[]>("list_metadata_providers"),
   enrichGame: (gameId: string, provider: string) => invoke<any>("enrich_game", { gameId, provider }),
   getGameMetadata: (gameId: string) => invoke<any[]>("get_game_metadata", { gameId }),
+  showNotification: (title: string, body: string) => invoke<void>("show_notification", { title, body }),
 };
 
 export async function pickDirectory(): Promise<string | null> {
