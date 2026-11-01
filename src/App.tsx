@@ -26,7 +26,7 @@ const nav = [
 
 export default function App() {
   const qc = useQueryClient();
-  const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string } | null>(null);
+  const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [scanDetails, setScanDetails] = useState(false);
   const [sources, setSources] = useState<any[]>([]);
@@ -94,7 +94,7 @@ export default function App() {
         setToast(msg);
         setTimeout(() => setToast(null), 5000);
       } else {
-        setScanProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", sourceId: ev.payload?.source_id });
+        setScanProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", sourceId: ev.payload?.source_id, file: ev.payload?.file });
       }
     }).then((u) => { unlisten = u; });
     return () => { if (unlisten) unlisten(); };
@@ -115,7 +115,7 @@ export default function App() {
             cursor: "pointer",
           }}
         >
-          <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s)</span>
+          <span>Scan en cours… {formatNumber(scanProgress.scanned)}{scanProgress.total > 0 ? ` / ${formatNumber(scanProgress.total)}` : ""} fichier(s){scanProgress.file ? ` — ${scanProgress.file}` : ""}</span>
           <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", maxWidth: 300 }}>
             <div style={{
               height: "100%",
@@ -138,6 +138,11 @@ export default function App() {
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Progression : {formatNumber(scanProgress.scanned)} / {formatNumber(scanProgress.total || 0)} fichier(s)
             </p>
+            {scanProgress.file && (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
+                Fichier en cours : {scanProgress.file}
+              </p>
+            )}
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Statut : {scanProgress.status}
             </p>

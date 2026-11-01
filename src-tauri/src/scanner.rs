@@ -237,7 +237,7 @@ pub fn scan_source(
                 {
                     let _ = a.emit(
                         "scan-progress",
-                        serde_json::json!({"source_id": source_id, "scanned": idx + 1, "total": files.len(), "status": "scanning"}),
+                        serde_json::json!({"source_id": source_id, "scanned": idx + 1, "total": files.len(), "status": "scanning", "file": filename}),
                     );
                 }
                 continue;
@@ -270,7 +270,7 @@ pub fn scan_source(
                 {
                     let _ = a.emit(
                         "scan-progress",
-                        serde_json::json!({"source_id": source_id, "scanned": idx + 1, "total": files.len(), "status": "scanning"}),
+                        serde_json::json!({"source_id": source_id, "scanned": idx + 1, "total": files.len(), "status": "scanning", "file": filename}),
                     );
                 }
                 continue;
