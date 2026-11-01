@@ -248,7 +248,7 @@ pub fn scan_source(
         {
             let mut conn = state.db.lock().unwrap();
             let tx = conn.transaction()?;
-            for (idx, (fpath, size, mtime, allowed)) in files.iter().enumerate() {
+            for (idx, (fpath, size, mtime, _allowed)) in files.iter().enumerate() {
                 if cancel.load(std::sync::atomic::Ordering::SeqCst) {
                     break;
                 }
@@ -265,33 +265,24 @@ pub fn scan_source(
                         .or_else(|| identify::guess_platform(&ext, &platforms))
                 };
 
-                let existing: Option<(String, i64, i64, bool)> = tx
+                let existing: Option<(String, i64, i64, Option<String>)> = tx
                     .query_row(
-                        "SELECT id,size,modified_at, (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL) FROM game_files WHERE source_id=?1 AND path=?2",
+                        "SELECT id,size,modified_at,platform_id FROM game_files WHERE source_id=?1 AND path=?2",
                         rusqlite::params![source_id, fpath],
-                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_, i64>(3)? != 0)),
+                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
                     )
                     .ok();
 
-                // Also reprocess if platform_id is wrong (e.g. old scan set arcade for a .zip in a console folder).
-                let platform_ok = if let Some((_id, _, _, _)) = &existing {
-                    let stored: Option<String> = tx
-                        .query_row(
-                            "SELECT platform_id FROM game_files WHERE source_id=?1 AND path=?2",
-                            rusqlite::params![source_id, fpath],
-                            |r| r.get(0),
-                        )
-                        .ok()
-                        .flatten();
-                    stored == platform_id
+                // Reprocess if platform_id differs from inferred.
+                let platform_changed = if let Some((_id, _, _, stored)) = &existing {
+                    stored.as_ref() != platform_id.as_ref()
                 } else {
-                    true
+                    false
                 };
-                if let Some((_id, old_size, old_mtime, needs_hash)) = &existing
+                if let Some((_id, old_size, old_mtime, _)) = &existing
                     && *old_size == *size as i64
                     && *old_mtime == *mtime
-                    && !needs_hash
-                    && platform_ok
+                    && !platform_changed
                 {
                     found_paths.push(fpath.clone());
                     files_found += 1;
@@ -306,7 +297,8 @@ pub fn scan_source(
                     continue;
                 }
 
-                let (sha256, crc32, md5, sha1, zip_inner) = identify::compute_hashes(fpath, allowed);
+                // Hashes are computed on-demand via "Calculer les empreintes" (scan stays fast).
+                let (sha256, crc32, md5, sha1, zip_inner) = (None, None, None, None, None);
 
                 let file_id = if let Some((id, _, _, _)) = existing {
                     tx.execute(
