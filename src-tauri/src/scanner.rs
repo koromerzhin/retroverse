@@ -14,6 +14,7 @@ pub fn scan_source(
     folder_override: Option<String>,
 ) -> Result<ScanResult> {
     use tauri::Emitter;
+    tracing::info!("scan_source start source_id={} folder={:?}", source_id, folder_override);
 
     let path = if let Some(f) = folder_override {
         f
@@ -396,6 +397,10 @@ pub fn scan_source(
         );
     }
 
+    tracing::info!(
+        "scan_source done source_id={} files={} created={} updated={}",
+        source_id, total_files_found, total_created, total_updated
+    );
     Ok(ScanResult {
         source_id: source_id.to_string(),
         files_found: total_files_found,

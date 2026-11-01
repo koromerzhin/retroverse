@@ -12,9 +12,27 @@ pub mod state;
 use state::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // File-based logging (readable by external apps). Logs go to <data_dir>/retroverse/logs/
+    let log_dir = crate::db::db_path()
+        .parent()
+        .map(|p| p.join("logs"))
+        .unwrap_or_else(|| std::path::PathBuf::from("logs"));
+    let _ = std::fs::create_dir_all(&log_dir);
+    let file_appender = tracing_appender::rolling::daily(log_dir.clone(), "retroverse.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    // Leak the guard so the writer stays alive for the process lifetime.
+    Box::leak(Box::new(_guard));
+
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with_writer(non_blocking)
+        .with_ansi(false)
         .init();
+
+    tracing::info!("RETROVERSE starting; logs at {:?}", log_dir);
 
     let app_state = AppState::new().expect("failed to init database");
 
