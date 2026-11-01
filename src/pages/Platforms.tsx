@@ -30,6 +30,31 @@ export default function Platforms() {
   const [hideEmpty, setHideEmpty] = useState(true);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.platforms.view") as "cards" | "list") || "cards");
 
+  async function handleOpenFolder(p: Platform) {
+    if (!sources) return;
+    for (const s of sources) {
+      if (s.kind !== "local") continue;
+      const folder = `${s.path}/${p.id}`;
+      try {
+        const { exists } = await import("@tauri-apps/plugin-fs");
+        if (await exists(folder)) {
+          const { openPath } = await import("@tauri-apps/plugin-opener");
+          await openPath(folder);
+          return;
+        }
+      } catch (e: any) {
+        // try next
+      }
+    }
+    // fallback: show path
+    const remote = sources.find((s) => s.kind === "remote");
+    if (remote) {
+      alert(`Dossier distant : ${remote.remote_path || remote.path}/${p.id}`);
+    } else {
+      alert("Aucun dossier local trouvé pour cette plateforme.");
+    }
+  }
+
   const counts: Record<string, number> = {};
   games?.forEach((g: any) => {
     const pid = g.game.platform_id;
@@ -153,6 +178,13 @@ export default function Platforms() {
               <button
                 className="btn"
                 style={{ fontSize: 11, padding: "4px 8px", flex: 1, justifyContent: "center", textAlign: "center" }}
+                onClick={(e) => { e.stopPropagation(); handleOpenFolder(p); }}
+              >
+                Ouvrir le dossier
+              </button>
+              <button
+                className="btn"
+                style={{ fontSize: 11, padding: "4px 8px", flex: 1, justifyContent: "center", textAlign: "center" }}
                 disabled={scanning === p.id}
                 onClick={(e) => { e.stopPropagation(); handleScanPlatform(p); }}
               >
@@ -183,6 +215,7 @@ export default function Platforms() {
               <td>
                 <div className="row" style={{ gap: 6 }}>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={(counts[p.id] ?? 0) === 0} onClick={() => navigate(`/library?platform=${p.id}`)}>{t("platforms.viewLibrary")}</button>
+                  <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => handleOpenFolder(p)}>Ouvrir le dossier</button>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={scanning === p.id} onClick={() => handleScanPlatform(p)}>{scanning === p.id ? t("platforms.scanning") : t("platforms.scan")}</button>
                 </div>
               </td>
