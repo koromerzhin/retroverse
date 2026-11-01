@@ -76,7 +76,7 @@ export default function Platforms() {
       return;
     }
     setScanning(p.id);
-    setMsg(null);
+    setMsg(`Scan ${p.name} en cours…`);
     let totalFiles = 0;
     let totalGames = 0;
     let errors: string[] = [];
