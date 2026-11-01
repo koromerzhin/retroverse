@@ -12,7 +12,7 @@ export default function Library() {
   const [searchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [platform] = useState<string | undefined>(searchParams.get("platform") || undefined);
+  const platform = searchParams.get("platform") || undefined;
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
   const pageSize = 24;
@@ -28,6 +28,10 @@ export default function Library() {
     queryKey: ["platforms"],
     queryFn: () => api.listPlatforms(),
   });
+  const { data: allGames } = useQuery<LibraryEntry[]>({
+    queryKey: ["games"],
+    queryFn: () => api.listGames(),
+  });
   const { data: games, isLoading, refetch } = useQuery<LibraryEntry[]>({
     queryKey: ["games", platform, search],
     queryFn: async () => {
@@ -36,6 +40,13 @@ export default function Library() {
       return base;
     },
   });
+
+  const platformCounts: Record<string, number> = {};
+  allGames?.forEach((g: any) => {
+    const pid = g.game.platform_id;
+    if (pid) platformCounts[pid] = (platformCounts[pid] || 0) + 1;
+  });
+  const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
 
   const totalPages = Math.max(1, Math.ceil((games?.length ?? 0) / pageSize));
   const paged = (games || []).slice((page - 1) * pageSize, page * pageSize);
@@ -53,6 +64,21 @@ export default function Library() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
+        <select
+          className="select"
+          style={{ maxWidth: 260 }}
+          value={platform ?? ""}
+          onChange={(e) => {
+            const v = e.target.value || undefined;
+            if (v) navigate(`/library?platform=${v}`);
+            else navigate("/library");
+          }}
+        >
+          <option value="">Toutes les plateformes</option>
+          {availablePlatforms.map((p) => (
+            <option key={p.id} value={p.id}>{p.name} ({platformCounts[p.id]})</option>
+          ))}
+        </select>
         {platform && (
           <span className="badge">{platforms?.find((p) => p.id === platform)?.name}</span>
         )}
