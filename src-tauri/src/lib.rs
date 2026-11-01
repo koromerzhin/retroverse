@@ -8,6 +8,7 @@ pub mod models;
 pub mod remote;
 pub mod scanner;
 pub mod state;
+pub mod tray;
 
 use state::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -92,7 +93,22 @@ pub fn run() {
             commands::import_gamelists,
         ])
         .setup(|app| {
-            let _ = app;
+            use tauri::Manager;
+
+            // Minimize to tray (background): hide window on close instead of exiting.
+            let main_window = app.get_webview_window("main").unwrap();
+            let mw = main_window.clone();
+            main_window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = mw.hide();
+                }
+            });
+
+            // Spawn system tray (KDE/freedesktop StatusNotifierItem, pure Rust).
+            let handle = app.handle().clone();
+            crate::tray::spawn_tray(handle);
+
             Ok(())
         })
         .run(tauri::generate_context!())
