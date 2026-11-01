@@ -20,20 +20,11 @@ export default function GameDetail() {
     queryKey: ["sources"],
     queryFn: () => api.listSources(),
   });
-  const { data: providers } = useQuery<string[]>({
-    queryKey: ["metadata-providers"],
-    queryFn: () => api.listMetadataProviders(),
-  });
-  const { data: metadata, refetch: refetchMeta } = useQuery<any[]>({
-    queryKey: ["game-metadata", id],
-    queryFn: () => api.getGameMetadata(id!),
-    enabled: !!id,
-  });
+
 
   const [title, setTitle] = useState("");
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
-  const [enrichMsg, setEnrichMsg] = useState<string | null>(null);
-  const [provider, setProvider] = useState("wikipedia");
+
   const [hashMsg, setHashMsg] = useState<string | null>(null);
   const [hashing, setHashing] = useState(false);
   useEffect(() => {
@@ -64,18 +55,6 @@ export default function GameDetail() {
       setHashMsg(String(e));
     } finally {
       setHashing(false);
-    }
-  }
-
-  async function handleEnrich() {
-    if (!id) return;
-    setEnrichMsg(null);
-    try {
-      const res = await api.enrichGame(id, provider);
-      setEnrichMsg(`Enrichi via ${res.provider} (description: ${res.has_description}, jaquette: ${res.has_cover})`);
-      refetchMeta();
-    } catch (e: any) {
-      setEnrichMsg(String(e));
     }
   }
 
@@ -122,28 +101,7 @@ export default function GameDetail() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0 }}>{t("gameDetail.enrichment")}</h3>
-        <div className="row">
-          <select className="select" style={{ maxWidth: 220 }} value={provider} onChange={(e) => setProvider(e.target.value)}>
-            {(providers || []).map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <button className="btn primary" onClick={handleEnrich}>{t("gameDetail.enrich")}</button>
-        </div>
-        {enrichMsg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{enrichMsg}</p>}
-        {metadata && metadata.length > 0 && (
-          <div style={{ marginTop: 12 }}>
-            {metadata.map((m: any, i: number) => (
-              <div key={i} style={{ fontSize: 13, marginBottom: 6 }}>
-                <span className="badge">{m.field ?? m.kind}</span>{" "}
-                <span style={{ color: "var(--text-dim)" }}>{m.provider ?? ""}</span>
-                {m.value && <p style={{ margin: "4px 0", color: "var(--text)" }}>{String(m.value).slice(0, 300)}</p>}
-                {m.url && <a href={m.url} target="_blank" rel="noreferrer" style={{ color: "var(--accent-2)", fontSize: 12 }}>{m.url}</a>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.files")} ({data.files.length})</h3>
