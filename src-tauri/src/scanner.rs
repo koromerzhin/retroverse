@@ -51,6 +51,38 @@ pub fn scan_source(
             games_updated: 0,
         });
     }
+
+    // Check if the folder has already been scanned (root mtime unchanged).
+    let current_mtime = std::fs::metadata(&root)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let stored_mtime: i64 = {
+        let conn = state.db.lock().unwrap();
+        conn.query_row(
+            "SELECT COALESCE(root_mtime, 0) FROM game_sources WHERE id = ?1",
+            [source_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(0)
+    };
+    if current_mtime != 0 && current_mtime == stored_mtime {
+        // Folder unchanged: skip scan.
+        if let Some(a) = &app {
+            let _ = a.emit(
+                "scan-progress",
+                serde_json::json!({"source_id": source_id, "scanned": 0, "total": 0, "status": "skipped"}),
+            );
+        }
+        return Ok(ScanResult {
+            source_id: source_id.to_string(),
+            files_found: 0,
+            games_created: 0,
+            games_updated: 0,
+        });
+    }
     if !root.ends_with("roms") {
         let roms = root.join("roms");
         if roms.is_dir() {
@@ -399,8 +431,8 @@ pub fn scan_source(
 
     let conn = state.db.lock().unwrap();
     conn.execute(
-        "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL WHERE id=?2",
-        rusqlite::params![Utc::now().to_rfc3339(), source_id],
+        "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL, root_mtime=?2 WHERE id=?3",
+        rusqlite::params![Utc::now().to_rfc3339(), current_mtime, source_id],
     )?;
 
     let job_id = crate::models::new_id();
