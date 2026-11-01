@@ -29,9 +29,15 @@ pub async fn compute_hashes(
     allowed: &[String],
 ) -> crate::identify::Hashes {
     use tokio::io::AsyncReadExt;
-    let mut f = match sftp.open(path).await {
-        Ok(f) => f,
-        Err(_) => return (None, None, None, None, None),
+    // Timeout on open
+    let mut f = match tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        sftp.open(path),
+    )
+    .await
+    {
+        Ok(Ok(f)) => f,
+        _ => return (None, None, None, None, None),
     };
     let mut buf = Vec::new();
     // Timeout per file to avoid hanging on stalled connections.
@@ -44,17 +50,24 @@ pub async fn compute_hashes(
         Ok(Ok(_)) => {}
         _ => return (None, None, None, None, None),
     }
-    let lower = path.to_lowercase();
-    let filename = std::path::Path::new(path).file_name().and_then(|s| s.to_str()).unwrap_or(path);
-    if lower.ends_with(".7z") {
-        let tmp = std::env::temp_dir().join(format!("retroverse_remote_{}.7z", path.len()));
-        if std::fs::write(&tmp, &buf).is_ok() {
-            let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), allowed);
-            let _ = std::fs::remove_file(&tmp);
-            return r;
+    let path = path.to_string();
+    let allowed = allowed.to_vec();
+    // Run CPU-bound hashing in a blocking thread.
+    tokio::task::spawn_blocking(move || {
+        let lower = path.to_lowercase();
+        if lower.ends_with(".7z") {
+            let tmp = std::env::temp_dir().join(format!("retroverse_remote_{}.7z", path.len()));
+            if std::fs::write(&tmp, &buf).is_ok() {
+                let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
+                let _ = std::fs::remove_file(&tmp);
+                return r;
+            }
         }
-    }
-    crate::identify::compute_hashes_from_bytes(&buf, filename, allowed)
+        let filename = std::path::Path::new(&path).file_name().and_then(|s| s.to_str()).unwrap_or(&path);
+        crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
+    })
+    .await
+    .unwrap_or((None, None, None, None, None))
 }
 
 pub fn resolve_key_path(key_path: &str) -> String {
