@@ -13,6 +13,7 @@ export default function Library() {
   const [search, setSearch] = useState("");
   const [platform] = useState<string | undefined>(searchParams.get("platform") || undefined);
   const [page, setPage] = useState(1);
+  const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
   const pageSize = 24;
 
   useEffect(() => { setPage(1); }, [search, platform]);
@@ -51,6 +52,10 @@ export default function Library() {
         )}
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
         <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
+        <div className="row" style={{ marginLeft: "auto", gap: 4 }}>
+          <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.library.view", "cards"); }} title="Cartes">Cards</button>
+          <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.library.view", "list"); }} title="Liste">Liste</button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -62,6 +67,7 @@ export default function Library() {
         </div>
       ) : (
         <>
+        {view === "cards" ? (
         <div className="grid games">
           {paged.map((e) => (
             <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
@@ -73,6 +79,26 @@ export default function Library() {
             </div>
           ))}
         </div>
+        ) : (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Titre</th>
+              <th>Plateforme</th>
+              <th>Fichiers</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((e) => (
+              <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer" }}>
+                <td>{e.game.title}</td>
+                <td>{e.platform?.name ?? "Inconnu"}</td>
+                <td>{e.file_count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        )}
         {totalPages > 1 && (
           <div className="row" style={{ marginTop: 20, justifyContent: "center", gap: 8 }}>
             <button className="btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
