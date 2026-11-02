@@ -279,6 +279,7 @@ export default function Platforms() {
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={(counts[p.id] ?? 0) === 0} onClick={() => navigate(`/library?platform=${p.id}`)}>{t("platforms.viewLibrary")}</button>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => handleOpenFolder(p)}>Ouvrir le dossier</button>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={scanning === p.id} onClick={() => handleScanPlatform(p)}>{scanning === p.id ? t("platforms.scanning") : t("platforms.scan")}</button>
+                  <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={hashingPlatform === p.id || p.id === "scummvm" || (unhashedCounts?.[p.id] ?? 0) === 0} onClick={() => handleHashPlatform(p)}>{hashingPlatform === p.id ? "…" : "Calculer les empreintes"}</button>
                 </div>
               </td>
             </tr>
