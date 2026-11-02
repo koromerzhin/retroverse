@@ -166,10 +166,10 @@ export default function Platforms() {
             <div style={{ marginTop: 8 }}>
               <span className="badge">{formatNumber(counts[p.id] ?? 0)} {t("platforms.games")}</span>
             </div>
-            <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", gap: 8, flexWrap: "nowrap" }}>
+            <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
               <button
                 className="btn"
-                style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}
+                style={{ fontSize: 11, padding: "4px 8px", width: "100%" }}
                 disabled={(counts[p.id] ?? 0) === 0}
                 onClick={(e) => { e.stopPropagation(); navigate(`/library?platform=${p.id}`); }}
               >
@@ -177,14 +177,14 @@ export default function Platforms() {
               </button>
               <button
                 className="btn"
-                style={{ fontSize: 11, padding: "4px 8px", flex: 1, justifyContent: "center", textAlign: "center" }}
+                style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
                 onClick={(e) => { e.stopPropagation(); handleOpenFolder(p); }}
               >
                 Ouvrir le dossier
               </button>
               <button
                 className="btn"
-                style={{ fontSize: 11, padding: "4px 8px", flex: 1, justifyContent: "center", textAlign: "center" }}
+                style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
                 disabled={scanning === p.id}
                 onClick={(e) => { e.stopPropagation(); handleScanPlatform(p); }}
               >
