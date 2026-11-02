@@ -152,7 +152,7 @@ body {
   display: grid;
   gap: 14px;
 }
-.grid.games { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.grid.games { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); align-items: stretch; }
 
 .game-card {
   background: var(--bg-2);
@@ -161,6 +161,9 @@ body {
   overflow: hidden;
   cursor: pointer;
   transition: transform .15s, border-color .15s;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 .game-card:hover { transform: translateY(-2px); border-color: var(--accent); }
 .game-card .cover {
@@ -170,8 +173,9 @@ body {
   font-size: 40px;
   color: var(--text-muted);
 }
-.game-card .info { padding: 10px 12px; }
-.game-card .title { font-weight: 600; font-size: 13px; line-height: 1.3; }
+.game-card .cover { flex-shrink: 0; }
+.game-card .info { padding: 10px 12px; flex: 1; display: flex; flex-direction: column; }
+.game-card .title { font-weight: 600; font-size: 13px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .game-card .meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 
 .badge {
