@@ -483,6 +483,23 @@ pub async fn scan_remote_source_inner(
             let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": collected.len(), "status": "scanning"}));
         }
 
+        // Pre-read ScummVM .scummvm files to resolve game titles.
+        let mut scumm_contents: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for (fp, _, _, _) in &collected {
+            if fp.to_lowercase().ends_with(".scummvm") {
+                if let Ok(mut f) = sess.sftp.open(fp.clone()).await {
+                    use tokio::io::AsyncReadExt;
+                    let mut buf = Vec::new();
+                    if f.read_to_end(&mut buf).await.is_ok()
+                        && let Ok(content) = String::from_utf8(buf)
+                    {
+                        scumm_contents.insert(fp.clone(), content.trim().to_string());
+                    }
+                }
+            }
+        }
+
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
         let mut last_file = String::new();
@@ -502,11 +519,14 @@ pub async fn scan_remote_source_inner(
             };
 
             if ext == "scummvm" {
-                let code = std::path::Path::new(&filename)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(&filename);
-                if let Some(new_title) = crate::identify::scummvm_title(code) {
+                let code = scumm_contents.get(fpath).cloned().unwrap_or_else(|| {
+                    std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename)
+                        .to_string()
+                });
+                if let Some(new_title) = crate::identify::scummvm_title(&code) {
                     let _ = tx.execute(
                         "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
                         params![new_title, code, platform_id],
@@ -573,11 +593,14 @@ pub async fn scan_remote_source_inner(
             files_found += 1;
 
             if ext == "scummvm" {
-                let code = std::path::Path::new(&filename)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(&filename);
-                if let Some(new_title) = crate::identify::scummvm_title(code) {
+                let code = scumm_contents.get(fpath).cloned().unwrap_or_else(|| {
+                    std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename)
+                        .to_string()
+                });
+                if let Some(new_title) = crate::identify::scummvm_title(&code) {
                     let _ = tx.execute(
                         "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
                         params![new_title, code, platform_id],
@@ -615,11 +638,14 @@ pub async fn scan_remote_source_inner(
             };
             let (mut title, conf) = crate::identify::identify_file(&gf, &platforms2);
             if ext == "scummvm" {
-                let code = std::path::Path::new(&filename)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(&filename);
-                if let Some(t) = crate::identify::scummvm_title(code) {
+                let code = scumm_contents.get(fpath).cloned().unwrap_or_else(|| {
+                    std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename)
+                        .to_string()
+                });
+                if let Some(t) = crate::identify::scummvm_title(&code) {
                     title = t;
                 }
             }

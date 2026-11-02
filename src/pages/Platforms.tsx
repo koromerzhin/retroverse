@@ -134,6 +134,7 @@ export default function Platforms() {
       return;
     }
     setScanningAll(true);
+    (window as any).__retroverseScanAll = true;
     for (const p of platforms) {
       if ((counts[p.id] ?? 0) === 0 && hideEmpty) {
         // skip empty platforms if hidden, but still allow scanning
@@ -143,6 +144,8 @@ export default function Platforms() {
     }
     setMsg("Scan complet terminé.");
     setScanningAll(false);
+    (window as any).__retroverseScanAll = false;
+    api.showNotification("RETROVERSE", "Scan complet terminé.").catch(() => {});
     qc.invalidateQueries({ queryKey: ["games"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
     qc.invalidateQueries({ queryKey: ["platforms"] });

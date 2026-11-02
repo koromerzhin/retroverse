@@ -91,6 +91,10 @@ export default function App() {
         return;
       }
       lastProgressUpdate.current = now;
+      const scanAll = (window as any).__retroverseScanAll;
+      if (scanAll && (ev.payload?.status === "done" || ev.payload?.status === "cancelled" || ev.payload?.status === "skipped")) {
+        return;
+      }
       if (ev.payload?.status === "cancelled") {
         setScanProgress(null);
         notifyToast("Scan annulé");
