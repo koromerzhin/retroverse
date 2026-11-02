@@ -83,7 +83,7 @@ pub fn list_games(
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
         )?;
         let frows = fstmt.query_map([game.id.clone()], |r| {
-            let created: String = r.get(13)?;
+            let created: String = r.get(17)?;
             Ok(crate::models::GameFile {
                 id: r.get(0)?,
                 source_id: r.get(1)?,
@@ -148,7 +148,7 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
          FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
     )?;
     let frows = fstmt.query_map([game.id.clone()], |r| {
-        let created: String = r.get(13)?;
+        let created: String = r.get(17)?;
         Ok(crate::models::GameFile {
             id: r.get(0)?,
             source_id: r.get(1)?,
@@ -303,7 +303,7 @@ pub fn search_games_fts(state: State<AppState>, query: String, limit: Option<usi
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
         )?;
         let frows = fstmt.query_map([game.id.clone()], |r| {
-            let created: String = r.get(13)?;
+            let created: String = r.get(17)?;
             Ok(crate::models::GameFile {
                 id: r.get(0)?,
                 source_id: r.get(1)?,
