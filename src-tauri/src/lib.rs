@@ -12,6 +12,8 @@ pub mod tray;
 
 use state::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+const SPLASH_HTML: &str = include_str!("../../public/splash.html");
+
 pub fn run() {
     // File-based logging (readable by external apps). Logs go to <data_dir>/retroverse/logs/
     let log_dir = crate::db::db_path()
@@ -95,7 +97,7 @@ pub fn run() {
             commands::import_gamelists,
         ])
         .setup(|app| {
-            use tauri::Manager;
+            use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
             // Minimize to tray (background): hide window on close instead of exiting.
             let main_window = app.get_webview_window("main").unwrap();
@@ -111,14 +113,33 @@ pub fn run() {
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
 
+            // Keep the main window hidden during startup; it is revealed by app_ready.
+            let _ = main_window.hide();
+
+            // Independent splashscreen window with embedded HTML (no file/URL resolution).
+            let splash = WebviewWindowBuilder::new(
+                app,
+                "splashscreen",
+                WebviewUrl::External("about:blank".parse().unwrap()),
+            )
+            .title("RETROVERSE")
+            .inner_size(440.0, 280.0)
+            .resizable(false)
+            .decorations(false)
+            .center()
+            .always_on_top(true)
+            .visible(true)
+            .build()?;
+            let _ = splash.eval(format!(
+                "document.open(); document.write({:?}); document.close();",
+                SPLASH_HTML
+            ));
+
             tracing::info!(
                 "setup: main present={}, splash present={}",
                 app.get_webview_window("main").is_some(),
                 app.get_webview_window("splashscreen").is_some()
             );
-            // Keep the main window hidden during startup; it is revealed by app_ready.
-            // (Config marks it visible so the webview loads and runs the frontend.)
-            let _ = main_window.hide();
 
             Ok(())
         })
