@@ -585,6 +585,7 @@ pub async fn scan_remote_source_inner(
                 archive_sha512: None,
                 platform_id: platform_id.clone(),
                 created_at: Utc::now(),
+                is_dir: false,
             };
             let (title, conf) = crate::identify::identify_file(&gf, &platforms2);
 

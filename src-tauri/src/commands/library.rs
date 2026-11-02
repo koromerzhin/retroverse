@@ -79,7 +79,7 @@ pub fn list_games(
     for gr in rows {
         let game = gr?;
         let mut fstmt = conn.prepare(
-            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at \
+            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at,gf.is_dir \
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
         )?;
         let frows = fstmt.query_map([game.id.clone()], |r| {
@@ -105,6 +105,7 @@ pub fn list_games(
                 archive_sha512: r.get(17)?,
                 platform_id: r.get(18)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                is_dir: r.get::<_, i64>(20).unwrap_or(0) != 0,
             })
         })?;
         let mut files = Vec::new();
@@ -152,7 +153,7 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
     )?;
 
     let mut fstmt = conn.prepare(
-        "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at \
+        "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at,gf.is_dir \
          FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
     )?;
     let frows = fstmt.query_map([game.id.clone()], |r| {
@@ -178,6 +179,7 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
             archive_sha512: r.get(17)?,
             platform_id: r.get(18)?,
             created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            is_dir: r.get::<_, i64>(20).unwrap_or(0) != 0,
         })
     })?;
     let mut files = Vec::new();
@@ -327,7 +329,7 @@ pub fn search_games_fts(
     let mut entries = Vec::new();
     for game in page_rows {
         let mut fstmt = conn.prepare(
-            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at \
+            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at,gf.is_dir \
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
         )?;
         let frows = fstmt.query_map([game.id.clone()], |r| {
@@ -353,6 +355,7 @@ pub fn search_games_fts(
                 archive_sha512: r.get(17)?,
                 platform_id: r.get(18)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                is_dir: r.get::<_, i64>(20).unwrap_or(0) != 0,
             })
         })?;
         let mut files = Vec::new();

@@ -79,6 +79,7 @@ pub struct GameFile {
     pub archive_sha512: Option<String>,
     pub platform_id: Option<String>,
     pub created_at: DateTime<Utc>,
+    pub is_dir: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

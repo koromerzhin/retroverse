@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 13;
+pub const SCHEMA_VERSION: i32 = 14;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -83,6 +83,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 13 {
         apply_v13(conn)?;
+    }
+    if current < 14 {
+        apply_v14(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -690,5 +693,24 @@ fn apply_v13(conn: &Connection) -> Result<()> {
         "UPDATE game_files SET archive_hash=NULL, archive_crc32=NULL, archive_md5=NULL, archive_sha1=NULL, archive_sha512=NULL WHERE extension IN ('zip','7z')",
         [],
     );
+    Ok(())
+}
+
+
+fn apply_v14(conn: &Connection) -> Result<()> {
+    let _ = conn.execute("ALTER TABLE game_files ADD COLUMN is_dir INTEGER NOT NULL DEFAULT 0", []);
+    // Populate for local paths that are directories.
+    if let Ok(mut stmt) = conn.prepare("SELECT id, path FROM game_files") {
+        let rows: Vec<(String, String)> = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        for (id, path) in rows {
+            if std::path::Path::new(&path).is_dir() {
+                let _ = conn.execute("UPDATE game_files SET is_dir=1 WHERE id=?1", [id]);
+            }
+        }
+    }
     Ok(())
 }

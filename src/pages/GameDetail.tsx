@@ -147,9 +147,11 @@ export default function GameDetail() {
           <div key={f.id} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: idx < data.files.length - 1 ? "1px solid var(--border)" : "none", fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
               <span style={{ fontWeight: 600, color: "var(--text)" }}>{f.filename}</span>
-              <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => hashFile(f.id)} disabled={hashingFile === f.id || (!!f.hash && !!f.sha512 && !((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))}>
-                {hashingFile === f.id ? "…" : "Calculer les empreintes"}
-              </button>
+              {!f.is_dir && (
+                <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => hashFile(f.id)} disabled={hashingFile === f.id || (!!f.hash && !!f.sha512 && !((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))}>
+                  {hashingFile === f.id ? "…" : "Calculer les empreintes"}
+                </button>
+              )}
               <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
                 const lines: string[] = [];
                 const push = (label: string, value: string | null) => { if (value) lines.push(`${label} : ${value}`); };
