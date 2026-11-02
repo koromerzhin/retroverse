@@ -19,7 +19,7 @@ export const api = {
     invoke<any>("copy_remote_files", { sourceId, fileIds, destDir }),
   listGames: (platform?: string, search?: string, limit?: number, offset?: number) => invoke<any>("list_games", { platform, search, limit, offset }),
   getGame: (id: string) => invoke<any>("get_game", { id }),
-  searchGamesFts: (query: string, limit?: number, offset?: number) => invoke<any>("search_games_fts", { query, limit, offset }),
+  searchGamesFts: (query: string, platform?: string, limit?: number, offset?: number) => invoke<any>("search_games_fts", { query, platform, limit, offset }),
   platformGameCounts: () => invoke<any>("platform_game_counts"),
   findDuplicates: () => invoke<any[]>("find_duplicates"),
   listCollections: () => invoke<any[]>("list_collections"),

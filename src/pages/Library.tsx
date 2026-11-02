@@ -37,7 +37,7 @@ export default function Library() {
     queryKey: ["games", platform, search, page],
     queryFn: async () => {
       const r = search.trim()
-        ? await api.searchGamesFts(search.trim(), pageSize, (page - 1) * pageSize)
+        ? await api.searchGamesFts(search.trim(), platform, pageSize, (page - 1) * pageSize)
         : await api.listGames(platform, undefined, pageSize, (page - 1) * pageSize);
       return r;
     },
@@ -79,9 +79,6 @@ export default function Library() {
             <option key={p.id} value={p.id}>{p.name} ({platformCounts[p.id]})</option>
           ))}
         </select>
-        {platform && (
-          <span className="badge">{platforms?.find((p) => p.id === platform)?.name}</span>
-        )}
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
         <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
         <div className="row" style={{ marginLeft: "auto", gap: 4 }}>
