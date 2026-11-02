@@ -238,11 +238,11 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
         }
     }
     // read file and delegate (zip handled in bytes, normal file hashed directly)
+    // For .7z archives where inner extraction failed, fall back to hashing the
+    // archive itself so it still receives an empreinte.
     if let Ok(data) = std::fs::read(path) {
         let filename = std::path::Path::new(path).file_name().and_then(|s| s.to_str()).unwrap_or(path);
-        if !lower.ends_with(".7z") {
-            return compute_hashes_from_bytes(&data, filename, allowed_exts);
-        }
+        return compute_hashes_from_bytes(&data, filename, allowed_exts);
     }
     (None, None, None, None, None)
 }
