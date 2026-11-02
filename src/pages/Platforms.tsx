@@ -26,6 +26,7 @@ export default function Platforms() {
 
   const [scanning, setScanning] = useState<string | null>(null);
   const [scanningAll, setScanningAll] = useState(false);
+  const [hashingPlatform, setHashingPlatform] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "count">("name");
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -108,6 +109,19 @@ export default function Platforms() {
     qc.invalidateQueries({ queryKey: ["stats"] });
   }
 
+
+  async function handleHashPlatform(p: Platform) {
+    setHashingPlatform(p.id);
+    try {
+      const n = await api.computeHashesForPlatform(p.id);
+      setMsg(`Empreintes calculées : ${formatNumber(n)} fichier(s) pour ${p.name}.`);
+    } catch (e: any) {
+      setMsg(`Erreur : ${e}`);
+    } finally {
+      setHashingPlatform(null);
+    }
+  }
+
   async function handleScanAll() {
     if (!platforms || platforms.length === 0) {
       setMsg("Aucune plateforme.");
@@ -169,7 +183,7 @@ export default function Platforms() {
             <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
               <button
                 className="btn"
-                style={{ fontSize: 11, padding: "4px 8px", width: "100%" }}
+                style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
                 disabled={(counts[p.id] ?? 0) === 0}
                 onClick={(e) => { e.stopPropagation(); navigate(`/library?platform=${p.id}`); }}
               >
@@ -189,6 +203,14 @@ export default function Platforms() {
                 onClick={(e) => { e.stopPropagation(); handleScanPlatform(p); }}
               >
                 {scanning === p.id ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scan")}
+              </button>
+              <button
+                className="btn"
+                style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
+                disabled={hashingPlatform === p.id}
+                onClick={(e) => { e.stopPropagation(); handleHashPlatform(p); }}
+              >
+                {hashingPlatform === p.id ? "…" : "Calculer les empreintes"}
               </button>
             </div>
           </div>
