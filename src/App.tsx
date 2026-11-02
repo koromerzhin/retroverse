@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./lib/api";
 import { formatNumber } from "./lib/format";
+import { useI18n } from "./i18n";
 import { NavLink, Routes, Route, Navigate } from "react-router-dom";
 const Home = lazy(() => import("./pages/Home"));
 const Library = lazy(() => import("./pages/Library"));
@@ -31,6 +32,7 @@ export default function App() {
   const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number } | null>(null);
   const [hashDetails, setHashDetails] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const { t } = useI18n();
   const notifyToast = (msg: string) => {
     setToast(msg);
     api.showNotification("RETROVERSE", msg).catch(() => {});
@@ -125,6 +127,18 @@ export default function App() {
     return () => { if (unlisten) unlisten(); };
   }, []);
 
+
+  const statusLabel = (s: string) => {
+    switch (s) {
+      case "scanning": return t("scan.status.scanning");
+      case "folder_done": return t("scan.status.folderDone");
+      case "done": return t("scan.status.done");
+      case "cancelled": return t("scan.status.cancelled");
+      case "skipped": return t("scan.status.skipped");
+      default: return s;
+    }
+  };
+
   // No auto-scan on startup (user request).
 
   return (
@@ -169,7 +183,7 @@ export default function App() {
               </p>
             )}
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
-              Statut : {scanProgress.status}
+              Statut : {statusLabel(scanProgress.status)}
             </p>
             <div className="row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
               <button className="btn" onClick={() => setScanDetails(false)}>Fermer</button>
