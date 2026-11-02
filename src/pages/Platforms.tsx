@@ -210,16 +210,14 @@ export default function Platforms() {
               >
                 {scanning === p.id ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scan")}
               </button>
-              {(unhashedCounts?.[p.id] ?? 0) > 0 && (
-                <button
-                  className="btn"
-                  style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
-                  disabled={hashingPlatform === p.id}
-                  onClick={(e) => { e.stopPropagation(); handleHashPlatform(p); }}
-                >
-                  {hashingPlatform === p.id ? "…" : "Calculer les empreintes"}
-                </button>
-              )}
+              <button
+                className="btn"
+                style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
+                disabled={hashingPlatform === p.id || (unhashedCounts?.[p.id] ?? 0) === 0}
+                onClick={(e) => { e.stopPropagation(); handleHashPlatform(p); }}
+              >
+                {hashingPlatform === p.id ? "…" : "Calculer les empreintes"}
+              </button>
             </div>
           </div>
         ))}
