@@ -94,6 +94,9 @@ export default function App() {
       const scanAll = (window as any).__retroverseScanAll;
       const scanPlatform = (window as any).__retroverseScanningPlatform;
       if ((scanAll || scanPlatform) && (ev.payload?.status === "done" || ev.payload?.status === "cancelled" || ev.payload?.status === "skipped")) {
+        qc.invalidateQueries();
+        qc.refetchQueries();
+        setScanProgress(null);
         return;
       }
       if (ev.payload?.status === "cancelled") {
@@ -117,6 +120,7 @@ export default function App() {
         }
         notifyToast(msg);
         qc.invalidateQueries();
+        qc.refetchQueries();
         setScanProgress(null);
         setTimeout(() => setToast(null), 5000);
       } else {
