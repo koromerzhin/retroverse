@@ -111,8 +111,8 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
+  margin-top: 16px;
 }
-.card + .card { margin-top: 16px; }
 
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
