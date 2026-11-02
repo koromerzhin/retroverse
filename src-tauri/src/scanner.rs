@@ -462,6 +462,12 @@ pub fn scan_source(
     }
 
     let conn = state.db.lock().unwrap();
+    // Remove files that disappeared since the last scan.
+    let _ = conn.execute(
+        "DELETE FROM game_files WHERE source_id=?1 AND missing=1",
+        [source_id],
+    );
+    let _ = crate::db::cleanup_orphan_games(&conn);
     conn.execute(
         "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL, root_mtime=?2 WHERE id=?3",
         rusqlite::params![Utc::now().to_rfc3339(), current_mtime, source_id],

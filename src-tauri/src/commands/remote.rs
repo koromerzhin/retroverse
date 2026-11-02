@@ -708,6 +708,12 @@ pub async fn scan_remote_source_inner(
             sql.push(')');
             tx.execute(&sql, rusqlite::params_from_iter(params_vec))?;
         }
+        // Remove files that disappeared since the last scan.
+        tx.execute(
+            "DELETE FROM game_files WHERE source_id=?1 AND missing=1",
+            params![source_id],
+        )?;
+
         tx.execute(
             "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL, root_mtime=?2 WHERE id=?3",
             params![Utc::now().to_rfc3339(), current_mtime, source_id],
