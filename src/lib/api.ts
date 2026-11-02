@@ -41,6 +41,7 @@ export const api = {
   importGamelists: (sourceId: string) => invoke<number>("import_gamelists", { sourceId }),
   computeHashes: (sourceId?: string) => invoke<number>("compute_hashes", { sourceId }),
   computeHashesForGame: (gameId: string) => invoke<number>("compute_hashes_for_game", { gameId }),
+  computeHashesForFile: (fileId: string) => invoke<number>("compute_hashes_for_file", { fileId }),
   exportBackup: (destPath: string) => invoke<string>("export_backup", { destPath }),
   importBackup: (srcPath: string) => invoke<number>("import_backup", { srcPath }),
   listTransferJobs: () => invoke<any[]>("list_transfer_jobs"),
