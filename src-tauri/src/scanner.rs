@@ -348,7 +348,16 @@ pub fn scan_source(
                     created_at: Utc::now(),
                     is_dir: false,
                 };
-                let (title, conf) = identify::identify_file(&gf, &platforms);
+                let (mut title, conf) = identify::identify_file(&gf, &platforms);
+                if ext == "scummvm" {
+                    let code = std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename);
+                    if let Some(t) = identify::scummvm_title(code) {
+                        title = t;
+                    }
+                }
 
                 let existing_game: Option<String> = tx
                     .query_row(
