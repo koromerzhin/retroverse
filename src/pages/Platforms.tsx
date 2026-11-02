@@ -171,7 +171,7 @@ export default function Platforms() {
       {view === "cards" ? (
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", alignItems: "stretch" }}>
         {sortedPlatforms.map((p) => (
-          <div className="card" key={p.id} style={{ cursor: "pointer", display: "flex", flexDirection: "column", height: 260, overflow: "hidden" }}>
+          <div className="card" key={p.id} style={{ cursor: "pointer", display: "flex", flexDirection: "column", height: 300, overflow: "hidden" }}>
             <div style={{ fontSize: 28, marginBottom: 8 }} onClick={() => navigate(`/library?platform=${p.id}`)}>🎮</div>
             <div style={{ fontWeight: 600 }} onClick={() => navigate(`/library?platform=${p.id}`)}>{p.name}</div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
