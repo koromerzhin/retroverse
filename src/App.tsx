@@ -92,7 +92,8 @@ export default function App() {
       }
       lastProgressUpdate.current = now;
       const scanAll = (window as any).__retroverseScanAll;
-      if (scanAll && (ev.payload?.status === "done" || ev.payload?.status === "cancelled" || ev.payload?.status === "skipped")) {
+      const scanPlatform = (window as any).__retroverseScanningPlatform;
+      if ((scanAll || scanPlatform) && (ev.payload?.status === "done" || ev.payload?.status === "cancelled" || ev.payload?.status === "skipped")) {
         return;
       }
       if (ev.payload?.status === "cancelled") {
