@@ -165,40 +165,41 @@ export default function GameDetail() {
               </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: "2px 8px", alignItems: "baseline" }}>
-              {f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 || f.archive_crc32 ? (
-                <>
-                  <div style={{ fontWeight: 600, color: "var(--text)" }}>Fichier</div>
-                  <div></div>
-                  {f.archive_crc32 && (<><div>CRC32</div><div style={{ wordBreak: "break-all" }}>{f.archive_crc32}</div></>)}
-                  {f.archive_md5 && (<><div>MD5</div><div style={{ wordBreak: "break-all" }}>{f.archive_md5}</div></>)}
-                  {f.archive_sha1 && (<><div>SHA1</div><div style={{ wordBreak: "break-all" }}>{f.archive_sha1}</div></>)}
-                  {f.archive_hash && (<><div>SHA256</div><div style={{ wordBreak: "break-all" }}>{f.archive_hash}</div></>)}
-                  {f.archive_sha512 && (<><div>SHA512</div><div style={{ wordBreak: "break-all" }}>{f.archive_sha512}</div></>)}
-                </>
-              ) : (
-                <>
-                  <div style={{ fontWeight: 600, color: "var(--text)" }}>Fichier</div>
-                  <div></div>
-                  {f.crc32 && (<><div>CRC32</div><div style={{ wordBreak: "break-all" }}>{f.crc32}</div></>)}
-                  {f.md5 && (<><div>MD5</div><div style={{ wordBreak: "break-all" }}>{f.md5}</div></>)}
-                  {f.sha1 && (<><div>SHA1</div><div style={{ wordBreak: "break-all" }}>{f.sha1}</div></>)}
-                  {f.hash && (<><div>SHA256</div><div style={{ wordBreak: "break-all" }}>{f.hash}</div></>)}
-                  {f.sha512 && (<><div>SHA512</div><div style={{ wordBreak: "break-all" }}>{f.sha512}</div></>)}
-                </>
-              )}
-              {f.zip_inner && (
-                <>
-                  <div style={{ fontWeight: 600, color: "var(--text)", marginTop: 4 }}>ROM interne : {f.zip_inner}</div>
-                  <div></div>
-                  {f.crc32 && (<><div>CRC32</div><div style={{ wordBreak: "break-all" }}>{f.crc32}</div></>)}
-                  {f.md5 && (<><div>MD5</div><div style={{ wordBreak: "break-all" }}>{f.md5}</div></>)}
-                  {f.sha1 && (<><div>SHA1</div><div style={{ wordBreak: "break-all" }}>{f.sha1}</div></>)}
-                  {f.hash && (<><div>SHA256</div><div style={{ wordBreak: "break-all" }}>{f.hash}</div></>)}
-                  {f.sha512 && (<><div>SHA512</div><div style={{ wordBreak: "break-all" }}>{f.sha512}</div></>)}
-                </>
-              )}
-            </div>
+            {(f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 || f.archive_crc32) ? (
+              <table className="table" style={{ fontSize: 11, marginBottom: 8 }}>
+                <thead><tr><th style={{ width: 90 }}>Fichier</th><th></th></tr></thead>
+                <tbody>
+                  {f.archive_crc32 && <tr><td>CRC32</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.archive_crc32}</td></tr>}
+                  {f.archive_md5 && <tr><td>MD5</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.archive_md5}</td></tr>}
+                  {f.archive_sha1 && <tr><td>SHA1</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.archive_sha1}</td></tr>}
+                  {f.archive_hash && <tr><td>SHA256</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.archive_hash}</td></tr>}
+                  {f.archive_sha512 && <tr><td>SHA512</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.archive_sha512}</td></tr>}
+                </tbody>
+              </table>
+            ) : (
+              <table className="table" style={{ fontSize: 11, marginBottom: 8 }}>
+                <thead><tr><th style={{ width: 90 }}>Fichier</th><th></th></tr></thead>
+                <tbody>
+                  {f.crc32 && <tr><td>CRC32</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.crc32}</td></tr>}
+                  {f.md5 && <tr><td>MD5</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.md5}</td></tr>}
+                  {f.sha1 && <tr><td>SHA1</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.sha1}</td></tr>}
+                  {f.hash && <tr><td>SHA256</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.hash}</td></tr>}
+                  {f.sha512 && <tr><td>SHA512</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.sha512}</td></tr>}
+                </tbody>
+              </table>
+            )}
+            {f.zip_inner && (
+              <table className="table" style={{ fontSize: 11, marginBottom: 8 }}>
+                <thead><tr><th style={{ width: 90 }}>ROM interne : {f.zip_inner}</th><th></th></tr></thead>
+                <tbody>
+                  {f.crc32 && <tr><td>CRC32</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.crc32}</td></tr>}
+                  {f.md5 && <tr><td>MD5</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.md5}</td></tr>}
+                  {f.sha1 && <tr><td>SHA1</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.sha1}</td></tr>}
+                  {f.hash && <tr><td>SHA256</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.hash}</td></tr>}
+                  {f.sha512 && <tr><td>SHA512</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.sha512}</td></tr>}
+                </tbody>
+              </table>
+            )}
           </div>
         ))}
       </div>
