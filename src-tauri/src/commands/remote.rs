@@ -559,6 +559,19 @@ pub async fn scan_remote_source_inner(
             };
             files_found += 1;
 
+            if ext == "scummvm" {
+                let code = std::path::Path::new(&filename)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(&filename);
+                if let Some(new_title) = crate::identify::scummvm_title(code) {
+                    let _ = tx.execute(
+                        "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
+                        params![new_title, code, platform_id],
+                    );
+                }
+            }
+
             // Skip game creation if already in ES-DE gamelist.
             if gamelist_known.contains(&filename.to_lowercase()) {
                 continue;
