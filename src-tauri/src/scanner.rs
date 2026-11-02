@@ -260,6 +260,19 @@ pub fn scan_source(
                         .or_else(|| identify::guess_platform(&ext, &platforms))
                 };
 
+                if ext == "scummvm" {
+                    let code = std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename);
+                    if let Some(new_title) = identify::scummvm_title(code) {
+                        let _ = tx.execute(
+                            "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
+                            rusqlite::params![new_title, code, platform_id],
+                        );
+                    }
+                }
+
                 let existing: Option<(String, i64, i64, Option<String>)> = tx
                     .query_row(
                         "SELECT id,size,modified_at,platform_id FROM game_files WHERE source_id=?1 AND path=?2",
@@ -312,19 +325,6 @@ pub fn scan_source(
                 };
                 files_found += 1;
                 found_paths.push(fpath.clone());
-
-                if ext == "scummvm" {
-                    let code = std::path::Path::new(&filename)
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or(&filename);
-                    if let Some(new_title) = identify::scummvm_title(code) {
-                        let _ = tx.execute(
-                            "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
-                            rusqlite::params![new_title, code, platform_id],
-                        );
-                    }
-                }
 
                 if gamelist_known.contains(&filename.to_lowercase()) {
                     if let Some(a) = &app
