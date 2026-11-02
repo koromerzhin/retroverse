@@ -19,6 +19,11 @@ export default function Platforms() {
     queryFn: () => api.platformGameCounts(),
     staleTime: 60_000,
   });
+  const { data: unhashedCounts } = useQuery<Record<string, number>>({
+    queryKey: ["unhashed-counts"],
+    queryFn: () => api.unhashedCountsByPlatform(),
+    staleTime: 60_000,
+  });
   const { data: sources } = useQuery<GameSource[]>({
     queryKey: ["sources"],
     queryFn: () => api.listSources(),
@@ -115,6 +120,7 @@ export default function Platforms() {
     try {
       const n = await api.computeHashesForPlatform(p.id);
       setMsg(`Empreintes calculées : ${formatNumber(n)} fichier(s) pour ${p.name}.`);
+      qc.invalidateQueries({ queryKey: ["unhashed-counts"] });
     } catch (e: any) {
       setMsg(`Erreur : ${e}`);
     } finally {
@@ -204,14 +210,16 @@ export default function Platforms() {
               >
                 {scanning === p.id ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scan")}
               </button>
-              <button
-                className="btn"
-                style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
-                disabled={hashingPlatform === p.id}
-                onClick={(e) => { e.stopPropagation(); handleHashPlatform(p); }}
-              >
-                {hashingPlatform === p.id ? "…" : "Calculer les empreintes"}
-              </button>
+              {(unhashedCounts?.[p.id] ?? 0) > 0 && (
+                <button
+                  className="btn"
+                  style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
+                  disabled={hashingPlatform === p.id}
+                  onClick={(e) => { e.stopPropagation(); handleHashPlatform(p); }}
+                >
+                  {hashingPlatform === p.id ? "…" : "Calculer les empreintes"}
+                </button>
+              )}
             </div>
           </div>
         ))}

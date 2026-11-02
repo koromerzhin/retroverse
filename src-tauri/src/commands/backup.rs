@@ -769,3 +769,18 @@ pub async fn compute_hashes_for_platform(
     );
     Ok(done)
 }
+
+#[tauri::command]
+pub fn unhashed_counts_by_platform(state: State<'_, AppState>) -> Result<std::collections::HashMap<String, i64>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT platform_id, COUNT(*) FROM game_files WHERE platform_id IS NOT NULL AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL)) GROUP BY platform_id",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
+    let mut map = std::collections::HashMap::new();
+    for r in rows {
+        let (k, v) = r?;
+        map.insert(k, v);
+    }
+    Ok(map)
+}
