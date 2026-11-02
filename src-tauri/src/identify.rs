@@ -71,7 +71,10 @@ pub fn parse_systeminfo_txt(content: &str) -> Option<Vec<String>> {
         }
         if line.starts_with("Supported file extensions:") {
             in_exts = true;
-            let after = line.strip_prefix("Supported file extensions:").unwrap_or("").trim();
+            let after = line
+                .strip_prefix("Supported file extensions:")
+                .unwrap_or("")
+                .trim();
             if !after.is_empty() {
                 for e in after.split_whitespace() {
                     exts.push(e.to_lowercase());
@@ -100,7 +103,13 @@ use std::io::Read;
 
 /// Compute hashes for a file. For .zip, reads the first inner ROM entry.
 /// Returns (sha256, crc32, md5, sha1, zip_inner).
-pub type Hashes = (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+pub type Hashes = (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
 
 /// Compute hashes from raw bytes (for remote files).
 pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[String]) -> Hashes {
@@ -121,7 +130,9 @@ pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[St
                     .and_then(|x| x.to_str())
                     .map(|x| format!(".{}", x.to_lowercase()))
                     .unwrap_or_default();
-                if allowed_exts.is_empty() || allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&ext)) {
+                if allowed_exts.is_empty()
+                    || allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&ext))
+                {
                     idx = Some(i);
                     break;
                 }
@@ -152,8 +163,19 @@ pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[St
             return (
                 Some(format!("{:x}", sha256.finalize())),
                 Some(format!("{:08x}", crc_digest.finalize())),
-                Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
-                Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+                Some(
+                    md5h.finalize()
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect(),
+                ),
+                Some(
+                    sha1h
+                        .finalize()
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect(),
+                ),
                 Some(inner_name),
             );
         }
@@ -171,8 +193,19 @@ pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[St
     (
         Some(format!("{:x}", sha256.finalize())),
         Some(format!("{:08x}", crc_digest.finalize())),
-        Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
-        Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+        Some(
+            md5h.finalize()
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect(),
+        ),
+        Some(
+            sha1h
+                .finalize()
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect(),
+        ),
         None,
     )
 }
@@ -231,8 +264,19 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
             return (
                 Some(format!("{:x}", sha256.finalize())),
                 Some(format!("{:08x}", crc_digest.finalize())),
-                Some(md5h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
-                Some(sha1h.finalize().iter().map(|b| format!("{:02x}", b)).collect()),
+                Some(
+                    md5h.finalize()
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect(),
+                ),
+                Some(
+                    sha1h
+                        .finalize()
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect(),
+                ),
                 inner_name,
             );
         }
@@ -241,7 +285,10 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
     // For .7z archives where inner extraction failed, fall back to hashing the
     // archive itself so it still receives an empreinte.
     if let Ok(data) = std::fs::read(path) {
-        let filename = std::path::Path::new(path).file_name().and_then(|s| s.to_str()).unwrap_or(path);
+        let filename = std::path::Path::new(path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or(path);
         return compute_hashes_from_bytes(&data, filename, allowed_exts);
     }
     (None, None, None, None, None)
@@ -289,7 +336,10 @@ pub fn parse_systems_txt(content: &str) -> Vec<(String, String)> {
 }
 
 /// Ensure platforms exist for each (slug, name) from systems.txt.
-pub fn ensure_platforms(conn: &rusqlite::Connection, systems: &[(String, String)]) -> crate::error::Result<()> {
+pub fn ensure_platforms(
+    conn: &rusqlite::Connection,
+    systems: &[(String, String)],
+) -> crate::error::Result<()> {
     for (slug, name) in systems {
         if slug == "desktop" || slug == "emulators" || slug == "epic" || slug == "steam" {
             continue;

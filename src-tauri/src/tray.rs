@@ -61,7 +61,9 @@ impl Tray for RetroverseTray {
                     let app = tray.app.clone();
                     tauri::async_runtime::spawn(async move {
                         let state = app.state::<crate::state::AppState>().inner().clone();
-                        state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
+                        state
+                            .cancel_scan
+                            .store(false, std::sync::atomic::Ordering::SeqCst);
                         let cancel = state.cancel_scan.clone();
 
                         let sources: Vec<(String, String)> = {
@@ -117,7 +119,9 @@ impl Tray for RetroverseTray {
                     let app = tray.app.clone();
                     tauri::async_runtime::spawn(async move {
                         let state = app.state::<crate::state::AppState>().inner().clone();
-                        let _ = crate::commands::backup::compute_hashes_inner(&state, Some(app), None).await;
+                        let _ =
+                            crate::commands::backup::compute_hashes_inner(&state, Some(app), None)
+                                .await;
                     });
                 }),
                 ..Default::default()

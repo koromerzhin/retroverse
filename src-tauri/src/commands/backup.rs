@@ -12,7 +12,9 @@ pub async fn compute_hashes_inner(
     source_id: Option<String>,
 ) -> Result<usize> {
     use tauri::Emitter;
-    state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
+    state
+        .cancel_scan
+        .store(false, std::sync::atomic::Ordering::SeqCst);
     let cancel = state.cancel_scan.clone();
 
     let rows: Vec<(String, String)> = {
@@ -31,13 +33,19 @@ pub async fn compute_hashes_inner(
     let total = rows.len();
     let mut done = 0usize;
     if let Some(a) = &app {
-        let _ = a.emit("hash-progress", serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}));
+        let _ = a.emit(
+            "hash-progress",
+            serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}),
+        );
     }
 
     for (idx, (id, path)) in rows.into_iter().enumerate() {
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
             if let Some(a) = &app {
-                let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "cancelled"}));
+                let _ = a.emit(
+                    "hash-progress",
+                    serde_json::json!({"scanned": done, "total": total, "status": "cancelled"}),
+                );
             }
             return Ok(done);
         }
@@ -46,7 +54,10 @@ pub async fn compute_hashes_inner(
         let is_archive = lower.ends_with(".zip") || lower.ends_with(".7z");
         let (arch_sha, arch_crc, arch_md5, arch_sha1) = if is_archive {
             if let Ok(data) = std::fs::read(&path) {
-                let fname = std::path::Path::new(&path).file_name().and_then(|x| x.to_str()).unwrap_or(&path);
+                let fname = std::path::Path::new(&path)
+                    .file_name()
+                    .and_then(|x| x.to_str())
+                    .unwrap_or(&path);
                 let (s, c, m, h, _) = crate::identify::compute_hashes_from_bytes(&data, fname, &[]);
                 (s, c, m, h)
             } else {
@@ -70,7 +81,10 @@ pub async fn compute_hashes_inner(
         }
     }
     if let Some(a) = &app {
-        let _ = a.emit("hash-progress", serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done}));
+        let _ = a.emit(
+            "hash-progress",
+            serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done}),
+        );
     }
     Ok(done)
 }
@@ -447,10 +461,7 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     Ok(imported)
 }
 
-pub async fn compute_hashes_for_game_inner(
-    state: &AppState,
-    game_id: String,
-) -> Result<usize> {
+pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) -> Result<usize> {
     // gather files + source info
     type FileInfo = (String, String, String, Option<String>, Option<String>);
     let files: Vec<FileInfo> = {
@@ -467,7 +478,12 @@ pub async fn compute_hashes_for_game_inner(
     let mut done = 0usize;
     for (fid, path, _source_id, kind, connection_id) in files {
         let allowed: Vec<String> = Vec::new();
-        let mut arch_hashes: (Option<String>, Option<String>, Option<String>, Option<String>) = (None, None, None, None);
+        let mut arch_hashes: (
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ) = (None, None, None, None);
         let result = if kind.as_deref() == Some("remote") {
             // download file via SFTP
             let (host, port, username, key_path) = {
@@ -476,17 +492,36 @@ pub async fn compute_hashes_for_game_inner(
                 conn.query_row(
                     "SELECT host,port,username,key_path FROM remote_connections WHERE id=?1",
                     [cid],
-                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u16, r.get::<_, String>(2)?, r.get::<_, String>(3)?)),
+                    |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, i64>(1)? as u16,
+                            r.get::<_, String>(2)?,
+                            r.get::<_, String>(3)?,
+                        ))
+                    },
                 )?
             };
             let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
             // read file into memory
-            let mut f = sess.sftp.open(&path).await.map_err(|e| RetroError::Other(e.to_string()))?;
+            let mut f = sess
+                .sftp
+                .open(&path)
+                .await
+                .map_err(|e| RetroError::Other(e.to_string()))?;
             use tokio::io::AsyncReadExt;
             let mut buf = Vec::new();
-            f.read_to_end(&mut buf).await.map_err(|e| RetroError::Other(e.to_string()))?;
-            let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
-            let filename = std::path::Path::new(&path).file_name().and_then(|s| s.to_str()).unwrap_or(&path);
+            f.read_to_end(&mut buf)
+                .await
+                .map_err(|e| RetroError::Other(e.to_string()))?;
+            let _ = sess
+                .session
+                .disconnect(russh::Disconnect::ByApplication, "", "")
+                .await;
+            let filename = std::path::Path::new(&path)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or(&path);
             // handle 7z: need a temp file
             let lower = path.to_lowercase();
             let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
@@ -501,7 +536,8 @@ pub async fn compute_hashes_for_game_inner(
                 crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
             };
             if is_archive {
-                let (as_, ac, am, ah, _) = crate::identify::compute_hashes_from_bytes(&buf, filename, &[]);
+                let (as_, ac, am, ah, _) =
+                    crate::identify::compute_hashes_from_bytes(&buf, filename, &[]);
                 arch_hashes = (as_, ac, am, ah);
             }
             r
@@ -517,8 +553,12 @@ pub async fn compute_hashes_for_game_inner(
                 arch_hashes
             } else {
                 if let Ok(data) = std::fs::read(&path) {
-                    let fname = std::path::Path::new(&path).file_name().and_then(|x| x.to_str()).unwrap_or(&path);
-                    let (s, c, m, h, _) = crate::identify::compute_hashes_from_bytes(&data, fname, &[]);
+                    let fname = std::path::Path::new(&path)
+                        .file_name()
+                        .and_then(|x| x.to_str())
+                        .unwrap_or(&path);
+                    let (s, c, m, h, _) =
+                        crate::identify::compute_hashes_from_bytes(&data, fname, &[]);
                     (s, c, m, h)
                 } else {
                     (None, None, None, None)
@@ -540,10 +580,7 @@ pub async fn compute_hashes_for_game_inner(
 }
 
 #[tauri::command]
-pub async fn compute_hashes_for_game(
-    state: State<'_, AppState>,
-    game_id: String,
-) -> Result<usize> {
+pub async fn compute_hashes_for_game(state: State<'_, AppState>, game_id: String) -> Result<usize> {
     compute_hashes_for_game_inner(&state, game_id).await
 }
 

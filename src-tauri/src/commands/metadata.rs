@@ -52,11 +52,14 @@ pub async fn enrich_game(
             }
         }
         if let Some(dev) = &res.developer {
-            let exists: bool = conn.query_row(
-                "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='developer'",
-                [game_id.clone()],
-                |r| r.get::<_, i64>(0),
-            ).unwrap_or(0) > 0;
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='developer'",
+                    [game_id.clone()],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
             if !exists {
                 let id = crate::models::new_id();
                 conn.execute(
@@ -66,11 +69,14 @@ pub async fn enrich_game(
             }
         }
         if let Some(cov) = &res.cover_url {
-            let exists: bool = conn.query_row(
-                "SELECT COUNT(*) FROM media_assets WHERE game_id=?1 AND kind='cover'",
-                [game_id.clone()],
-                |r| r.get::<_, i64>(0),
-            ).unwrap_or(0) > 0;
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM media_assets WHERE game_id=?1 AND kind='cover'",
+                    [game_id.clone()],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
             if !exists {
                 let id = crate::models::new_id();
                 conn.execute(
@@ -82,11 +88,14 @@ pub async fn enrich_game(
         if let Some(t) = &res.title
             && t != &title
         {
-            let exists: bool = conn.query_row(
-                "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='alt_title'",
-                [game_id.clone()],
-                |r| r.get::<_, i64>(0),
-            ).unwrap_or(0) > 0;
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='alt_title'",
+                    [game_id.clone()],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
             if !exists {
                 // don't overwrite title automatically; store as alternative
                 let id = crate::models::new_id();
@@ -143,7 +152,8 @@ pub fn get_game_metadata(
         }));
     }
     // media: deduplicate by kind
-    let mut mstmt = conn.prepare("SELECT kind,url FROM media_assets WHERE game_id=?1 ORDER BY cached_at DESC")?;
+    let mut mstmt =
+        conn.prepare("SELECT kind,url FROM media_assets WHERE game_id=?1 ORDER BY cached_at DESC")?;
     let mrows = mstmt.query_map([game_id.clone()], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
     })?;

@@ -47,7 +47,10 @@ pub async fn add_remote_source(
         && let Ok(rd) = sess.sftp.read_dir(&remote_path).await
     {
         let entries: Vec<_> = rd.collect();
-        if entries.iter().any(|e| e.file_name() == "roms" && e.metadata().is_dir()) {
+        if entries
+            .iter()
+            .any(|e| e.file_name() == "roms" && e.metadata().is_dir())
+        {
             if remote_path.ends_with('/') {
                 remote_path = format!("{}roms/", remote_path);
             } else {
@@ -188,7 +191,11 @@ pub async fn scan_remote_source_inner(
     folder_override: Option<String>,
     platform_filter: Option<String>,
 ) -> Result<ScanResult> {
-    tracing::info!("scan_remote_source start source_id={} folder={:?}", source_id, folder_override);
+    tracing::info!(
+        "scan_remote_source start source_id={} folder={:?}",
+        source_id,
+        folder_override
+    );
     if let Some(a) = &app {
         use tauri::Emitter;
         let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": 0, "total": 0, "status": "scanning"}));
@@ -228,7 +235,10 @@ pub async fn scan_remote_source_inner(
         && let Ok(rd) = sess.sftp.read_dir(&base_path).await
     {
         let entries: Vec<_> = rd.collect();
-        if entries.iter().any(|e| e.file_name() == "roms" && e.metadata().is_dir()) {
+        if entries
+            .iter()
+            .any(|e| e.file_name() == "roms" && e.metadata().is_dir())
+        {
             if base_path.ends_with('/') {
                 base_path = format!("{}roms/", base_path);
             } else {
@@ -259,12 +269,18 @@ pub async fn scan_remote_source_inner(
         cancel: Option<&std::sync::Arc<std::sync::atomic::AtomicBool>>,
         platform_filter: Option<&String>,
     ) {
-        if cancel.map(|c| c.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
+        if cancel
+            .map(|c| c.load(std::sync::atomic::Ordering::SeqCst))
+            .unwrap_or(false)
+        {
             return;
         }
         // Load allowed extensions from systeminfo.txt in this dir if present.
         let mut dir_allowed = allowed_exts.clone();
-        if let Ok(mut f) = sftp.open(&format!("{}/systeminfo.txt", dir.trim_end_matches('/'))).await {
+        if let Ok(mut f) = sftp
+            .open(&format!("{}/systeminfo.txt", dir.trim_end_matches('/')))
+            .await
+        {
             use tokio::io::AsyncReadExt;
             let mut buf = Vec::new();
             let _ = f.read_to_end(&mut buf).await;
@@ -278,7 +294,10 @@ pub async fn scan_remote_source_inner(
 
         if let Ok(entries) = sftp.read_dir(dir).await {
             for e in entries {
-                if cancel.map(|c| c.load(std::sync::atomic::Ordering::SeqCst)).unwrap_or(false) {
+                if cancel
+                    .map(|c| c.load(std::sync::atomic::Ordering::SeqCst))
+                    .unwrap_or(false)
+                {
                     return;
                 }
                 let name = e.file_name();
@@ -303,7 +322,19 @@ pub async fn scan_remote_source_inner(
                     continue;
                 }
                 if is_dir {
-                    Box::pin(walk(sftp, &full, platforms_ext, platform_slugs, dir_allowed.clone(), out, app, source_id, cancel, platform_filter)).await;
+                    Box::pin(walk(
+                        sftp,
+                        &full,
+                        platforms_ext,
+                        platform_slugs,
+                        dir_allowed.clone(),
+                        out,
+                        app,
+                        source_id,
+                        cancel,
+                        platform_filter,
+                    ))
+                    .await;
                 } else {
                     let ext = std::path::Path::new(&name)
                         .extension()
@@ -326,7 +357,9 @@ pub async fn scan_remote_source_inner(
                     };
                     // Platform filter
                     let pf_ok = match platform_filter {
-                        Some(pf) => full.to_lowercase().contains(&format!("/{}/", pf.to_lowercase())),
+                        Some(pf) => full
+                            .to_lowercase()
+                            .contains(&format!("/{}/", pf.to_lowercase())),
                         None => true,
                     };
                     if ext_ok && pf_ok {
@@ -348,16 +381,28 @@ pub async fn scan_remote_source_inner(
     // Load gamelist known games (best-effort) from saves/es-de/gamelists/.
     let mut gamelist_known: std::collections::HashSet<String> = std::collections::HashSet::new();
     let emulation_root = if base_path.ends_with("roms/") || base_path.ends_with("roms") {
-        base_path.trim_end_matches('/').trim_end_matches("roms").trim_end_matches('/')
+        base_path
+            .trim_end_matches('/')
+            .trim_end_matches("roms")
+            .trim_end_matches('/')
     } else {
         base_path.trim_end_matches('/')
     };
-    if let Ok(rd) = sess.sftp.read_dir(&format!("{}/saves/es-de/gamelists", emulation_root)).await {
+    if let Ok(rd) = sess
+        .sftp
+        .read_dir(&format!("{}/saves/es-de/gamelists", emulation_root))
+        .await
+    {
         let dirs: Vec<_> = rd.collect();
         for d in dirs {
-            if !d.metadata().is_dir() { continue; }
+            if !d.metadata().is_dir() {
+                continue;
+            }
             let platform = d.file_name();
-            let gp = format!("{}/saves/es-de/gamelists/{}/gamelist.xml", emulation_root, platform);
+            let gp = format!(
+                "{}/saves/es-de/gamelists/{}/gamelist.xml",
+                emulation_root, platform
+            );
             if let Ok(mut f) = sess.sftp.open(&gp).await {
                 use tokio::io::AsyncReadExt;
                 let mut buf = Vec::new();
@@ -370,7 +415,11 @@ pub async fn scan_remote_source_inner(
     }
 
     // Try to load systems.txt from the (possibly roms/) folder.
-    if let Ok(mut f) = sess.sftp.open(&format!("{}/systems.txt", base_path.trim_end_matches('/'))).await {
+    if let Ok(mut f) = sess
+        .sftp
+        .open(&format!("{}/systems.txt", base_path.trim_end_matches('/')))
+        .await
+    {
         use tokio::io::AsyncReadExt;
         let mut buf = Vec::new();
         let _ = f.read_to_end(&mut buf).await;
@@ -390,7 +439,19 @@ pub async fn scan_remote_source_inner(
         .flat_map(|p| p.extensions.clone())
         .collect();
     let slugs: Vec<String> = platforms.iter().map(|p| p.slug.clone()).collect();
-    walk(&sess.sftp, &base_path, &exts, &slugs, Vec::new(), &mut collected, app.as_ref(), &source_id, Some(&cancel), platform_filter.as_ref()).await;
+    walk(
+        &sess.sftp,
+        &base_path,
+        &exts,
+        &slugs,
+        Vec::new(),
+        &mut collected,
+        app.as_ref(),
+        &source_id,
+        Some(&cancel),
+        platform_filter.as_ref(),
+    )
+    .await;
 
     // process into db in chunks to avoid locking the DB for too long
     let mut files_found = 0usize;
@@ -575,14 +636,20 @@ pub async fn scan_remote_source_inner(
     {
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
-        tx.execute("UPDATE game_files SET missing=1 WHERE source_id=?1", params![source_id])?;
+        tx.execute(
+            "UPDATE game_files SET missing=1 WHERE source_id=?1",
+            params![source_id],
+        )?;
         for chunk in collected.chunks(900) {
             // build placeholders
-            let mut sql = String::from("UPDATE game_files SET missing=0 WHERE source_id=?1 AND path IN (");
+            let mut sql =
+                String::from("UPDATE game_files SET missing=0 WHERE source_id=?1 AND path IN (");
             let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
             params_vec.push(rusqlite::types::Value::Text(source_id.clone()));
             for (i, (fp, _, _, _)) in chunk.iter().enumerate() {
-                if i > 0 { sql.push(','); }
+                if i > 0 {
+                    sql.push(',');
+                }
                 sql.push('?');
                 params_vec.push(rusqlite::types::Value::Text(fp.clone()));
             }
@@ -619,7 +686,10 @@ pub async fn scan_remote_source_inner(
 
     tracing::info!(
         "scan_remote_source done source_id={} files={} created={} updated={}",
-        source_id, files_found, games_created, games_updated
+        source_id,
+        files_found,
+        games_created,
+        games_updated
     );
     Ok(ScanResult {
         source_id,
@@ -637,8 +707,18 @@ pub async fn scan_remote_source(
     folder: Option<String>,
     platform_filter: Option<String>,
 ) -> Result<ScanResult> {
-    state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
-    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone(), folder, platform_filter).await
+    state
+        .cancel_scan
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    scan_remote_source_inner(
+        &state,
+        source_id,
+        Some(app),
+        state.cancel_scan.clone(),
+        folder,
+        platform_filter,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -649,8 +729,18 @@ pub async fn scan_remote_folder(
     folder_path: String,
     platform_filter: Option<String>,
 ) -> Result<ScanResult> {
-    state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
-    scan_remote_source_inner(&state, source_id, Some(app), state.cancel_scan.clone(), Some(folder_path), platform_filter).await
+    state
+        .cancel_scan
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    scan_remote_source_inner(
+        &state,
+        source_id,
+        Some(app),
+        state.cancel_scan.clone(),
+        Some(folder_path),
+        platform_filter,
+    )
+    .await
 }
 
 #[tauri::command]

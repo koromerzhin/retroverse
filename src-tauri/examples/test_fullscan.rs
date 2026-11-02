@@ -1,5 +1,5 @@
-use retroverse_lib::state::AppState;
 use retroverse_lib::commands::remote;
+use retroverse_lib::state::AppState;
 
 #[tokio::main]
 async fn main() {
@@ -18,8 +18,13 @@ async fn main() {
         std::fs::write("/tmp/opencode/sid.txt", &sid).unwrap();
     }
     let sid = std::fs::read_to_string("/tmp/opencode/sid.txt").unwrap();
-    match remote::scan_remote_source_inner(&state, sid.clone(), None, state.cancel_scan.clone()).await {
-        Ok(r) => println!("SCAN RESULT: files={} created={} updated={}", r.files_found, r.games_created, r.games_updated),
+    match remote::scan_remote_source_inner(&state, sid.clone(), None, state.cancel_scan.clone())
+        .await
+    {
+        Ok(r) => println!(
+            "SCAN RESULT: files={} created={} updated={}",
+            r.files_found, r.games_created, r.games_updated
+        ),
         Err(e) => println!("SCAN ERROR: {}", e),
     }
 }

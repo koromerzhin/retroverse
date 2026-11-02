@@ -116,10 +116,22 @@ pub fn scan_source(
         }
 
         let gamelist_known: std::collections::HashSet<String> = {
-            let slug = top.file_name().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
-            let emulation_root = top.parent().and_then(|p| p.parent()).map(|p| p.to_path_buf());
+            let slug = top
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            let emulation_root = top
+                .parent()
+                .and_then(|p| p.parent())
+                .map(|p| p.to_path_buf());
             if let Some(er) = emulation_root {
-                let gp = er.join("saves").join("es-de").join("gamelists").join(&slug).join("gamelist.xml");
+                let gp = er
+                    .join("saves")
+                    .join("es-de")
+                    .join("gamelists")
+                    .join(&slug)
+                    .join("gamelist.xml");
                 if gp.is_file() {
                     if let Ok(content) = std::fs::read_to_string(&gp) {
                         identify::parse_gamelist_paths(&content)
@@ -181,7 +193,9 @@ pub fn scan_source(
             }
             let ext = identify::ext_of(pstr.as_ref());
             let ext_ok = if !allowed_exts.is_empty() {
-                allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&format!(".{}", ext)))
+                allowed_exts
+                    .iter()
+                    .any(|a| a.eq_ignore_ascii_case(&format!(".{}", ext)))
             } else {
                 identify::guess_platform(&ext, &platforms).is_some()
                     || identify::infer_platform_from_path(pstr.as_ref(), &platforms).is_some()
@@ -206,7 +220,12 @@ pub fn scan_source(
                 .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
-            files.push((p.to_string_lossy().to_string(), meta.len(), mtime, allowed_exts.clone()));
+            files.push((
+                p.to_string_lossy().to_string(),
+                meta.len(),
+                mtime,
+                allowed_exts.clone(),
+            ));
         }
 
         if let Some(a) = &app {
@@ -388,18 +407,18 @@ pub fn scan_source(
             }
 
             tx.commit()?;
-        }  // close transaction block
-            total_files_found += files_found;
-            total_created += games_created;
-            total_updated += games_updated;
+        } // close transaction block
+        total_files_found += files_found;
+        total_created += games_created;
+        total_updated += games_updated;
 
-            if let Some(a) = &app {
-                let _ = a.emit(
+        if let Some(a) = &app {
+            let _ = a.emit(
                     "scan-progress",
                     serde_json::json!({"source_id": source_id, "scanned": files_found, "total": files_found, "status": "folder_done"}),
                 );
-            }
         }
+    }
 
     let conn = state.db.lock().unwrap();
     conn.execute(
