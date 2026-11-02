@@ -117,7 +117,7 @@ export default function App() {
         }
         notifyToast(msg);
         qc.invalidateQueries();
-        setTimeout(() => setScanProgress(null), 3000);
+        setScanProgress(null);
         setTimeout(() => setToast(null), 5000);
       } else {
         setScanProgress((prev) => ({
