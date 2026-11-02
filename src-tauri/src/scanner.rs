@@ -293,7 +293,8 @@ pub fn scan_source(
                 }
 
                 // Hashes are computed on-demand via "Calculer les empreintes" (scan stays fast).
-                let (sha256, crc32, md5, sha1, zip_inner) = (None, None, None, None, None);
+                let (sha256, crc32, md5, sha1, zip_inner, sha512) =
+                    (None, None, None, None, None, None);
 
                 let file_id = if let Some((id, _, _, _)) = existing {
                     tx.execute(
@@ -336,11 +337,13 @@ pub fn scan_source(
                     crc32: crc32.clone(),
                     md5: md5.clone(),
                     sha1: sha1.clone(),
+                    sha512: sha512.clone(),
                     zip_inner: zip_inner.clone(),
                     archive_hash: None,
                     archive_crc32: None,
                     archive_md5: None,
                     archive_sha1: None,
+                    archive_sha512: None,
                     platform_id: platform_id.clone(),
                     created_at: Utc::now(),
                 };

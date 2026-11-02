@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 10;
+pub const SCHEMA_VERSION: i32 = 13;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -74,6 +74,15 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 10 {
         apply_v10(conn)?;
+    }
+    if current < 11 {
+        apply_v11(conn)?;
+    }
+    if current < 12 {
+        apply_v12(conn)?;
+    }
+    if current < 13 {
+        apply_v13(conn)?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
@@ -662,5 +671,24 @@ fn apply_v10(conn: &Connection) -> Result<()> {
     let _ = conn.execute("ALTER TABLE game_files ADD COLUMN archive_crc32 TEXT", []);
     let _ = conn.execute("ALTER TABLE game_files ADD COLUMN archive_md5 TEXT", []);
     let _ = conn.execute("ALTER TABLE game_files ADD COLUMN archive_sha1 TEXT", []);
+    Ok(())
+}
+
+fn apply_v11(conn: &Connection) -> Result<()> {
+    let _ = conn.execute("ALTER TABLE game_files ADD COLUMN sha512 TEXT", []);
+    Ok(())
+}
+
+fn apply_v12(conn: &Connection) -> Result<()> {
+    let _ = conn.execute("ALTER TABLE game_files ADD COLUMN archive_sha512 TEXT", []);
+    Ok(())
+}
+
+fn apply_v13(conn: &Connection) -> Result<()> {
+    // Clear wrong archive hashes (previously stored inner hash) for archives.
+    let _ = conn.execute(
+        "UPDATE game_files SET archive_hash=NULL, archive_crc32=NULL, archive_md5=NULL, archive_sha1=NULL, archive_sha512=NULL WHERE extension IN ('zip','7z')",
+        [],
+    );
     Ok(())
 }

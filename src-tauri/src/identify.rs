@@ -98,12 +98,13 @@ pub fn parse_systeminfo_txt(content: &str) -> Option<Vec<String>> {
 use crc::Crc;
 use md5::Context as Md5Context;
 use sha1::{Digest as Sha1Digest, Sha1};
-use sha2::{Digest as Sha2Digest, Sha256};
+use sha2::{Digest as Sha2Digest, Sha256, Sha512};
 use std::io::Read;
 
 /// Compute hashes for a file. For .zip, reads the first inner ROM entry.
-/// Returns (sha256, crc32, md5, sha1, zip_inner).
+/// Returns (sha256, crc32, md5, sha1, zip_inner, sha512).
 pub type Hashes = (
+    Option<String>,
     Option<String>,
     Option<String>,
     Option<String>,
@@ -146,6 +147,7 @@ pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[St
             let mut sha256 = Sha256::new();
             let mut md5h = Md5Context::new();
             let mut sha1h = Sha1::new();
+            let mut sha512h = Sha512::new();
             let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
             let mut crc_digest = crc.digest();
             loop {
@@ -155,6 +157,7 @@ pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[St
                         sha256.update(&buf[..n]);
                         md5h.consume(&buf[..n]);
                         sha1h.update(&buf[..n]);
+                        sha512h.update(&buf[..n]);
                         crc_digest.update(&buf[..n]);
                     }
                     Err(_) => break,
@@ -177,6 +180,7 @@ pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[St
                         .collect(),
                 ),
                 Some(inner_name),
+                Some(format!("{:x}", sha512h.finalize())),
             );
         }
     }
@@ -184,11 +188,13 @@ pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[St
     let mut sha256 = Sha256::new();
     let mut md5h = Md5Context::new();
     let mut sha1h = Sha1::new();
+    let mut sha512h = Sha512::new();
     let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
     let mut crc_digest = crc.digest();
     sha256.update(data);
     md5h.consume(data);
     sha1h.update(data);
+    sha512h.update(data);
     crc_digest.update(data);
     (
         Some(format!("{:x}", sha256.finalize())),
@@ -207,6 +213,7 @@ pub fn compute_hashes_from_bytes(data: &[u8], filename: &str, allowed_exts: &[St
                 .collect(),
         ),
         None,
+        Some(format!("{:x}", sha512h.finalize())),
     )
 }
 
@@ -218,6 +225,7 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
         let mut sha256 = Sha256::new();
         let mut md5h = Md5Context::new();
         let mut sha1h = Sha1::new();
+        let mut sha512h = Sha512::new();
         let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
         let mut crc_digest = crc.digest();
         let mut found = false;
@@ -252,6 +260,7 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
                             sha256.update(&buf[..n]);
                             md5h.consume(&buf[..n]);
                             sha1h.update(&buf[..n]);
+                            sha512h.update(&buf[..n]);
                             crc_digest.update(&buf[..n]);
                         }
                         Err(_) => break,
@@ -278,6 +287,7 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
                         .collect(),
                 ),
                 inner_name,
+                Some(format!("{:x}", sha512h.finalize())),
             );
         }
     }
@@ -291,7 +301,7 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
             .unwrap_or(path);
         return compute_hashes_from_bytes(&data, filename, allowed_exts);
     }
-    (None, None, None, None, None)
+    (None, None, None, None, None, None)
 }
 
 pub fn parse_gamelist_paths(content: &str) -> std::collections::HashSet<String> {

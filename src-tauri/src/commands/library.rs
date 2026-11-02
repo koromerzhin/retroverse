@@ -79,11 +79,11 @@ pub fn list_games(
     for gr in rows {
         let game = gr?;
         let mut fstmt = conn.prepare(
-            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.platform_id,gf.created_at \
+            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at \
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
         )?;
         let frows = fstmt.query_map([game.id.clone()], |r| {
-            let created: String = r.get(17)?;
+            let created: String = r.get(19)?;
             Ok(crate::models::GameFile {
                 id: r.get(0)?,
                 source_id: r.get(1)?,
@@ -96,12 +96,14 @@ pub fn list_games(
                 crc32: r.get(8)?,
                 md5: r.get(9)?,
                 sha1: r.get(10)?,
-                zip_inner: r.get(11)?,
-                archive_hash: r.get(12)?,
-                archive_crc32: r.get(13)?,
-                archive_md5: r.get(14)?,
-                archive_sha1: r.get(15)?,
-                platform_id: r.get(16)?,
+                sha512: r.get(11)?,
+                zip_inner: r.get(12)?,
+                archive_hash: r.get(13)?,
+                archive_crc32: r.get(14)?,
+                archive_md5: r.get(15)?,
+                archive_sha1: r.get(16)?,
+                archive_sha512: r.get(17)?,
+                platform_id: r.get(18)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
             })
         })?;
@@ -150,11 +152,11 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
     )?;
 
     let mut fstmt = conn.prepare(
-        "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.platform_id,gf.created_at \
+        "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at \
          FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
     )?;
     let frows = fstmt.query_map([game.id.clone()], |r| {
-        let created: String = r.get(17)?;
+        let created: String = r.get(19)?;
         Ok(crate::models::GameFile {
             id: r.get(0)?,
             source_id: r.get(1)?,
@@ -167,12 +169,14 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
             crc32: r.get(8)?,
             md5: r.get(9)?,
             sha1: r.get(10)?,
-            zip_inner: r.get(11)?,
-            archive_hash: r.get(12)?,
-            archive_crc32: r.get(13)?,
-            archive_md5: r.get(14)?,
-            archive_sha1: r.get(15)?,
-            platform_id: r.get(16)?,
+            sha512: r.get(11)?,
+            zip_inner: r.get(12)?,
+            archive_hash: r.get(13)?,
+            archive_crc32: r.get(14)?,
+            archive_md5: r.get(15)?,
+            archive_sha1: r.get(16)?,
+            archive_sha512: r.get(17)?,
+            platform_id: r.get(18)?,
             created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
         })
     })?;
@@ -310,11 +314,11 @@ pub fn search_games_fts(
     let mut entries = Vec::new();
     for game in page_rows {
         let mut fstmt = conn.prepare(
-            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.platform_id,gf.created_at \
+            "SELECT gf.id,gf.source_id,gf.path,gf.filename,gf.extension,gf.size,gf.modified_at,gf.hash,gf.crc32,gf.md5,gf.sha1,gf.sha512,gf.zip_inner,gf.archive_hash,gf.archive_crc32,gf.archive_md5,gf.archive_sha1,gf.archive_sha512,gf.platform_id,gf.created_at \
              FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
         )?;
         let frows = fstmt.query_map([game.id.clone()], |r| {
-            let created: String = r.get(17)?;
+            let created: String = r.get(19)?;
             Ok(crate::models::GameFile {
                 id: r.get(0)?,
                 source_id: r.get(1)?,
@@ -327,12 +331,14 @@ pub fn search_games_fts(
                 crc32: r.get(8)?,
                 md5: r.get(9)?,
                 sha1: r.get(10)?,
-                zip_inner: r.get(11)?,
-                archive_hash: r.get(12)?,
-                archive_crc32: r.get(13)?,
-                archive_md5: r.get(14)?,
-                archive_sha1: r.get(15)?,
-                platform_id: r.get(16)?,
+                sha512: r.get(11)?,
+                zip_inner: r.get(12)?,
+                archive_hash: r.get(13)?,
+                archive_crc32: r.get(14)?,
+                archive_md5: r.get(15)?,
+                archive_sha1: r.get(16)?,
+                archive_sha512: r.get(17)?,
+                platform_id: r.get(18)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
             })
         })?;

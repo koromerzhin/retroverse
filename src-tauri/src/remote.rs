@@ -33,7 +33,7 @@ pub async fn compute_hashes(
     let mut f =
         match tokio::time::timeout(std::time::Duration::from_secs(30), sftp.open(path)).await {
             Ok(Ok(f)) => f,
-            _ => return (None, None, None, None, None),
+            _ => return (None, None, None, None, None, None),
         };
     let mut buf = Vec::new();
     // Timeout per file to avoid hanging on stalled connections.
@@ -41,7 +41,7 @@ pub async fn compute_hashes(
         tokio::time::timeout(std::time::Duration::from_secs(60), f.read_to_end(&mut buf)).await;
     match read_result {
         Ok(Ok(_)) => {}
-        _ => return (None, None, None, None, None),
+        _ => return (None, None, None, None, None, None),
     }
     let path = path.to_string();
     let allowed = allowed.to_vec();
@@ -63,7 +63,7 @@ pub async fn compute_hashes(
         crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
     })
     .await
-    .unwrap_or((None, None, None, None, None))
+    .unwrap_or((None, None, None, None, None, None))
 }
 
 pub fn resolve_key_path(key_path: &str) -> String {

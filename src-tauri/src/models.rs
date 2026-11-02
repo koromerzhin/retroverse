@@ -70,11 +70,13 @@ pub struct GameFile {
     pub crc32: Option<String>,
     pub md5: Option<String>,
     pub sha1: Option<String>,
+    pub sha512: Option<String>,
     pub zip_inner: Option<String>,
     pub archive_hash: Option<String>,
     pub archive_crc32: Option<String>,
     pub archive_md5: Option<String>,
     pub archive_sha1: Option<String>,
+    pub archive_sha512: Option<String>,
     pub platform_id: Option<String>,
     pub created_at: DateTime<Utc>,
 }

@@ -112,17 +112,37 @@ export default function GameDetail() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.hashes")}</h3>
-        {data.files.map((f: any) => (
-          <div key={f.id} style={{ marginBottom: 10, fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>
-            <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>{f.filename}</div>
-            <div>CRC32 : {f.crc32 ?? "—"}</div>
-            <div>MD5 : {f.md5 ?? "—"}</div>
-            <div>SHA1 : {f.sha1 ?? "—"}</div>
-            {f.zip_inner && <div>ZIP interne : {f.zip_inner}</div>}
-            {f.archive_hash && <div>Archive SHA256 : {f.archive_hash}</div>}
-            {f.archive_crc32 && <div>Archive CRC32 : {f.archive_crc32}</div>}
-            {f.archive_md5 && <div>Archive MD5 : {f.archive_md5}</div>}
-            {f.archive_sha1 && <div>Archive SHA1 : {f.archive_sha1}</div>}
+        {data.files.map((f: any, idx: number) => (
+          <div key={f.id} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: idx < data.files.length - 1 ? "1px solid var(--border)" : "none", fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>
+            <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>{f.filename}</div>
+            {f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 ? (
+              <>
+                <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>Fichier</div>
+                {f.archive_md5 && <div>MD5 : {f.archive_md5}</div>}
+                {f.archive_sha1 && <div>SHA1 : {f.archive_sha1}</div>}
+                {f.archive_hash && <div>SHA256 : {f.archive_hash}</div>}
+                {f.archive_sha512 && <div>SHA512 : {f.archive_sha512}</div>}
+              </>
+            ) : (
+              <>
+                <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>Fichier</div>
+                {f.md5 && <div>MD5 : {f.md5}</div>}
+                {f.sha1 && <div>SHA1 : {f.sha1}</div>}
+                {f.hash && <div>SHA256 : {f.hash}</div>}
+                {f.sha512 && <div>SHA512 : {f.sha512}</div>}
+                {f.crc32 && <div>CRC32 : {f.crc32}</div>}
+              </>
+            )}
+            {f.zip_inner && (
+              <>
+                <div style={{ fontWeight: 600, color: "var(--text)", marginTop: 6, marginBottom: 2 }}>ROM interne : {f.zip_inner}</div>
+                {f.md5 && <div>MD5 : {f.md5}</div>}
+                {f.sha1 && <div>SHA1 : {f.sha1}</div>}
+                {f.hash && <div>SHA256 : {f.hash}</div>}
+                {f.sha512 && <div>SHA512 : {f.sha512}</div>}
+                {f.crc32 && <div>CRC32 : {f.crc32}</div>}
+              </>
+            )}
           </div>
         ))}
       </div>
