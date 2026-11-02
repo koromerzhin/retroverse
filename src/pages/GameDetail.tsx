@@ -167,7 +167,7 @@ export default function GameDetail() {
 
             {(f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 || f.archive_crc32) ? (
               <table className="table" style={{ fontSize: 11, marginBottom: 8 }}>
-                <thead><tr><th style={{ width: 90 }}>Fichier</th><th></th></tr></thead>
+                <thead><tr><th colSpan={2} style={{ textAlign: "left" }}>Fichier</th></tr></thead>
                 <tbody>
                   {f.archive_crc32 && <tr><td>CRC32</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.archive_crc32}</td></tr>}
                   {f.archive_md5 && <tr><td>MD5</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.archive_md5}</td></tr>}
@@ -178,7 +178,7 @@ export default function GameDetail() {
               </table>
             ) : (
               <table className="table" style={{ fontSize: 11, marginBottom: 8 }}>
-                <thead><tr><th style={{ width: 90 }}>Fichier</th><th></th></tr></thead>
+                <thead><tr><th colSpan={2} style={{ textAlign: "left" }}>Fichier</th></tr></thead>
                 <tbody>
                   {f.crc32 && <tr><td>CRC32</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.crc32}</td></tr>}
                   {f.md5 && <tr><td>MD5</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.md5}</td></tr>}
