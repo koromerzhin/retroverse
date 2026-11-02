@@ -36,6 +36,7 @@ export default function Platforms() {
   const [sortBy, setSortBy] = useState<"name" | "count">("name");
   const [hideEmpty, setHideEmpty] = useState(true);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.platforms.view") as "cards" | "list") || "cards");
+  const [search, setSearch] = useState("");
 
   async function handleOpenFolder(p: Platform) {
     if (!sources) return;
@@ -72,8 +73,10 @@ export default function Platforms() {
 
   const counts: Record<string, number> = countsData || {};
 
+  const q = search.trim().toLowerCase();
   const sortedPlatforms = [...(platforms || [])]
     .filter((p) => !hideEmpty || (counts[p.id] ?? 0) > 0)
+    .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.manufacturer ?? "").toLowerCase().includes(q) || p.slug.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
     .sort((a, b) => {
       if (sortBy === "count") {
         return (counts[b.id] ?? 0) - (counts[a.id] ?? 0) || a.name.localeCompare(b.name);
@@ -186,6 +189,7 @@ export default function Platforms() {
       {msg && <p style={{ color: "var(--text-dim)", marginBottom: 12, fontSize: 13 }}>{msg}</p>}
 
       <div className="row" style={{ marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <input className="input" style={{ maxWidth: 260 }} placeholder="Rechercher une plateforme…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <span style={{ fontSize: 13, color: "var(--text-dim)" }}>{t("platforms.sortBy")}</span>
         <select className="select" style={{ maxWidth: 180 }} value={sortBy} onChange={(e) => setSortBy(e.target.value as "name" | "count")}>
           <option value="name">{t("platforms.sort.name")}</option>
