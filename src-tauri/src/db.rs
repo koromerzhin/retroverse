@@ -385,8 +385,14 @@ fn apply_v7(conn: &Connection) -> Result<()> {
         }
         let kept = ids[0].clone();
         for dup in &ids[1..] {
-            conn.execute("UPDATE games SET platform_id=?1 WHERE platform_id=?2", params![kept, dup])?;
-            conn.execute("UPDATE game_files SET platform_id=?1 WHERE platform_id=?2", params![kept, dup])?;
+            conn.execute(
+                "UPDATE games SET platform_id=?1 WHERE platform_id=?2",
+                params![kept, dup],
+            )?;
+            conn.execute(
+                "UPDATE game_files SET platform_id=?1 WHERE platform_id=?2",
+                params![kept, dup],
+            )?;
             conn.execute("DELETE FROM platforms WHERE id=?1", [dup.clone()])?;
         }
     }
@@ -650,7 +656,6 @@ mod tests {
         assert_eq!(count, count2);
     }
 }
-
 
 fn apply_v10(conn: &Connection) -> Result<()> {
     let _ = conn.execute("ALTER TABLE game_files ADD COLUMN archive_hash TEXT", []);

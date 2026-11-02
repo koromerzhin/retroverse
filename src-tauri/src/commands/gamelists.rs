@@ -75,7 +75,11 @@ fn emulation_root_from_source_path(path: &str) -> String {
     if let Some(parent) = p.parent()
         && parent.ends_with("roms")
     {
-        return parent.parent().unwrap_or(parent).to_string_lossy().to_string();
+        return parent
+            .parent()
+            .unwrap_or(parent)
+            .to_string_lossy()
+            .to_string();
     }
     // fallback: parent
     p.parent().unwrap_or(p).to_string_lossy().to_string()
@@ -85,11 +89,12 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
     // get source info
     let (kind, path, remote_path, connection_id) = {
         let conn = state.db.lock().unwrap();
-        let (kind, path, rp, cid): (String, String, Option<String>, Option<String>) = conn.query_row(
-            "SELECT kind, path, remote_path, connection_id FROM game_sources WHERE id=?1",
-            [source_id.clone()],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-        )?;
+        let (kind, path, rp, cid): (String, String, Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT kind, path, remote_path, connection_id FROM game_sources WHERE id=?1",
+                [source_id.clone()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )?;
         (kind, path, rp, cid)
     };
 
@@ -99,7 +104,6 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
     // Collect gamelist contents (local or remote)
     let mut gamelists: Vec<(String, String)> = Vec::new(); // (platform, content)
 
-
     if kind == "remote" {
         let cid = connection_id.ok_or_else(|| RetroError::Invalid("not remote".into()))?;
         let (host, port, username, key_path) = {
@@ -107,7 +111,14 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
             conn.query_row(
                 "SELECT host,port,username,key_path FROM remote_connections WHERE id=?1",
                 [cid],
-                |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u16, r.get::<_, String>(2)?, r.get::<_, String>(3)?)),
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, i64>(1)? as u16,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                    ))
+                },
             )?
         };
         let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
@@ -116,9 +127,14 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
         if let Ok(rd) = sess.sftp.read_dir(&gl_dir).await {
             let dirs: Vec<_> = rd.collect();
             for d in dirs {
-                if !d.metadata().is_dir() { continue; }
+                if !d.metadata().is_dir() {
+                    continue;
+                }
                 let platform = d.file_name();
-                let gp = format!("{}/saves/es-de/gamelists/{}/gamelist.xml", emu_root, platform);
+                let gp = format!(
+                    "{}/saves/es-de/gamelists/{}/gamelist.xml",
+                    emu_root, platform
+                );
                 if let Ok(mut f) = sess.sftp.open(&gp).await {
                     use tokio::io::AsyncReadExt;
                     let mut buf = Vec::new();
@@ -129,15 +145,23 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
                 }
             }
         }
-    
-        let _ = sess.session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+
+        let _ = sess
+            .session
+            .disconnect(russh::Disconnect::ByApplication, "", "")
+            .await;
     } else {
-        let gl_dir = std::path::Path::new(&emu_root).join("saves").join("es-de").join("gamelists");
+        let gl_dir = std::path::Path::new(&emu_root)
+            .join("saves")
+            .join("es-de")
+            .join("gamelists");
         if gl_dir.is_dir()
             && let Ok(rd) = std::fs::read_dir(&gl_dir)
         {
             for e in rd.flatten() {
-                if !e.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+                if !e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                    continue;
+                }
                 let platform = e.file_name().to_string_lossy().to_string();
                 let gp = e.path().join("gamelist.xml");
                 if gp.is_file()
@@ -149,20 +173,29 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
         }
     }
 
-
     // Import (optimized with in-memory game lookup + transaction)
     let mut imported = 0usize;
     let mut conn = state.db.lock().unwrap();
     let tx = conn.transaction()?;
 
     // Pre-load existing games into a map for O(1) lookup.
-    let mut existing_games: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut existing_games: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     {
         let mut stmt = tx.prepare("SELECT id, title, platform_id FROM games")?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<String>>(2)?)))?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+            ))
+        })?;
         for r in rows {
             let (id, title, pid) = r?;
-            existing_games.insert(format!("{}|{}", title.to_lowercase(), pid.unwrap_or_default()), id);
+            existing_games.insert(
+                format!("{}|{}", title.to_lowercase(), pid.unwrap_or_default()),
+                id,
+            );
         }
     }
     // Pre-load existing metadata records into a set for O(1) lookup.
@@ -177,16 +210,21 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
     }
 
     for (platform, content) in &gamelists {
-
         let entries = parse_gamelist(content);
-        let platform_id: Option<String> = tx.query_row(
-            "SELECT id FROM platforms WHERE slug=?1 OR id=?1",
-            [platform.clone()],
-            |r| r.get(0),
-        ).ok();
+        let platform_id: Option<String> = tx
+            .query_row(
+                "SELECT id FROM platforms WHERE slug=?1 OR id=?1",
+                [platform.clone()],
+                |r| r.get(0),
+            )
+            .ok();
 
         for e in &entries {
-            let key = format!("{}|{}", e.name.to_lowercase(), platform_id.clone().unwrap_or_default());
+            let key = format!(
+                "{}|{}",
+                e.name.to_lowercase(),
+                platform_id.clone().unwrap_or_default()
+            );
             let game_id = if let Some(gid) = existing_games.get(&key) {
                 gid.clone()
             } else {
@@ -209,9 +247,7 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
                 ("release_date", e.releasedate.as_ref()),
             ];
             for (field, val) in fields {
-
                 if let Some(v) = val {
-    
                     let key = format!("{}|{}", game_id, field);
                     if !existing_meta.contains(&key) {
                         let id = crate::models::new_id();
@@ -224,7 +260,6 @@ pub async fn import_gamelists_inner(state: &AppState, source_id: String) -> Resu
                 }
             }
             let _ = json!({});
-
         }
     }
 

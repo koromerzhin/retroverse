@@ -30,22 +30,15 @@ pub async fn compute_hashes(
 ) -> crate::identify::Hashes {
     use tokio::io::AsyncReadExt;
     // Timeout on open
-    let mut f = match tokio::time::timeout(
-        std::time::Duration::from_secs(30),
-        sftp.open(path),
-    )
-    .await
-    {
-        Ok(Ok(f)) => f,
-        _ => return (None, None, None, None, None),
-    };
+    let mut f =
+        match tokio::time::timeout(std::time::Duration::from_secs(30), sftp.open(path)).await {
+            Ok(Ok(f)) => f,
+            _ => return (None, None, None, None, None),
+        };
     let mut buf = Vec::new();
     // Timeout per file to avoid hanging on stalled connections.
-    let read_result = tokio::time::timeout(
-        std::time::Duration::from_secs(60),
-        f.read_to_end(&mut buf),
-    )
-    .await;
+    let read_result =
+        tokio::time::timeout(std::time::Duration::from_secs(60), f.read_to_end(&mut buf)).await;
     match read_result {
         Ok(Ok(_)) => {}
         _ => return (None, None, None, None, None),
@@ -63,7 +56,10 @@ pub async fn compute_hashes(
                 return r;
             }
         }
-        let filename = std::path::Path::new(&path).file_name().and_then(|s| s.to_str()).unwrap_or(&path);
+        let filename = std::path::Path::new(&path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or(&path);
         crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
     })
     .await

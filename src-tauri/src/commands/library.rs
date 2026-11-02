@@ -109,7 +109,10 @@ pub fn list_games(
         for fr in frows {
             files.push(fr?);
         }
-        let platform = game.platform_id.as_ref().and_then(|pid| pmap.get(pid).cloned());
+        let platform = game
+            .platform_id
+            .as_ref()
+            .and_then(|pid| pmap.get(pid).cloned());
         entries.push(LibraryEntry {
             game,
             platform,
@@ -117,7 +120,10 @@ pub fn list_games(
             files,
         });
     }
-    Ok(PagedGames { items: entries, total })
+    Ok(PagedGames {
+        items: entries,
+        total,
+    })
 }
 
 #[tauri::command]
@@ -249,7 +255,12 @@ pub fn stats(state: State<AppState>) -> Result<serde_json::Value> {
 }
 
 #[tauri::command]
-pub fn search_games_fts(state: State<AppState>, query: String, limit: Option<usize>, offset: Option<usize>) -> Result<PagedGames> {
+pub fn search_games_fts(
+    state: State<AppState>,
+    query: String,
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<PagedGames> {
     let conn = state.db.lock().unwrap();
     let platforms = crate::identify::load_platforms(&conn)?;
     let pmap: std::collections::HashMap<String, Platform> =
@@ -340,7 +351,10 @@ pub fn search_games_fts(state: State<AppState>, query: String, limit: Option<usi
             files,
         });
     }
-    Ok(PagedGames { items: entries, total })
+    Ok(PagedGames {
+        items: entries,
+        total,
+    })
 }
 
 #[tauri::command]
