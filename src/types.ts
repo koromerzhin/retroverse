@@ -33,11 +33,13 @@ export interface GameFile {
   crc32: string | null;
   md5: string | null;
   sha1: string | null;
+  sha512: string | null;
   zip_inner: string | null;
   archive_hash: string | null;
   archive_crc32: string | null;
   archive_md5: string | null;
   archive_sha1: string | null;
+  archive_sha512: string | null;
   platform_id: string | null;
   created_at: string;
 }

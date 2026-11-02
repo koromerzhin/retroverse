@@ -20,11 +20,11 @@ pub async fn compute_hashes_inner(
     let rows: Vec<(String, String)> = {
         let conn = state.db.lock().unwrap();
         if let Some(sid) = &source_id {
-            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL)")?;
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL))")?;
             stmt.query_map([sid.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         } else {
-            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL")?;
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL)")?;
             stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         }
@@ -49,28 +49,30 @@ pub async fn compute_hashes_inner(
             }
             return Ok(done);
         }
-        let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(&path, &[]);
+        let (sha256, crc32, md5, sha1, zip_inner, sha512) =
+            crate::identify::compute_hashes(&path, &[]);
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".zip") || lower.ends_with(".7z");
-        let (arch_sha, arch_crc, arch_md5, arch_sha1) = if is_archive {
+        let (arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512) = if is_archive {
             if let Ok(data) = std::fs::read(&path) {
                 let fname = std::path::Path::new(&path)
                     .file_name()
                     .and_then(|x| x.to_str())
                     .unwrap_or(&path);
-                let (s, c, m, h, _) = crate::identify::compute_hashes_from_bytes(&data, fname, &[]);
-                (s, c, m, h)
+                let (s, c, m, h, _, sh512) =
+                    crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &[]);
+                (s, c, m, h, sh512)
             } else {
-                (None, None, None, None)
+                (None, None, None, None, None)
             }
         } else {
-            (None, None, None, None)
+            (None, None, None, None, None)
         };
         if sha256.is_some() {
             let conn = state.db.lock().unwrap();
             conn.execute(
-                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,archive_hash=?6,archive_crc32=?7,archive_md5=?8,archive_sha1=?9 WHERE id=?10",
-                params![sha256, crc32, md5, sha1, zip_inner, arch_sha, arch_crc, arch_md5, arch_sha1, id],
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
+                params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, id],
             )?;
             done += 1;
         }
@@ -483,7 +485,8 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
             Option<String>,
             Option<String>,
             Option<String>,
-        ) = (None, None, None, None);
+            Option<String>,
+        ) = (None, None, None, None, None);
         let result = if kind.as_deref() == Some("remote") {
             // download file via SFTP
             let (host, port, username, key_path) = {
@@ -536,19 +539,19 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
                 crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
             };
             if is_archive {
-                let (as_, ac, am, ah, _) =
-                    crate::identify::compute_hashes_from_bytes(&buf, filename, &[]);
-                arch_hashes = (as_, ac, am, ah);
+                let (as_, ac, am, ah, _, ash512) =
+                    crate::identify::compute_hashes_from_bytes(&buf, "archive.bin", &[]);
+                arch_hashes = (as_, ac, am, ah, ash512);
             }
             r
         } else {
             crate::identify::compute_hashes(&path, &allowed)
         };
 
-        let (sha256, crc32, md5, sha1, zip_inner) = result;
+        let (sha256, crc32, md5, sha1, zip_inner, sha512) = result;
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-        let (arch_sha, arch_crc, arch_md5, arch_sha1) = if is_archive {
+        let (arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512) = if is_archive {
             if kind.as_deref() == Some("remote") {
                 arch_hashes
             } else {
@@ -557,21 +560,21 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
                         .file_name()
                         .and_then(|x| x.to_str())
                         .unwrap_or(&path);
-                    let (s, c, m, h, _) =
-                        crate::identify::compute_hashes_from_bytes(&data, fname, &[]);
-                    (s, c, m, h)
+                    let (s, c, m, h, _, sh512) =
+                        crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &[]);
+                    (s, c, m, h, sh512)
                 } else {
-                    (None, None, None, None)
+                    (None, None, None, None, None)
                 }
             }
         } else {
-            (None, None, None, None)
+            (None, None, None, None, None)
         };
         if sha256.is_some() {
             let conn = state.db.lock().unwrap();
             conn.execute(
-                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,archive_hash=?6,archive_crc32=?7,archive_md5=?8,archive_sha1=?9 WHERE id=?10",
-                params![sha256, crc32, md5, sha1, zip_inner, arch_sha, arch_crc, arch_md5, arch_sha1, fid],
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
+                params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, fid],
             )?;
             done += 1;
         }
