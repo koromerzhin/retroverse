@@ -17,23 +17,30 @@ export default function Settings() {
     queryFn: () => api.appInfo(),
   });
   const [msg, setMsg] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"clear" | "reset" | null>(null);
 
   async function handleReset() {
-    if (!confirm("Vider toute la base de données ? Cette action est irréversible.")) return;
-    try {
-      await api.resetDatabase();
-      setMsg("Base de données vidée.");
-      qc.invalidateQueries();
-    } catch (e: any) {
-      setMsg(String(e));
-    }
+    setConfirmAction("reset");
   }
 
   async function handleClearLibrary() {
-    if (!confirm("Vider la bibliothèque (jeux, fichiers, métadonnées) ? Les sources sont conservées.")) return;
+    setConfirmAction("clear");
+  }
+
+  async function confirmActionRun() {
+    const action = confirmAction;
+    setConfirmAction(null);
+    if (!action) return;
     try {
-      await api.clearLibrary();
-      setMsg("Bibliothèque vidée.");
+      if (action === "reset") {
+        await api.resetDatabase();
+        setMsg("Base de données vidée.");
+        api.showNotification("RETROVERSE", "Base de données vidée.").catch(() => {});
+      } else {
+        await api.clearLibrary();
+        setMsg("Bibliothèque vidée.");
+        api.showNotification("RETROVERSE", "Bibliothèque vidée.").catch(() => {});
+      }
       qc.invalidateQueries();
     } catch (e: any) {
       setMsg(String(e));
@@ -65,6 +72,23 @@ export default function Settings() {
         <button className="btn danger" onClick={handleReset} style={{ marginLeft: 8 }}>{t("settings.clearDb")}</button>
         {msg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{msg}</p>}
       </div>
+
+      {confirmAction && (
+        <div className="modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Confirmation</h3>
+            <p style={{ color: "var(--text-dim)", fontSize: 13 }}>
+              {confirmAction === "reset"
+                ? "Vider toute la base de données ? Cette action est irréversible."
+                : "Vider la bibliothèque (jeux, fichiers, métadonnées) ? Les sources sont conservées."}
+            </p>
+            <div className="row" style={{ marginTop: 16, justifyContent: "flex-end", gap: 8 }}>
+              <button className="btn" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="btn danger" onClick={confirmActionRun}>Confirmer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Thème</h3>
