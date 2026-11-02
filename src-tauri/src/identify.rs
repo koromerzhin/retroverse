@@ -427,8 +427,6 @@ pub fn ext_of(path: &str) -> String {
         .to_lowercase()
 }
 
-
-
 pub fn scummvm_title(code: &str) -> Option<String> {
     static MAPPING: OnceLock<serde_json::Value> = OnceLock::new();
     let map = MAPPING.get_or_init(|| {
@@ -436,7 +434,9 @@ pub fn scummvm_title(code: &str) -> Option<String> {
         serde_json::from_str(raw).unwrap_or_else(|_| serde_json::Value::Object(Default::default()))
     });
     let code = code.trim().split(':').last().unwrap_or(code).trim();
-    map.get(code).and_then(|v| v.as_str()).map(|s| s.to_string())
+    map.get(code)
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
 #[cfg(test)]

@@ -301,23 +301,24 @@ pub fn search_games_fts(
              JOIN games_fts f ON f.rowid = g.rowid \
              WHERE games_fts MATCH ?1 ORDER BY rank",
         )?;
-        stmt
-            .query_map([format!("{}*", safe_query)], |r| {
-                let created: String = r.get(3)?;
-                let updated: String = r.get(4)?;
-                Ok(Game {
-                    id: r.get(0)?,
-                    title: r.get(1)?,
-                    platform_id: r.get(2)?,
-                    created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
-                    updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?
+        stmt.query_map([format!("{}*", safe_query)], |r| {
+            let created: String = r.get(3)?;
+            let updated: String = r.get(4)?;
+            Ok(Game {
+                id: r.get(0)?,
+                title: r.get(1)?,
+                platform_id: r.get(2)?,
+                created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?
     };
 
     let rows: Vec<Game> = if let Some(pf) = &platform {
-        rows.into_iter().filter(|g| g.platform_id.as_deref() == Some(pf.as_str())).collect()
+        rows.into_iter()
+            .filter(|g| g.platform_id.as_deref() == Some(pf.as_str()))
+            .collect()
     } else {
         rows
     };

@@ -607,10 +607,24 @@ pub async fn scan_remote_source_inner(
                 .ok();
 
             let game_id = if let Some(gid) = existing_game {
-                tx.execute(
-                    "UPDATE games SET updated_at=?1 WHERE id=?2",
-                    params![Utc::now().to_rfc3339(), gid],
-                )?;
+                let has_correction: i64 = tx
+                    .query_row(
+                        "SELECT COUNT(*) FROM user_corrections c JOIN game_file_links l ON l.file_id = c.file_id WHERE l.game_id = ?1",
+                        [gid.clone()],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+                if has_correction == 0 {
+                    tx.execute(
+                        "UPDATE games SET title=?1, updated_at=?2 WHERE id=?3",
+                        params![title, Utc::now().to_rfc3339(), gid],
+                    )?;
+                } else {
+                    tx.execute(
+                        "UPDATE games SET updated_at=?1 WHERE id=?2",
+                        params![Utc::now().to_rfc3339(), gid],
+                    )?;
+                }
                 games_updated += 1;
                 gid
             } else {

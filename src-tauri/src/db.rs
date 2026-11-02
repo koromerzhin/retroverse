@@ -696,9 +696,11 @@ fn apply_v13(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-
 fn apply_v14(conn: &Connection) -> Result<()> {
-    let _ = conn.execute("ALTER TABLE game_files ADD COLUMN is_dir INTEGER NOT NULL DEFAULT 0", []);
+    let _ = conn.execute(
+        "ALTER TABLE game_files ADD COLUMN is_dir INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     // Populate for local paths that are directories.
     if let Ok(mut stmt) = conn.prepare("SELECT id, path FROM game_files") {
         let rows: Vec<(String, String)> = stmt
