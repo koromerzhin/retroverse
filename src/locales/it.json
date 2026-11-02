@@ -149,5 +149,10 @@
   "toast.newGames": "nuovo/i gioco/i",
   "toast.updated": "aggiornato/i",
   "toast.files": "file",
-  "toast.noNew": "nessuna novità"
+  "toast.noNew": "nessuna novità",
+  "scan.status.scanning": "Scansione…",
+  "scan.status.folderDone": "Cartella completata",
+  "scan.status.done": "Completato",
+  "scan.status.cancelled": "Annullato",
+  "scan.status.skipped": "Ignorato"
 }
