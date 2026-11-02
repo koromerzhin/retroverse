@@ -213,7 +213,7 @@ export default function Platforms() {
               <button
                 className="btn"
                 style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
-                disabled={hashingPlatform === p.id || (unhashedCounts?.[p.id] ?? 0) === 0}
+                disabled={hashingPlatform === p.id || p.id === "scummvm" || (unhashedCounts?.[p.id] ?? 0) === 0}
                 onClick={(e) => { e.stopPropagation(); handleHashPlatform(p); }}
               >
                 {hashingPlatform === p.id ? "…" : "Calculer les empreintes"}
