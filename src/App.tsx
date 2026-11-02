@@ -116,6 +116,7 @@ export default function App() {
           msg += ` : ${formatNumber(files)} fichier(s), aucune nouveauté`;
         }
         notifyToast(msg);
+        qc.invalidateQueries();
         setTimeout(() => setScanProgress(null), 3000);
         setTimeout(() => setToast(null), 5000);
       } else {
