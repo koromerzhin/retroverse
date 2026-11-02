@@ -346,6 +346,7 @@ pub fn scan_source(
                     archive_sha512: None,
                     platform_id: platform_id.clone(),
                     created_at: Utc::now(),
+                    is_dir: false,
                 };
                 let (title, conf) = identify::identify_file(&gf, &platforms);
 

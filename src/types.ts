@@ -41,6 +41,7 @@ export interface GameFile {
   archive_sha1: string | null;
   archive_sha512: string | null;
   platform_id: string | null;
+  is_dir: boolean;
   created_at: string;
 }
 
