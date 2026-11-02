@@ -90,7 +90,7 @@ export default function GameDetail() {
       <h1 className="page-title">{data.game.title}</h1>
       <p className="page-sub">{data.platform?.name ?? "Plateforme inconnue"}</p>
 
-      <div className="card">
+      <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.info")}</h3>
         <div className="row">
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} style={{ maxWidth: 400 }} />
