@@ -24,6 +24,7 @@ export default function GameDetail() {
 
   const [title, setTitle] = useState("");
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
+  const [hashingFile, setHashingFile] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) setTitle(data.game.title);
@@ -32,6 +33,18 @@ export default function GameDetail() {
   const sourceMap = new Map(sources?.map((s) => [s.id, s]) || []);
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
   const remoteSourceId = data?.files.map((f) => f.source_id).find((sid) => sourceMap.get(sid)?.kind === "remote");
+
+  const hashFile = async (fileId: string) => {
+    setHashingFile(fileId);
+    try {
+      await api.computeHashesForFile(fileId);
+      qc.invalidateQueries({ queryKey: ["game", id] });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHashingFile(null);
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: () => api.correctTitle(id!, title),
@@ -114,7 +127,12 @@ export default function GameDetail() {
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.hashes")}</h3>
         {data.files.map((f: any, idx: number) => (
           <div key={f.id} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: idx < data.files.length - 1 ? "1px solid var(--border)" : "none", fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>
-            <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>{f.filename}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontWeight: 600, color: "var(--text)" }}>{f.filename}</span>
+              <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => hashFile(f.id)} disabled={hashingFile === f.id}>
+                {hashingFile === f.id ? "…" : "Calculer les empreintes"}
+              </button>
+            </div>
             {f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 ? (
               <>
                 <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>Fichier</div>
