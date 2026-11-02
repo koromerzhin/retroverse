@@ -719,3 +719,53 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
         Ok(0)
     }
 }
+
+#[tauri::command]
+pub async fn compute_hashes_for_platform(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    platform_id: String,
+) -> Result<usize> {
+    use tauri::Emitter;
+    state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
+    let cancel = state.cancel_scan.clone();
+
+    let ids: Vec<String> = {
+        let conn = state.db.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id FROM game_files WHERE platform_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL))",
+        )?;
+        stmt.query_map([platform_id.clone()], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+
+    let total = ids.len();
+    let mut done = 0usize;
+    let _ = app.emit(
+        "hash-progress",
+        serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}),
+    );
+
+    for (idx, id) in ids.into_iter().enumerate() {
+        if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+            let _ = app.emit(
+                "hash-progress",
+                serde_json::json!({"scanned": done, "total": total, "status": "cancelled"}),
+            );
+            return Ok(done);
+        }
+        let n = compute_hash_for_file_inner(&state, id).await?;
+        done += n;
+        if idx % 5 == 0 || idx + 1 == total {
+            let _ = app.emit(
+                "hash-progress",
+                serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning"}),
+            );
+        }
+    }
+    let _ = app.emit(
+        "hash-progress",
+        serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done}),
+    );
+    Ok(done)
+}
