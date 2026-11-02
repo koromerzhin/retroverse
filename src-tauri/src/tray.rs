@@ -41,14 +41,28 @@ impl Tray for RetroverseTray {
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
+        let visible = self
+            .app
+            .get_webview_window("main")
+            .and_then(|w| w.is_visible().ok())
+            .unwrap_or(false);
+        let toggle_label = if visible {
+            "Masquer RETROVERSE"
+        } else {
+            "Afficher RETROVERSE"
+        };
         vec![
             MenuItem::Standard(StandardItem {
-                label: "Afficher RETROVERSE".into(),
+                label: toggle_label.into(),
                 enabled: true,
                 activate: Box::new(|tray: &mut Self| {
                     if let Some(w) = tray.app.get_webview_window("main") {
-                        let _ = w.show();
-                        let _ = w.set_focus();
+                        if w.is_visible().unwrap_or(false) {
+                            let _ = w.hide();
+                        } else {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
                     }
                 }),
                 ..Default::default()
