@@ -501,6 +501,19 @@ pub async fn scan_remote_source_inner(
                     .or_else(|| crate::identify::guess_platform(&ext, &platforms2))
             };
 
+            if ext == "scummvm" {
+                let code = std::path::Path::new(&filename)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(&filename);
+                if let Some(new_title) = crate::identify::scummvm_title(code) {
+                    let _ = tx.execute(
+                        "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
+                        params![new_title, code, platform_id],
+                    );
+                }
+            }
+
             let existing: Option<(String, i64, i64)> = tx
                 .query_row(
                     "SELECT id,size,modified_at FROM game_files WHERE source_id=?1 AND path=?2",
