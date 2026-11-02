@@ -262,6 +262,7 @@ pub fn stats(state: State<AppState>) -> Result<serde_json::Value> {
 pub fn search_games_fts(
     state: State<AppState>,
     query: String,
+    platform: Option<String>,
     limit: Option<usize>,
     offset: Option<usize>,
 ) -> Result<PagedGames> {
@@ -270,14 +271,15 @@ pub fn search_games_fts(
     let pmap: std::collections::HashMap<String, Platform> =
         platforms.into_iter().map(|p| (p.id.clone(), p)).collect();
 
-    // FTS5 match
-    let mut stmt = conn.prepare(
-        "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at FROM games g \
-         JOIN games_fts f ON f.rowid = g.rowid \
-         WHERE games_fts MATCH ?1 ORDER BY rank",
-    )?;
+    // Sanitize query for FTS5 (avoid syntax errors on special chars).
+    let safe_query: String = query
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect();
+    let safe_query = safe_query.trim().to_string();
+
     // if query empty, fallback list
-    let rows = if query.trim().is_empty() {
+    let rows = if safe_query.is_empty() {
         conn.prepare("SELECT id,title,platform_id,created_at,updated_at FROM games ORDER BY title")?
             .query_map([], |r| {
                 let created: String = r.get(3)?;
@@ -292,20 +294,31 @@ pub fn search_games_fts(
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?
     } else {
-        stmt.query_map([format!("{}*", query)], |r| {
-            let created: String = r.get(3)?;
-            let updated: String = r.get(4)?;
-            Ok(Game {
-                id: r.get(0)?,
-                title: r.get(1)?,
-                platform_id: r.get(2)?,
-                created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
-                updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
-            })
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?
+        let mut stmt = conn.prepare(
+            "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at FROM games g \
+             JOIN games_fts f ON f.rowid = g.rowid \
+             WHERE games_fts MATCH ?1 ORDER BY rank",
+        )?;
+        stmt
+            .query_map([format!("{}*", safe_query)], |r| {
+                let created: String = r.get(3)?;
+                let updated: String = r.get(4)?;
+                Ok(Game {
+                    id: r.get(0)?,
+                    title: r.get(1)?,
+                    platform_id: r.get(2)?,
+                    created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                    updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?
     };
 
+    let rows: Vec<Game> = if let Some(pf) = &platform {
+        rows.into_iter().filter(|g| g.platform_id.as_deref() == Some(pf.as_str())).collect()
+    } else {
+        rows
+    };
     let total = rows.len();
     let limit = limit.unwrap_or(48).min(500);
     let offset = offset.unwrap_or(0);
