@@ -189,8 +189,9 @@ export default function GameDetail() {
               </table>
             )}
             {f.zip_inner && (
-              <table className="table" style={{ fontSize: 11, marginBottom: 8 }}>
-                <thead><tr><th style={{ width: 90 }}>ROM interne : {f.zip_inner}</th><th></th></tr></thead>
+              <>
+                <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 4, whiteSpace: "nowrap" }}>ROM interne : {f.zip_inner}</div>
+                <table className="table" style={{ fontSize: 11, marginBottom: 8 }}>
                 <tbody>
                   {f.crc32 && <tr><td>CRC32</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.crc32}</td></tr>}
                   {f.md5 && <tr><td>MD5</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.md5}</td></tr>}
@@ -199,6 +200,7 @@ export default function GameDetail() {
                   {f.sha512 && <tr><td>SHA512</td><td style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{f.sha512}</td></tr>}
                 </tbody>
               </table>
+              </>
             )}
           </div>
         ))}
