@@ -25,6 +25,7 @@ export default function GameDetail() {
   const [title, setTitle] = useState("");
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [hashingFile, setHashingFile] = useState<string | null>(null);
+  const [hashingAll, setHashingAll] = useState(false);
 
   useEffect(() => {
     if (data) setTitle(data.game.title);
@@ -43,6 +44,18 @@ export default function GameDetail() {
       console.error(e);
     } finally {
       setHashingFile(null);
+    }
+  };
+
+  const hashAll = async () => {
+    setHashingAll(true);
+    try {
+      await api.computeHashesForGame(id!);
+      qc.invalidateQueries({ queryKey: ["game", id] });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHashingAll(false);
     }
   };
 
@@ -124,7 +137,12 @@ export default function GameDetail() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0 }}>{t("gameDetail.hashes")}</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 0 }}>{t("gameDetail.hashes")}</h3>
+          <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={hashAll} disabled={hashingAll}>
+            {hashingAll ? "…" : "Calculer toutes les empreintes"}
+          </button>
+        </div>
         {data.files.map((f: any, idx: number) => (
           <div key={f.id} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: idx < data.files.length - 1 ? "1px solid var(--border)" : "none", fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
