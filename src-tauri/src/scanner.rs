@@ -435,16 +435,18 @@ pub fn scan_source(
                     );
                 }
             }
-            let top_str = top.to_string_lossy().to_string();
-            tx.execute(
-                "UPDATE game_files SET missing=1 WHERE source_id=?1 AND path LIKE ?2",
-                rusqlite::params![source_id, format!("{}%", top_str)],
-            )?;
-            for fp in &found_paths {
+            if platform_filter.is_none() {
+                let top_str = top.to_string_lossy().to_string();
                 tx.execute(
-                    "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path=?2",
-                    rusqlite::params![source_id, fp],
+                    "UPDATE game_files SET missing=1 WHERE source_id=?1 AND path LIKE ?2",
+                    rusqlite::params![source_id, format!("{}%", top_str)],
                 )?;
+                for fp in &found_paths {
+                    tx.execute(
+                        "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path=?2",
+                        rusqlite::params![source_id, fp],
+                    )?;
+                }
             }
 
             tx.commit()?;
@@ -462,12 +464,14 @@ pub fn scan_source(
     }
 
     let conn = state.db.lock().unwrap();
-    // Remove files that disappeared since the last scan.
-    let _ = conn.execute(
-        "DELETE FROM game_files WHERE source_id=?1 AND missing=1",
-        [source_id],
-    );
-    let _ = crate::db::cleanup_orphan_games(&conn);
+    if platform_filter.is_none() {
+        // Remove files that disappeared since the last scan.
+        let _ = conn.execute(
+            "DELETE FROM game_files WHERE source_id=?1 AND missing=1",
+            [source_id],
+        );
+        let _ = crate::db::cleanup_orphan_games(&conn);
+    }
     conn.execute(
         "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL, root_mtime=?2 WHERE id=?3",
         rusqlite::params![Utc::now().to_rfc3339(), current_mtime, source_id],

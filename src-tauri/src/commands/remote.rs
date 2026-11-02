@@ -688,31 +688,34 @@ pub async fn scan_remote_source_inner(
     {
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
-        tx.execute(
-            "UPDATE game_files SET missing=1 WHERE source_id=?1",
-            params![source_id],
-        )?;
-        for chunk in collected.chunks(900) {
-            // build placeholders
-            let mut sql =
-                String::from("UPDATE game_files SET missing=0 WHERE source_id=?1 AND path IN (");
-            let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
-            params_vec.push(rusqlite::types::Value::Text(source_id.clone()));
-            for (i, (fp, _, _, _)) in chunk.iter().enumerate() {
-                if i > 0 {
-                    sql.push(',');
+        if platform_filter.is_none() {
+            tx.execute(
+                "UPDATE game_files SET missing=1 WHERE source_id=?1",
+                params![source_id],
+            )?;
+            for chunk in collected.chunks(900) {
+                // build placeholders
+                let mut sql = String::from(
+                    "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path IN (",
+                );
+                let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
+                params_vec.push(rusqlite::types::Value::Text(source_id.clone()));
+                for (i, (fp, _, _, _)) in chunk.iter().enumerate() {
+                    if i > 0 {
+                        sql.push(',');
+                    }
+                    sql.push('?');
+                    params_vec.push(rusqlite::types::Value::Text(fp.clone()));
                 }
-                sql.push('?');
-                params_vec.push(rusqlite::types::Value::Text(fp.clone()));
+                sql.push(')');
+                tx.execute(&sql, rusqlite::params_from_iter(params_vec))?;
             }
-            sql.push(')');
-            tx.execute(&sql, rusqlite::params_from_iter(params_vec))?;
+            // Remove files that disappeared since the last scan.
+            tx.execute(
+                "DELETE FROM game_files WHERE source_id=?1 AND missing=1",
+                params![source_id],
+            )?;
         }
-        // Remove files that disappeared since the last scan.
-        tx.execute(
-            "DELETE FROM game_files WHERE source_id=?1 AND missing=1",
-            params![source_id],
-        )?;
 
         tx.execute(
             "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL, root_mtime=?2 WHERE id=?3",
@@ -726,8 +729,8 @@ pub async fn scan_remote_source_inner(
         tx.commit()?;
     }
 
-    // Clean up orphan games.
-    {
+    if platform_filter.is_none() {
+        // Clean up orphan games.
         let conn = state.db.lock().unwrap();
         let _ = crate::db::cleanup_orphan_games(&conn);
     }
