@@ -97,6 +97,7 @@ pub fn run() {
             commands::import_gamelists,
         ])
         .setup(|app| {
+            use base64::Engine;
             use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
             // Minimize to tray (background): hide window on close instead of exiting.
@@ -116,11 +117,15 @@ pub fn run() {
             // Keep the main window hidden during startup; it is revealed by app_ready.
             let _ = main_window.hide();
 
-            // Independent splashscreen window with embedded HTML (no file/URL resolution).
-            let splash = WebviewWindowBuilder::new(
+            // Independent splashscreen window with embedded HTML (data URL, no file/URL resolution).
+            let splash_url = format!(
+                "data:text/html;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(SPLASH_HTML)
+            );
+            let _splash = WebviewWindowBuilder::new(
                 app,
                 "splashscreen",
-                WebviewUrl::External("about:blank".parse().unwrap()),
+                WebviewUrl::External(splash_url.parse().unwrap()),
             )
             .title("RETROVERSE")
             .inner_size(440.0, 280.0)
@@ -130,10 +135,6 @@ pub fn run() {
             .always_on_top(true)
             .visible(true)
             .build()?;
-            let _ = splash.eval(format!(
-                "document.open(); document.write({:?}); document.close();",
-                SPLASH_HTML
-            ));
 
             tracing::info!(
                 "setup: main present={}, splash present={}",
