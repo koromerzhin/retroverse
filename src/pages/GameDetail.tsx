@@ -127,41 +127,78 @@ export default function GameDetail() {
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.hashes")}</h3>
         {data.files.map((f: any, idx: number) => (
           <div key={f.id} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: idx < data.files.length - 1 ? "1px solid var(--border)" : "none", fontSize: 12, fontFamily: "monospace", color: "var(--text-dim)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
               <span style={{ fontWeight: 600, color: "var(--text)" }}>{f.filename}</span>
               <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => hashFile(f.id)} disabled={hashingFile === f.id}>
                 {hashingFile === f.id ? "…" : "Calculer les empreintes"}
               </button>
+              <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
+                const lines: string[] = [];
+                const push = (label: string, value: string | null) => { if (value) lines.push(`${label} : ${value}`); };
+                if (f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 || f.archive_crc32) {
+                  lines.push("Fichier");
+                  push("CRC32", f.archive_crc32);
+                  push("MD5", f.archive_md5);
+                  push("SHA1", f.archive_sha1);
+                  push("SHA256", f.archive_hash);
+                  push("SHA512", f.archive_sha512);
+                } else {
+                  lines.push("Fichier");
+                  push("CRC32", f.crc32);
+                  push("MD5", f.md5);
+                  push("SHA1", f.sha1);
+                  push("SHA256", f.hash);
+                  push("SHA512", f.sha512);
+                }
+                if (f.zip_inner) {
+                  lines.push("");
+                  lines.push(`ROM interne : ${f.zip_inner}`);
+                  push("CRC32", f.crc32);
+                  push("MD5", f.md5);
+                  push("SHA1", f.sha1);
+                  push("SHA256", f.hash);
+                  push("SHA512", f.sha512);
+                }
+                navigator.clipboard?.writeText(lines.join("\n")).catch(() => {});
+              }}>
+                Copier
+              </button>
             </div>
-            {f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 ? (
-              <>
-                <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>Fichier</div>
-                {f.archive_crc32 && <div>CRC32 : {f.archive_crc32}</div>}
-                {f.archive_md5 && <div>MD5 : {f.archive_md5}</div>}
-                {f.archive_sha1 && <div>SHA1 : {f.archive_sha1}</div>}
-                {f.archive_hash && <div>SHA256 : {f.archive_hash}</div>}
-                {f.archive_sha512 && <div>SHA512 : {f.archive_sha512}</div>}
-              </>
-            ) : (
-              <>
-                <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>Fichier</div>
-                {f.md5 && <div>MD5 : {f.md5}</div>}
-                {f.sha1 && <div>SHA1 : {f.sha1}</div>}
-                {f.hash && <div>SHA256 : {f.hash}</div>}
-                {f.sha512 && <div>SHA512 : {f.sha512}</div>}
-                {f.crc32 && <div>CRC32 : {f.crc32}</div>}
-              </>
-            )}
-            {f.zip_inner && (
-              <>
-                <div style={{ fontWeight: 600, color: "var(--text)", marginTop: 6, marginBottom: 2 }}>ROM interne : {f.zip_inner}</div>
-                {f.md5 && <div>MD5 : {f.md5}</div>}
-                {f.sha1 && <div>SHA1 : {f.sha1}</div>}
-                {f.hash && <div>SHA256 : {f.hash}</div>}
-                {f.sha512 && <div>SHA512 : {f.sha512}</div>}
-                {f.crc32 && <div>CRC32 : {f.crc32}</div>}
-              </>
-            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: "2px 8px", alignItems: "baseline" }}>
+              {f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 || f.archive_crc32 ? (
+                <>
+                  <div style={{ fontWeight: 600, color: "var(--text)" }}>Fichier</div>
+                  <div></div>
+                  {f.archive_crc32 && (<><div>CRC32</div><div style={{ wordBreak: "break-all" }}>{f.archive_crc32}</div></>)}
+                  {f.archive_md5 && (<><div>MD5</div><div style={{ wordBreak: "break-all" }}>{f.archive_md5}</div></>)}
+                  {f.archive_sha1 && (<><div>SHA1</div><div style={{ wordBreak: "break-all" }}>{f.archive_sha1}</div></>)}
+                  {f.archive_hash && (<><div>SHA256</div><div style={{ wordBreak: "break-all" }}>{f.archive_hash}</div></>)}
+                  {f.archive_sha512 && (<><div>SHA512</div><div style={{ wordBreak: "break-all" }}>{f.archive_sha512}</div></>)}
+                </>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 600, color: "var(--text)" }}>Fichier</div>
+                  <div></div>
+                  {f.crc32 && (<><div>CRC32</div><div style={{ wordBreak: "break-all" }}>{f.crc32}</div></>)}
+                  {f.md5 && (<><div>MD5</div><div style={{ wordBreak: "break-all" }}>{f.md5}</div></>)}
+                  {f.sha1 && (<><div>SHA1</div><div style={{ wordBreak: "break-all" }}>{f.sha1}</div></>)}
+                  {f.hash && (<><div>SHA256</div><div style={{ wordBreak: "break-all" }}>{f.hash}</div></>)}
+                  {f.sha512 && (<><div>SHA512</div><div style={{ wordBreak: "break-all" }}>{f.sha512}</div></>)}
+                </>
+              )}
+              {f.zip_inner && (
+                <>
+                  <div style={{ fontWeight: 600, color: "var(--text)", marginTop: 4 }}>ROM interne : {f.zip_inner}</div>
+                  <div></div>
+                  {f.crc32 && (<><div>CRC32</div><div style={{ wordBreak: "break-all" }}>{f.crc32}</div></>)}
+                  {f.md5 && (<><div>MD5</div><div style={{ wordBreak: "break-all" }}>{f.md5}</div></>)}
+                  {f.sha1 && (<><div>SHA1</div><div style={{ wordBreak: "break-all" }}>{f.sha1}</div></>)}
+                  {f.hash && (<><div>SHA256</div><div style={{ wordBreak: "break-all" }}>{f.hash}</div></>)}
+                  {f.sha512 && (<><div>SHA512</div><div style={{ wordBreak: "break-all" }}>{f.sha512}</div></>)}
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
