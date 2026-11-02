@@ -136,6 +136,7 @@ export default function GameDetail() {
             {f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 ? (
               <>
                 <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>Fichier</div>
+                {f.archive_crc32 && <div>CRC32 : {f.archive_crc32}</div>}
                 {f.archive_md5 && <div>MD5 : {f.archive_md5}</div>}
                 {f.archive_sha1 && <div>SHA1 : {f.archive_sha1}</div>}
                 {f.archive_hash && <div>SHA256 : {f.archive_hash}</div>}
