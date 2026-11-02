@@ -516,6 +516,10 @@ pub async fn scan_remote_source_inner(
                 md5: None,
                 sha1: None,
                 zip_inner: None,
+                archive_hash: None,
+                archive_crc32: None,
+                archive_md5: None,
+                archive_sha1: None,
                 platform_id: platform_id.clone(),
                 created_at: Utc::now(),
             };
