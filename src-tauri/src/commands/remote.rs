@@ -483,6 +483,23 @@ pub async fn scan_remote_source_inner(
             let _ = a.emit("scan-progress", serde_json::json!({"source_id": source_id, "scanned": files_found, "total": collected.len(), "status": "scanning"}));
         }
 
+        // Pre-read ScummVM .scummvm files to resolve game titles.
+        let mut scumm_contents: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for (fp, _, _, _) in &collected {
+            if fp.to_lowercase().ends_with(".scummvm") {
+                if let Ok(mut f) = sess.sftp.open(fp.clone()).await {
+                    use tokio::io::AsyncReadExt;
+                    let mut buf = Vec::new();
+                    if f.read_to_end(&mut buf).await.is_ok()
+                        && let Ok(content) = String::from_utf8(buf)
+                    {
+                        scumm_contents.insert(fp.clone(), content.trim().to_string());
+                    }
+                }
+            }
+        }
+
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
         let mut last_file = String::new();
@@ -500,6 +517,22 @@ pub async fn scan_remote_source_inner(
                 crate::identify::infer_platform_from_path(fpath, &platforms2)
                     .or_else(|| crate::identify::guess_platform(&ext, &platforms2))
             };
+
+            if ext == "scummvm" {
+                let code = scumm_contents.get(fpath).cloned().unwrap_or_else(|| {
+                    std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename)
+                        .to_string()
+                });
+                if let Some(new_title) = crate::identify::scummvm_title(&code) {
+                    let _ = tx.execute(
+                        "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
+                        params![new_title, code, platform_id],
+                    );
+                }
+            }
 
             let existing: Option<(String, i64, i64)> = tx
                 .query_row(
@@ -559,6 +592,22 @@ pub async fn scan_remote_source_inner(
             };
             files_found += 1;
 
+            if ext == "scummvm" {
+                let code = scumm_contents.get(fpath).cloned().unwrap_or_else(|| {
+                    std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename)
+                        .to_string()
+                });
+                if let Some(new_title) = crate::identify::scummvm_title(&code) {
+                    let _ = tx.execute(
+                        "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
+                        params![new_title, code, platform_id],
+                    );
+                }
+            }
+
             // Skip game creation if already in ES-DE gamelist.
             if gamelist_known.contains(&filename.to_lowercase()) {
                 continue;
@@ -587,7 +636,19 @@ pub async fn scan_remote_source_inner(
                 created_at: Utc::now(),
                 is_dir: false,
             };
-            let (title, conf) = crate::identify::identify_file(&gf, &platforms2);
+            let (mut title, conf) = crate::identify::identify_file(&gf, &platforms2);
+            if ext == "scummvm" {
+                let code = scumm_contents.get(fpath).cloned().unwrap_or_else(|| {
+                    std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename)
+                        .to_string()
+                });
+                if let Some(t) = crate::identify::scummvm_title(&code) {
+                    title = t;
+                }
+            }
 
             let existing_game: Option<String> = tx
                 .query_row(
@@ -598,10 +659,24 @@ pub async fn scan_remote_source_inner(
                 .ok();
 
             let game_id = if let Some(gid) = existing_game {
-                tx.execute(
-                    "UPDATE games SET updated_at=?1 WHERE id=?2",
-                    params![Utc::now().to_rfc3339(), gid],
-                )?;
+                let has_correction: i64 = tx
+                    .query_row(
+                        "SELECT COUNT(*) FROM user_corrections c JOIN game_file_links l ON l.file_id = c.file_id WHERE l.game_id = ?1",
+                        [gid.clone()],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+                if has_correction == 0 {
+                    tx.execute(
+                        "UPDATE games SET title=?1, updated_at=?2 WHERE id=?3",
+                        params![title, Utc::now().to_rfc3339(), gid],
+                    )?;
+                } else {
+                    tx.execute(
+                        "UPDATE games SET updated_at=?1 WHERE id=?2",
+                        params![Utc::now().to_rfc3339(), gid],
+                    )?;
+                }
                 games_updated += 1;
                 gid
             } else {
@@ -639,26 +714,35 @@ pub async fn scan_remote_source_inner(
     {
         let mut conn = state.db.lock().unwrap();
         let tx = conn.transaction()?;
-        tx.execute(
-            "UPDATE game_files SET missing=1 WHERE source_id=?1",
-            params![source_id],
-        )?;
-        for chunk in collected.chunks(900) {
-            // build placeholders
-            let mut sql =
-                String::from("UPDATE game_files SET missing=0 WHERE source_id=?1 AND path IN (");
-            let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
-            params_vec.push(rusqlite::types::Value::Text(source_id.clone()));
-            for (i, (fp, _, _, _)) in chunk.iter().enumerate() {
-                if i > 0 {
-                    sql.push(',');
+        if platform_filter.is_none() {
+            tx.execute(
+                "UPDATE game_files SET missing=1 WHERE source_id=?1",
+                params![source_id],
+            )?;
+            for chunk in collected.chunks(900) {
+                // build placeholders
+                let mut sql = String::from(
+                    "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path IN (",
+                );
+                let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
+                params_vec.push(rusqlite::types::Value::Text(source_id.clone()));
+                for (i, (fp, _, _, _)) in chunk.iter().enumerate() {
+                    if i > 0 {
+                        sql.push(',');
+                    }
+                    sql.push('?');
+                    params_vec.push(rusqlite::types::Value::Text(fp.clone()));
                 }
-                sql.push('?');
-                params_vec.push(rusqlite::types::Value::Text(fp.clone()));
+                sql.push(')');
+                tx.execute(&sql, rusqlite::params_from_iter(params_vec))?;
             }
-            sql.push(')');
-            tx.execute(&sql, rusqlite::params_from_iter(params_vec))?;
+            // Remove files that disappeared since the last scan.
+            tx.execute(
+                "DELETE FROM game_files WHERE source_id=?1 AND missing=1",
+                params![source_id],
+            )?;
         }
+
         tx.execute(
             "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL, root_mtime=?2 WHERE id=?3",
             params![Utc::now().to_rfc3339(), current_mtime, source_id],
@@ -671,8 +755,8 @@ pub async fn scan_remote_source_inner(
         tx.commit()?;
     }
 
-    // Clean up orphan games.
-    {
+    if platform_filter.is_none() {
+        // Clean up orphan games.
         let conn = state.db.lock().unwrap();
         let _ = crate::db::cleanup_orphan_games(&conn);
     }

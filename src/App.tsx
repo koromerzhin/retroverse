@@ -91,6 +91,14 @@ export default function App() {
         return;
       }
       lastProgressUpdate.current = now;
+      const scanAll = (window as any).__retroverseScanAll;
+      const scanPlatform = (window as any).__retroverseScanningPlatform;
+      if ((scanAll || scanPlatform) && (ev.payload?.status === "done" || ev.payload?.status === "cancelled" || ev.payload?.status === "skipped")) {
+        qc.invalidateQueries();
+        qc.refetchQueries();
+        setScanProgress(null);
+        return;
+      }
       if (ev.payload?.status === "cancelled") {
         setScanProgress(null);
         notifyToast("Scan annulé");
@@ -111,7 +119,9 @@ export default function App() {
           msg += ` : ${formatNumber(files)} fichier(s), aucune nouveauté`;
         }
         notifyToast(msg);
-        setTimeout(() => setScanProgress(null), 3000);
+        qc.invalidateQueries();
+        qc.refetchQueries();
+        setScanProgress(null);
         setTimeout(() => setToast(null), 5000);
       } else {
         setScanProgress((prev) => ({

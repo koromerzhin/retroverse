@@ -88,6 +88,7 @@ export default function Platforms() {
     }
     setScanning(p.id);
     setMsg(`Scan ${p.name} en cours…`);
+    (window as any).__retroverseScanningPlatform = true;
     let totalFiles = 0;
     let totalGames = 0;
     let errors: string[] = [];
@@ -104,12 +105,16 @@ export default function Platforms() {
     }
     if (errors.length > 0) {
       setMsg(`Scan ${p.name} : ${errors.join(" | ")}`);
+      api.showNotification("RETROVERSE", `Scan ${p.name} : ${errors.join(" | ")}`).catch(() => {});
     } else if (totalFiles === 0) {
       setMsg(`Scan ${p.name} : aucun fichier trouvé.`);
+      api.showNotification("RETROVERSE", `Scan ${p.name} : aucun fichier trouvé.`).catch(() => {});
     } else {
       setMsg(`Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
+      api.showNotification("RETROVERSE", `Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`).catch(() => {});
     }
     setScanning(null);
+    (window as any).__retroverseScanningPlatform = false;
     qc.invalidateQueries({ queryKey: ["games"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
   }
@@ -134,15 +139,40 @@ export default function Platforms() {
       return;
     }
     setScanningAll(true);
+    (window as any).__retroverseScanAll = true;
+    let totalFiles = 0;
+    let totalGames = 0;
+    let errors: string[] = [];
     for (const p of platforms) {
-      if ((counts[p.id] ?? 0) === 0 && hideEmpty) {
-        // skip empty platforms if hidden, but still allow scanning
-      }
       setMsg(`Scan en cours : ${p.name}…`);
-      await handleScanPlatform(p);
+      if (!sources || sources.length === 0) {
+        setMsg("Aucune source configurée.");
+        continue;
+      }
+      for (const s of sources) {
+        try {
+          const res = s.kind === "remote"
+            ? await api.scanRemoteSource(s.id, undefined, p.id)
+            : await api.scanSource(s.id, undefined, p.id);
+          totalFiles += res.files_found ?? 0;
+          totalGames += res.games_created ?? 0;
+        } catch (e: any) {
+          errors.push(`${s.name}/${p.name}: ${e}`);
+        }
+      }
     }
-    setMsg("Scan complet terminé.");
+    if (errors.length > 0) {
+      setMsg(`Scan complet terminé avec erreurs : ${errors.join(" | ")}`);
+      api.showNotification("RETROVERSE", `Scan complet terminé avec erreurs : ${errors.join(" | ")}`).catch(() => {});
+    } else if (totalFiles === 0) {
+      setMsg("Scan complet terminé : aucun fichier trouvé.");
+      api.showNotification("RETROVERSE", "Scan complet terminé : aucun fichier trouvé.").catch(() => {});
+    } else {
+      setMsg(`Scan complet terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
+      api.showNotification("RETROVERSE", `Scan complet terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`).catch(() => {});
+    }
     setScanningAll(false);
+    (window as any).__retroverseScanAll = false;
     qc.invalidateQueries({ queryKey: ["games"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
     qc.invalidateQueries({ queryKey: ["platforms"] });
@@ -213,7 +243,7 @@ export default function Platforms() {
               <button
                 className="btn"
                 style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
-                disabled={hashingPlatform === p.id || (unhashedCounts?.[p.id] ?? 0) === 0}
+                disabled={hashingPlatform === p.id || p.id === "scummvm" || (unhashedCounts?.[p.id] ?? 0) === 0}
                 onClick={(e) => { e.stopPropagation(); handleHashPlatform(p); }}
               >
                 {hashingPlatform === p.id ? "…" : "Calculer les empreintes"}

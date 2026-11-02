@@ -1,6 +1,7 @@
 use crate::models::{GameFile, Platform};
 use rusqlite::Connection;
 use std::path::Path;
+use std::sync::OnceLock;
 
 pub fn load_platforms(conn: &Connection) -> crate::error::Result<Vec<Platform>> {
     let mut stmt = conn.prepare(
@@ -424,6 +425,18 @@ pub fn ext_of(path: &str) -> String {
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase()
+}
+
+pub fn scummvm_title(code: &str) -> Option<String> {
+    static MAPPING: OnceLock<serde_json::Value> = OnceLock::new();
+    let map = MAPPING.get_or_init(|| {
+        let raw = include_str!("../resources/scummvm_compat.json");
+        serde_json::from_str(raw).unwrap_or_else(|_| serde_json::Value::Object(Default::default()))
+    });
+    let code = code.trim().split(':').last().unwrap_or(code).trim();
+    map.get(code)
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
 #[cfg(test)]

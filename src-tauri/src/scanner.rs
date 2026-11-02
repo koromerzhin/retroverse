@@ -260,6 +260,19 @@ pub fn scan_source(
                         .or_else(|| identify::guess_platform(&ext, &platforms))
                 };
 
+                if ext == "scummvm" {
+                    let code = std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(&filename);
+                    if let Some(new_title) = identify::scummvm_title(code) {
+                        let _ = tx.execute(
+                            "UPDATE games SET title=?1 WHERE LOWER(title)=LOWER(?2) AND (platform_id IS ?3 OR platform_id=?3)",
+                            rusqlite::params![new_title, code, platform_id],
+                        );
+                    }
+                }
+
                 let existing: Option<(String, i64, i64, Option<String>)> = tx
                     .query_row(
                         "SELECT id,size,modified_at,platform_id FROM game_files WHERE source_id=?1 AND path=?2",
@@ -348,7 +361,21 @@ pub fn scan_source(
                     created_at: Utc::now(),
                     is_dir: false,
                 };
-                let (title, conf) = identify::identify_file(&gf, &platforms);
+                let (mut title, conf) = identify::identify_file(&gf, &platforms);
+                if ext == "scummvm" {
+                    let code = std::fs::read_to_string(&fpath)
+                        .map(|c| c.trim().to_string())
+                        .unwrap_or_else(|_| {
+                            std::path::Path::new(&filename)
+                                .file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or(&filename)
+                                .to_string()
+                        });
+                    if let Some(t) = identify::scummvm_title(&code) {
+                        title = t;
+                    }
+                }
 
                 let existing_game: Option<String> = tx
                     .query_row(
@@ -359,10 +386,25 @@ pub fn scan_source(
                     .ok();
 
                 let game_id = if let Some(gid) = existing_game {
-                    tx.execute(
-                        "UPDATE games SET updated_at=?1 WHERE id=?2",
-                        rusqlite::params![Utc::now().to_rfc3339(), gid],
-                    )?;
+                    // Update the title if it changed (e.g. ScummVM resolution) and no user correction exists.
+                    let has_correction: i64 = tx
+                        .query_row(
+                            "SELECT COUNT(*) FROM user_corrections c JOIN game_file_links l ON l.file_id = c.file_id WHERE l.game_id = ?1",
+                            [gid.clone()],
+                            |r| r.get(0),
+                        )
+                        .unwrap_or(0);
+                    if has_correction == 0 {
+                        tx.execute(
+                            "UPDATE games SET title=?1, updated_at=?2 WHERE id=?3",
+                            rusqlite::params![title, Utc::now().to_rfc3339(), gid],
+                        )?;
+                    } else {
+                        tx.execute(
+                            "UPDATE games SET updated_at=?1 WHERE id=?2",
+                            rusqlite::params![Utc::now().to_rfc3339(), gid],
+                        )?;
+                    }
                     games_updated += 1;
                     gid
                 } else {
@@ -398,16 +440,18 @@ pub fn scan_source(
                     );
                 }
             }
-            let top_str = top.to_string_lossy().to_string();
-            tx.execute(
-                "UPDATE game_files SET missing=1 WHERE source_id=?1 AND path LIKE ?2",
-                rusqlite::params![source_id, format!("{}%", top_str)],
-            )?;
-            for fp in &found_paths {
+            if platform_filter.is_none() {
+                let top_str = top.to_string_lossy().to_string();
                 tx.execute(
-                    "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path=?2",
-                    rusqlite::params![source_id, fp],
+                    "UPDATE game_files SET missing=1 WHERE source_id=?1 AND path LIKE ?2",
+                    rusqlite::params![source_id, format!("{}%", top_str)],
                 )?;
+                for fp in &found_paths {
+                    tx.execute(
+                        "UPDATE game_files SET missing=0 WHERE source_id=?1 AND path=?2",
+                        rusqlite::params![source_id, fp],
+                    )?;
+                }
             }
 
             tx.commit()?;
@@ -425,6 +469,14 @@ pub fn scan_source(
     }
 
     let conn = state.db.lock().unwrap();
+    if platform_filter.is_none() {
+        // Remove files that disappeared since the last scan.
+        let _ = conn.execute(
+            "DELETE FROM game_files WHERE source_id=?1 AND missing=1",
+            [source_id],
+        );
+        let _ = crate::db::cleanup_orphan_games(&conn);
+    }
     conn.execute(
         "UPDATE game_sources SET last_scan_at=?1, available=1, last_error=NULL, root_mtime=?2 WHERE id=?3",
         rusqlite::params![Utc::now().to_rfc3339(), current_mtime, source_id],
