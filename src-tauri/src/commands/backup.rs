@@ -42,11 +42,24 @@ pub async fn compute_hashes_inner(
             return Ok(done);
         }
         let (sha256, crc32, md5, sha1, zip_inner) = crate::identify::compute_hashes(&path, &[]);
+        let lower = path.to_lowercase();
+        let is_archive = lower.ends_with(".zip") || lower.ends_with(".7z");
+        let (arch_sha, arch_crc, arch_md5, arch_sha1) = if is_archive {
+            if let Ok(data) = std::fs::read(&path) {
+                let fname = std::path::Path::new(&path).file_name().and_then(|x| x.to_str()).unwrap_or(&path);
+                let (s, c, m, h, _) = crate::identify::compute_hashes_from_bytes(&data, fname, &[]);
+                (s, c, m, h)
+            } else {
+                (None, None, None, None)
+            }
+        } else {
+            (None, None, None, None)
+        };
         if sha256.is_some() {
             let conn = state.db.lock().unwrap();
             conn.execute(
-                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5 WHERE id=?6",
-                params![sha256, crc32, md5, sha1, zip_inner, id],
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,archive_hash=?6,archive_crc32=?7,archive_md5=?8,archive_sha1=?9 WHERE id=?10",
+                params![sha256, crc32, md5, sha1, zip_inner, arch_sha, arch_crc, arch_md5, arch_sha1, id],
             )?;
             done += 1;
         }
@@ -454,6 +467,7 @@ pub async fn compute_hashes_for_game_inner(
     let mut done = 0usize;
     for (fid, path, _source_id, kind, connection_id) in files {
         let allowed: Vec<String> = Vec::new();
+        let mut arch_hashes: (Option<String>, Option<String>, Option<String>, Option<String>) = (None, None, None, None);
         let result = if kind.as_deref() == Some("remote") {
             // download file via SFTP
             let (host, port, username, key_path) = {
@@ -475,7 +489,8 @@ pub async fn compute_hashes_for_game_inner(
             let filename = std::path::Path::new(&path).file_name().and_then(|s| s.to_str()).unwrap_or(&path);
             // handle 7z: need a temp file
             let lower = path.to_lowercase();
-            if lower.ends_with(".7z") {
+            let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
+            let r = if lower.ends_with(".7z") {
                 // write to temp file
                 let tmp = std::env::temp_dir().join(format!("retroverse_{}.7z", fid));
                 std::fs::write(&tmp, &buf).map_err(RetroError::Io)?;
@@ -484,17 +499,39 @@ pub async fn compute_hashes_for_game_inner(
                 r
             } else {
                 crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
+            };
+            if is_archive {
+                let (as_, ac, am, ah, _) = crate::identify::compute_hashes_from_bytes(&buf, filename, &[]);
+                arch_hashes = (as_, ac, am, ah);
             }
+            r
         } else {
             crate::identify::compute_hashes(&path, &allowed)
         };
 
         let (sha256, crc32, md5, sha1, zip_inner) = result;
+        let lower = path.to_lowercase();
+        let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
+        let (arch_sha, arch_crc, arch_md5, arch_sha1) = if is_archive {
+            if kind.as_deref() == Some("remote") {
+                arch_hashes
+            } else {
+                if let Ok(data) = std::fs::read(&path) {
+                    let fname = std::path::Path::new(&path).file_name().and_then(|x| x.to_str()).unwrap_or(&path);
+                    let (s, c, m, h, _) = crate::identify::compute_hashes_from_bytes(&data, fname, &[]);
+                    (s, c, m, h)
+                } else {
+                    (None, None, None, None)
+                }
+            }
+        } else {
+            (None, None, None, None)
+        };
         if sha256.is_some() {
             let conn = state.db.lock().unwrap();
             conn.execute(
-                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5 WHERE id=?6",
-                params![sha256, crc32, md5, sha1, zip_inner, fid],
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,archive_hash=?6,archive_crc32=?7,archive_md5=?8,archive_sha1=?9 WHERE id=?10",
+                params![sha256, crc32, md5, sha1, zip_inner, arch_sha, arch_crc, arch_md5, arch_sha1, fid],
             )?;
             done += 1;
         }
