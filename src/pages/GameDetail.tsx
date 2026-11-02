@@ -119,6 +119,10 @@ export default function GameDetail() {
             <div>MD5 : {f.md5 ?? "—"}</div>
             <div>SHA1 : {f.sha1 ?? "—"}</div>
             {f.zip_inner && <div>ZIP interne : {f.zip_inner}</div>}
+            {f.archive_hash && <div>Archive SHA256 : {f.archive_hash}</div>}
+            {f.archive_crc32 && <div>Archive CRC32 : {f.archive_crc32}</div>}
+            {f.archive_md5 && <div>Archive MD5 : {f.archive_md5}</div>}
+            {f.archive_sha1 && <div>Archive SHA1 : {f.archive_sha1}</div>}
           </div>
         ))}
       </div>

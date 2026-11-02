@@ -318,6 +318,10 @@ pub fn scan_source(
                     md5: md5.clone(),
                     sha1: sha1.clone(),
                     zip_inner: zip_inner.clone(),
+                    archive_hash: None,
+                    archive_crc32: None,
+                    archive_md5: None,
+                    archive_sha1: None,
                     platform_id: platform_id.clone(),
                     created_at: Utc::now(),
                 };
