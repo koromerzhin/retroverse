@@ -39,7 +39,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
 
     let current: i32 = conn
         .query_row(
-            "SELECT COALESCE((SELECT version FROM schema_version LIMIT 1), 0)",
+            "SELECT COALESCE((SELECT MAX(version) FROM schema_version), 0)",
             [],
             |r| r.get(0),
         )
@@ -87,8 +87,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     if current < 14 {
         apply_v14(conn)?;
     }
+    conn.execute("DELETE FROM schema_version WHERE version < ?1", params![SCHEMA_VERSION])?;
     conn.execute(
-        "INSERT OR REPLACE INTO schema_version (rowid, version) VALUES (1, ?1)",
+        "INSERT OR REPLACE INTO schema_version (version) VALUES (?1)",
         params![SCHEMA_VERSION],
     )?;
     Ok(())
