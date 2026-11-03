@@ -31,12 +31,7 @@ export default function App() {
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string; folder?: string } | null>(null);
   const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number } | null>(null);
   const [hashDetails, setHashDetails] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const { t } = useI18n();
-  const notifyToast = (msg: string) => {
-    setToast(msg);
-    api.showNotification("RETROVERSE", msg).catch(() => {});
-  };
   const [scanDetails, setScanDetails] = useState(false);
   const [sources, setSources] = useState<any[]>([]);
   const lastProgressUpdate = useRef(0);
@@ -70,12 +65,10 @@ export default function App() {
     listen<any>("hash-progress", (ev) => {
       if (ev.payload?.status === "cancelled") {
         setHashProgress(null);
-        notifyToast("Calcul annulé");
-        setTimeout(() => setToast(null), 4000);
+        api.showNotification("RETROVERSE", "Calcul annulé").catch(() => {});
       } else if (ev.payload?.status === "done") {
         setHashProgress(null);
-        notifyToast(`Empreintes calculées : ${ev.payload?.done ?? 0} fichier(s)`);
-        setTimeout(() => setToast(null), 5000);
+        api.showNotification("RETROVERSE", `Empreintes calculées : ${ev.payload?.done ?? 0} fichier(s)`).catch(() => {});
       } else {
         setHashProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", file: ev.payload?.file, done: ev.payload?.done });
       }
@@ -101,12 +94,10 @@ export default function App() {
       }
       if (ev.payload?.status === "cancelled") {
         setScanProgress(null);
-        notifyToast("Scan annulé");
-        setTimeout(() => setToast(null), 4000);
+        api.showNotification("RETROVERSE", "Scan annulé").catch(() => {});
       } else if (ev.payload?.status === "skipped") {
         setScanProgress(null);
-        notifyToast("Source inaccessible — scan ignoré");
-        setTimeout(() => setToast(null), 4000);
+        api.showNotification("RETROVERSE", "Source inaccessible — scan ignoré").catch(() => {});
       } else if (ev.payload?.status === "done") {
         setScanProgress((prev) => ({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id ?? prev?.sourceId, file: ev.payload?.file ?? prev?.file, folder: ev.payload?.folder ?? prev?.folder }));
         const created = ev.payload?.games_created ?? 0;
@@ -118,11 +109,10 @@ export default function App() {
         } else {
           msg += ` : ${formatNumber(files)} fichier(s), aucune nouveauté`;
         }
-        notifyToast(msg);
+        api.showNotification("RETROVERSE", msg).catch(() => {});
         qc.invalidateQueries();
         qc.refetchQueries();
         setScanProgress(null);
-        setTimeout(() => setToast(null), 5000);
       } else {
         setScanProgress((prev) => ({
           scanned: ev.payload?.scanned ?? 0,
@@ -244,9 +234,6 @@ export default function App() {
             </div>
           </div>
         </div>
-      )}
-      {toast && (
-        <div className="toast" style={{ borderColor: "var(--success)" }}>{toast}</div>
       )}
       <aside className="sidebar">
         <div className="brand">

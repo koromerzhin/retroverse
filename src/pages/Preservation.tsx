@@ -8,18 +8,16 @@ export default function Preservation() {
   const qc = useQueryClient();
   const { t } = useI18n();
   const { data: jobs } = useQuery({ queryKey: ["transfer-jobs"], queryFn: () => api.listTransferJobs() });
-  const [msg, setMsg] = useState<string | null>(null);
   const [hashing, setHashing] = useState(false);
 
   async function handleComputeHashes() {
     setHashing(true);
-    setMsg(null);
     try {
       const n = await api.computeHashes();
-      setMsg(`Empreintes calculées pour ${n} fichier(s).`);
+      api.showNotification("RETROVERSE", `Empreintes calculées pour ${n} fichier(s).`).catch(() => {});
       qc.invalidateQueries({ queryKey: ["game"] });
     } catch (e: any) {
-      setMsg(String(e));
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     } finally {
       setHashing(false);
     }
@@ -31,9 +29,9 @@ export default function Preservation() {
     if (!dest) return;
     try {
       const p = await api.exportBackup(dest);
-      setMsg(`Sauvegarde exportée : ${p}`);
+      api.showNotification("RETROVERSE", `Sauvegarde exportée : ${p}`).catch(() => {});
     } catch (e: any) {
-      setMsg(String(e));
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     }
   }
 
@@ -43,10 +41,10 @@ export default function Preservation() {
     if (typeof src !== "string") return;
     try {
       const n = await api.importBackup(src);
-      setMsg(`Import terminé : ${n} élément(s) ajouté(s).`);
+      api.showNotification("RETROVERSE", `Import terminé : ${n} élément(s) ajouté(s).`).catch(() => {});
       qc.invalidateQueries();
     } catch (e: any) {
-      setMsg(String(e));
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     }
   }
 
@@ -69,7 +67,6 @@ export default function Preservation() {
           <button className="btn primary" onClick={handleExport}>Exporter une sauvegarde</button>
           <button className="btn" onClick={handleImport}>Importer une sauvegarde</button>
         </div>
-        {msg && <p style={{ color: "var(--text-dim)", marginTop: 10, fontSize: 13 }}>{msg}</p>}
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>

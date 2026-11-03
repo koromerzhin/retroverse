@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
 import { useI18n } from "../i18n";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Platform, GameSource } from "../types";
 
 export default function Platforms() {
@@ -38,7 +39,6 @@ export default function Platforms() {
   const [scanning, setScanning] = useState<string | null>(null);
   const [scanningAll, setScanningAll] = useState(false);
   const [hashingPlatform, setHashingPlatform] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<"name" | "manufacturer" | "year" | "count" | "files">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const toggleSort = (key: "name" | "manufacturer" | "year" | "count" | "files") => {
@@ -103,11 +103,10 @@ export default function Platforms() {
 
   async function handleScanPlatform(p: Platform) {
     if (!sources || sources.length === 0) {
-      setMsg("Aucune source configurée.");
+      getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {}); }).catch(() => {});
       return;
     }
     setScanning(p.id);
-    setMsg(`Scan ${p.name} en cours…`);
     (window as any).__retroverseScanningPlatform = true;
     let totalFiles = 0;
     let totalGames = 0;
@@ -124,13 +123,10 @@ export default function Platforms() {
       }
     }
     if (errors.length > 0) {
-      setMsg(`Scan ${p.name} : ${errors.join(" | ")}`);
       api.showNotification("RETROVERSE", `Scan ${p.name} : ${errors.join(" | ")}`).catch(() => {});
     } else if (totalFiles === 0) {
-      setMsg(`Scan ${p.name} : aucun fichier trouvé.`);
       api.showNotification("RETROVERSE", `Scan ${p.name} : aucun fichier trouvé.`).catch(() => {});
     } else {
-      setMsg(`Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
       api.showNotification("RETROVERSE", `Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`).catch(() => {});
     }
     setScanning(null);
@@ -144,10 +140,10 @@ export default function Platforms() {
     setHashingPlatform(p.id);
     try {
       const n = await api.computeHashesForPlatform(p.id);
-      setMsg(`Empreintes calculées : ${formatNumber(n)} fichier(s) pour ${p.name}.`);
+      getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", `Empreintes calculées : ${formatNumber(n)} fichier(s) pour ${p.name}.`).catch(() => {}); }).catch(() => {});
       qc.invalidateQueries({ queryKey: ["unhashed-counts"] });
     } catch (e: any) {
-      setMsg(`Erreur : ${e}`);
+      getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", `Erreur : ${e}`).catch(() => {}); }).catch(() => {});
     } finally {
       setHashingPlatform(null);
     }
@@ -155,7 +151,7 @@ export default function Platforms() {
 
   async function handleScanAll() {
     if (!platforms || platforms.length === 0) {
-      setMsg("Aucune plateforme.");
+      getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", "Aucune plateforme.").catch(() => {}); }).catch(() => {});
       return;
     }
     setScanningAll(true);
@@ -164,9 +160,8 @@ export default function Platforms() {
     let totalGames = 0;
     let errors: string[] = [];
     for (const p of platforms) {
-      setMsg(`Scan en cours : ${p.name}…`);
       if (!sources || sources.length === 0) {
-        setMsg("Aucune source configurée.");
+        getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {}); }).catch(() => {});
         continue;
       }
       for (const s of sources) {
@@ -182,13 +177,10 @@ export default function Platforms() {
       }
     }
     if (errors.length > 0) {
-      setMsg(`Scan complet terminé avec erreurs : ${errors.join(" | ")}`);
       api.showNotification("RETROVERSE", `Scan complet terminé avec erreurs : ${errors.join(" | ")}`).catch(() => {});
     } else if (totalFiles === 0) {
-      setMsg("Scan complet terminé : aucun fichier trouvé.");
       api.showNotification("RETROVERSE", "Scan complet terminé : aucun fichier trouvé.").catch(() => {});
     } else {
-      setMsg(`Scan complet terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
       api.showNotification("RETROVERSE", `Scan complet terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`).catch(() => {});
     }
     setScanningAll(false);
@@ -202,8 +194,6 @@ export default function Platforms() {
     <>
       <h1 className="page-title">{t("platforms.title")}</h1>
       <p className="page-sub">{t("platforms.subtitle")}</p>
-
-      {msg && <p style={{ color: "var(--text-dim)", marginBottom: 12, fontSize: 13 }}>{msg}</p>}
 
       <div className="row" style={{ marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <input className="input" style={{ maxWidth: 260 }} placeholder="Rechercher une plateforme…" value={search} onChange={(e) => setSearch(e.target.value)} />
