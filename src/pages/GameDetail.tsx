@@ -38,10 +38,11 @@ export default function GameDetail() {
   const hashFile = async (fileId: string) => {
     setHashingFile(fileId);
     try {
-      await api.computeHashesForFile(fileId);
+      const n = await api.computeHashesForFile(fileId);
+      api.showNotification("RETROVERSE", `Empreinte calculée pour ${n} fichier(s).`).catch(() => {});
       qc.invalidateQueries({ queryKey: ["game", id] });
     } catch (e) {
-      console.error(e);
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     } finally {
       setHashingFile(null);
     }
@@ -50,10 +51,11 @@ export default function GameDetail() {
   const hashAll = async () => {
     setHashingAll(true);
     try {
-      await api.computeHashesForGame(id!);
+      const n = await api.computeHashesForGame(id!);
+      api.showNotification("RETROVERSE", `Empreintes calculées : ${n} fichier(s).`).catch(() => {});
       qc.invalidateQueries({ queryKey: ["game", id] });
     } catch (e) {
-      console.error(e);
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     } finally {
       setHashingAll(false);
     }
