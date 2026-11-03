@@ -25,6 +25,7 @@ pub struct MetadataResult {
     pub topstaff: Option<String>,
     pub rotation: Option<String>,
     pub familles: Vec<String>,
+    pub raw: Option<serde_json::Value>,
 }
 
 pub trait MetadataProvider: Send + Sync {
@@ -264,6 +265,7 @@ impl MetadataProvider for ScreenScraperProvider {
             topstaff,
             rotation,
             familles,
+            raw: Some(jeu.clone()),
         })
     }
 }
