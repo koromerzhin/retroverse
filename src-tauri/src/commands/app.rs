@@ -18,6 +18,7 @@ pub async fn app_ready(state: State<'_, AppState>, app: AppHandle) -> Result<()>
 
     tracing::info!("app_ready: closing splashscreen");
     if let Some(main) = app.get_webview_window("main") {
+        let _ = main.center();
         let _ = main.show();
         let _ = main.set_focus();
     }
