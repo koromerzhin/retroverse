@@ -13,6 +13,8 @@ export default function Library() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const platform = searchParams.get("platform") || undefined;
+  const developer = searchParams.get("developer") || undefined;
+  const publisher = searchParams.get("publisher") || undefined;
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
   const pageSize = 24;
@@ -22,7 +24,7 @@ export default function Library() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  useEffect(() => { setPage(1); }, [search, platform]);
+  useEffect(() => { setPage(1); }, [search, platform, developer, publisher]);
 
   const { data: platforms } = useQuery<Platform[]>({
     queryKey: ["platforms"],
@@ -38,7 +40,7 @@ export default function Library() {
     queryFn: async () => {
       const r = search.trim()
         ? await api.searchGamesFts(search.trim(), platform, pageSize, (page - 1) * pageSize)
-        : await api.listGames(platform, undefined, pageSize, (page - 1) * pageSize);
+        : await api.listGames(platform, undefined, developer, publisher, pageSize, (page - 1) * pageSize);
       return r;
     },
   });

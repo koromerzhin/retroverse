@@ -14,7 +14,7 @@ export default function Home() {
   });
   const { data: games } = useQuery({
     queryKey: ["games", "recent"],
-    queryFn: () => api.listGames(undefined, undefined, 8, 0),
+    queryFn: () => api.listGames(undefined, undefined, undefined, undefined, 8, 0),
   });
 
   const recent = (games?.items || []).slice(0, 8);

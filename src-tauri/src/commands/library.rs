@@ -24,6 +24,8 @@ pub fn list_games(
     state: State<AppState>,
     platform: Option<String>,
     search: Option<String>,
+    developer: Option<String>,
+    publisher: Option<String>,
     limit: Option<usize>,
     offset: Option<usize>,
 ) -> Result<PagedGames> {
@@ -47,6 +49,18 @@ pub fn list_games(
             q.to_lowercase().replace('\'', "''").replace('%', "\\%")
         ));
     }
+    if let Some(dev) = &developer {
+        where_clauses.push(format!(
+            "EXISTS (SELECT 1 FROM metadata_records m WHERE m.game_id = g.id AND m.field = 'developer' AND m.value = '{}')",
+            dev.replace('\'', "''")
+        ));
+    }
+    if let Some(publ) = &publisher {
+        where_clauses.push(format!(
+            "EXISTS (SELECT 1 FROM metadata_records m WHERE m.game_id = g.id AND m.field = 'publisher' AND m.value = '{}')",
+            publ.replace('\'', "''")
+        ));
+    }
     let where_sql = if where_clauses.is_empty() {
         String::new()
     } else {
@@ -58,7 +72,7 @@ pub fn list_games(
     let total = total as usize;
 
     let sql = format!(
-        "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at FROM games g{} ORDER BY g.title COLLATE NOCASE ASC LIMIT {} OFFSET {}",
+        "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at,g.metadata_json FROM games g{} ORDER BY g.title COLLATE NOCASE ASC LIMIT {} OFFSET {}",
         where_sql, limit, offset
     );
 
@@ -72,6 +86,7 @@ pub fn list_games(
             platform_id: r.get(2)?,
             created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
             updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            metadata_json: r.get(5)?,
         })
     })?;
 
@@ -148,6 +163,7 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
                 platform_id: r.get(2)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
                 updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                metadata_json: r.get(5).ok(),
             })
         },
     )?;
@@ -310,12 +326,13 @@ pub fn search_games_fts(
                     platform_id: r.get(2)?,
                     created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
                     updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                    metadata_json: r.get(5).ok(),
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?
     } else {
         let mut stmt = conn.prepare(
-            "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at FROM games g \
+            "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at,g.metadata_json FROM games g \
              JOIN games_fts f ON f.rowid = g.rowid \
              WHERE games_fts MATCH ?1 ORDER BY rank",
         )?;
@@ -328,6 +345,7 @@ pub fn search_games_fts(
                 platform_id: r.get(2)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
                 updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                metadata_json: r.get(5).ok(),
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?

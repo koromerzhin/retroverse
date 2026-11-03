@@ -254,6 +254,16 @@ export default function App() {
             {n.label}
           </NavLink>
         ))}
+        <button
+          className="nav-item"
+          style={{ marginTop: "auto", background: "none", border: "none", cursor: "pointer", textAlign: "left", width: "100%" }}
+          onClick={async () => {
+            await api.quit();
+          }}
+        >
+          <span>🚪</span>
+          Quitter
+        </button>
       </aside>
       <main className="main">
         <Suspense fallback={<div className="empty"><div className="spinner" /></div>}>

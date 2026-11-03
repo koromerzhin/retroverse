@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { useI18n } from "../i18n";
@@ -11,6 +11,7 @@ export default function GameDetail() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const qc = useQueryClient();
+  const enrichedRef = useRef(false);
   const { data, isLoading } = useQuery<LibraryEntry>({
     queryKey: ["game", id],
     queryFn: () => api.getGame(id!),
@@ -20,18 +21,46 @@ export default function GameDetail() {
     queryKey: ["sources"],
     queryFn: () => api.listSources(),
   });
+  const { data: metadata } = useQuery<any[]>({
+    queryKey: ["game-metadata", id],
+    queryFn: () => api.getGameMetadata(id!),
+    enabled: !!id,
+  });
+  const { data: genres } = useQuery<string[]>({ queryKey: ["genres"], queryFn: () => api.listGenres() });
+  const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
+  const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
 
 
   const [title, setTitle] = useState("");
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [hashingFile, setHashingFile] = useState<string | null>(null);
   const [hashingAll, setHashingAll] = useState(false);
+  const [infoPublisher, setInfoPublisher] = useState("");
+  const [infoDeveloper, setInfoDeveloper] = useState("");
+  const [infoGenre, setInfoGenre] = useState("");
+  const [infoClassifications, setInfoClassifications] = useState("");
+  const [infoReleaseDates, setInfoReleaseDates] = useState("");
+  const [infoSynopsis, setInfoSynopsis] = useState("");
+  const [enriching, setEnriching] = useState(false);
 
   useEffect(() => {
     if (data) setTitle(data.game.title);
   }, [data]);
 
   const sourceMap = new Map(sources?.map((s) => [s.id, s]) || []);
+  const detailsRecord = (metadata || []).find((m: any) => m.field === "details");
+  const details = data?.game?.metadata_json ? JSON.parse(data.game.metadata_json) : (detailsRecord ? JSON.parse(detailsRecord.value) : null);
+  const descRecord = (metadata || []).find((m: any) => m.field === "description");
+  const synopsis = descRecord ? descRecord.value : null;
+  useEffect(() => {
+    if (!details) return;
+    setInfoGenre(details.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : "");
+    setInfoPublisher(details.editeur?.text ?? details.publisher ?? "");
+    setInfoDeveloper(details.developpeur?.text ?? details.developer ?? "");
+    setInfoClassifications(details.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : "");
+    setInfoReleaseDates(details.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : "");
+    setInfoSynopsis(synopsis ?? "");
+  }, [details, synopsis]);
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
   const remoteSourceId = data?.files.map((f) => f.source_id).find((sid) => sourceMap.get(sid)?.kind === "remote");
 
@@ -61,13 +90,18 @@ export default function GameDetail() {
     }
   };
 
-  const saveMutation = useMutation({
-    mutationFn: () => api.correctTitle(id!, title),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["game", id] });
-      qc.invalidateQueries({ queryKey: ["games"] });
-    },
-  });
+  const enrich = async (provider: string) => {
+    setEnriching(true);
+    try {
+      await api.enrichGame(id!, provider);
+      qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+      api.showNotification("RETROVERSE", "Métadonnées enrichies.").catch(() => {});
+    } catch (e) {
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    } finally {
+      setEnriching(false);
+    }
+  };
 
   async function handleCopy() {
     if (!remoteSourceId || !data) return;
@@ -82,33 +116,97 @@ export default function GameDetail() {
     }
   }
 
+  useEffect(() => {
+    if (!id || enrichedRef.current) return;
+    if (metadata && metadata.length > 0) return;
+    enrichedRef.current = true;
+    api.enrichGame(id, "screenscraper").then(() => {
+      qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+    }).catch(() => {});
+  }, [id, metadata, qc]);
+
   if (isLoading || !data) {
     return <div className="empty"><div className="spinner" /></div>;
   }
 
   return (
-    <>
+    <div>
       <button className="btn" onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>{t("common.back")}</button>
       <h1 className="page-title">{data.game.title}</h1>
       <p className="page-sub">{data.platform?.name ?? "Plateforme inconnue"}</p>
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.info")}</h3>
-        <div className="row">
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} style={{ maxWidth: 400 }} />
-          <button className="btn primary" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <span className="spinner" /> : t("gameDetail.saveTitle")}
-          </button>
-        </div>
-        {saveMutation.isSuccess && <p style={{ color: "var(--success)", marginTop: 8 }}>{t("gameDetail.titleUpdated")}</p>}
         {isRemote && (
           <div style={{ marginTop: 12 }}>
             <button className="btn primary" onClick={handleCopy}>Copier localement…</button>
             {copyMsg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{copyMsg}</p>}
           </div>
         )}
-        <div style={{ marginTop: 12, fontSize: 12, color: "var(--text-muted)" }}>
-          Créé le {new Date(data.game.created_at).toLocaleString()} · Mis à jour le {new Date(data.game.updated_at).toLocaleString()}
+        <table className="table" style={{ fontSize: 12, marginTop: 12 }}>
+          <tbody>
+            <tr>
+              <td style={{ width: 160, fontWeight: 600 }}>Titre</td>
+              <td><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%" }} /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Genre</td>
+              <td>
+                <select className="select" value={infoGenre} onChange={(e) => setInfoGenre(e.target.value)} style={{ width: "100%" }}>
+                  <option value="">—</option>
+                  {(genres || []).map((g) => <option key={g} value={g}>{g}</option>)}
+                  {!genres?.includes(infoGenre) && infoGenre && <option value={infoGenre}>{infoGenre}</option>}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Éditeur(s)</td>
+              <td>
+                <select className="select" value={infoPublisher} onChange={(e) => setInfoPublisher(e.target.value)} style={{ width: "100%" }}>
+                  <option value="">—</option>
+                  {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
+                  {!publishers?.includes(infoPublisher) && infoPublisher && <option value={infoPublisher}>{infoPublisher}</option>}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Développeur(s)</td>
+              <td>
+                <select className="select" value={infoDeveloper} onChange={(e) => setInfoDeveloper(e.target.value)} style={{ width: "100%" }}>
+                  <option value="">—</option>
+                  {(developers || []).map((d) => <option key={d} value={d}>{d}</option>)}
+                  {!developers?.includes(infoDeveloper) && infoDeveloper && <option value={infoDeveloper}>{infoDeveloper}</option>}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Classification(s)</td>
+              <td><input className="input" value={infoClassifications} onChange={(e) => setInfoClassifications(e.target.value)} style={{ width: "100%" }} /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Date(s) de sortie</td>
+              <td><input className="input" value={infoReleaseDates} onChange={(e) => setInfoReleaseDates(e.target.value)} style={{ width: "100%" }} /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600, verticalAlign: "top" }}>Synopsis</td>
+              <td><textarea className="input" value={infoSynopsis} onChange={(e) => setInfoSynopsis(e.target.value)} style={{ width: "100%", minHeight: 120 }} /></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style={{ marginTop: 12 }}>
+          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
+            if (!id) return;
+            try {
+              const meta = details ? { ...details, editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } } : { editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } };
+              await api.saveGameInfo(id, title || data.game.title, JSON.stringify(meta));
+              qc.invalidateQueries({ queryKey: ["game", id] });
+              api.showNotification("RETROVERSE", "Informations enregistrées.").catch(() => {});
+            } catch (e) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            }
+          }}>
+            Enregistrer toutes les informations
+          </button>
         </div>
       </div>
 
@@ -137,6 +235,20 @@ export default function GameDetail() {
           </tbody>
         </table>
       </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Métadonnées</h3>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => enrich("screenscraper")} disabled={enriching}>
+            {enriching ? "…" : "Enrichir (ScreenScraper)"}
+          </button>
+          <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => enrich("thegamesdb")} disabled={enriching}>
+            {enriching ? "…" : "Enrichir (TheGamesDB)"}
+          </button>
+        </div>
+      </div>
+
+
 
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -198,6 +310,6 @@ export default function GameDetail() {
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }

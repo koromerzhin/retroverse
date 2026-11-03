@@ -39,3 +39,8 @@ pub async fn app_ready(state: State<'_, AppState>, app: AppHandle) -> Result<()>
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}

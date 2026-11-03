@@ -17,7 +17,7 @@ export const api = {
   scanRemoteFolder: (sourceId: string, folderPath: string, platformFilter?: string) => invoke<any>("scan_remote_folder", { sourceId, folderPath, platformFilter }),
   copyRemoteFiles: (sourceId: string, fileIds: string[], destDir: string) =>
     invoke<any>("copy_remote_files", { sourceId, fileIds, destDir }),
-  listGames: (platform?: string, search?: string, limit?: number, offset?: number) => invoke<any>("list_games", { platform, search, limit, offset }),
+  listGames: (platform?: string, search?: string, developer?: string, publisher?: string, limit?: number, offset?: number) => invoke<any>("list_games", { platform, search, developer, publisher, limit, offset }),
   getGame: (id: string) => invoke<any>("get_game", { id }),
   searchGamesFts: (query: string, platform?: string, limit?: number, offset?: number) => invoke<any>("search_games_fts", { query, platform, limit, offset }),
   platformGameCounts: () => invoke<any>("platform_game_counts"),
@@ -37,6 +37,7 @@ export const api = {
   clearLibrary: () => invoke<void>("clear_library"),
   getSystemLocale: () => invoke<string>("get_system_locale"),
   appReady: () => invoke<void>("app_ready"),
+  quit: () => invoke<void>("quit_app"),
   getProviderConfig: () => invoke<any>("get_provider_config"),
   setProviderConfig: (cfg: any) => invoke<void>("set_provider_config", { cfg }),
   importGamelists: (sourceId: string) => invoke<number>("import_gamelists", { sourceId }),
@@ -57,6 +58,12 @@ export const api = {
   listMetadataProviders: () => invoke<string[]>("list_metadata_providers"),
   enrichGame: (gameId: string, provider: string) => invoke<any>("enrich_game", { gameId, provider }),
   getGameMetadata: (gameId: string) => invoke<any[]>("get_game_metadata", { gameId }),
+  listGenres: () => invoke<string[]>("list_genres"),
+  syncGenres: () => invoke<number>("sync_genres"),
+  listDevelopers: () => invoke<string[]>("list_developers"),
+  listPublishers: () => invoke<string[]>("list_publishers"),
+  setGameMetadata: (gameId: string, field: string, value: string) => invoke<void>("set_game_metadata", { gameId, field, value }),
+  saveGameInfo: (gameId: string, title: string, metadataJson: string) => invoke<void>("save_game_info", { gameId, title, metadataJson }),
   showNotification: (title: string, body: string) => invoke<void>("show_notification", { title, body }),
 };
 

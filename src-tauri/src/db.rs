@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 14;
+pub const SCHEMA_VERSION: i32 = 16;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -86,6 +86,12 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 14 {
         apply_v14(conn)?;
+    }
+    if current < 15 {
+        apply_v15(conn)?;
+    }
+    if current < 16 {
+        apply_v16(conn)?;
     }
     conn.execute(
         "DELETE FROM schema_version WHERE version < ?1",
@@ -718,5 +724,21 @@ fn apply_v14(conn: &Connection) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
+
+fn apply_v15(conn: &Connection) -> Result<()> {
+    let _ = conn.execute("ALTER TABLE games ADD COLUMN metadata_json TEXT", []);
+    Ok(())
+}
+
+fn apply_v16(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS genres (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            parent_id TEXT
+        );",
+    )?;
     Ok(())
 }

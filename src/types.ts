@@ -51,6 +51,7 @@ export interface Game {
   platform_id: string | null;
   created_at: string;
   updated_at: string;
+  metadata_json: string | null;
 }
 
 export interface LibraryEntry {
