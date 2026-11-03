@@ -130,6 +130,36 @@ export default function GameDetail() {
             {copyMsg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{copyMsg}</p>}
           </div>
         )}
+        {details && (
+          <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-dim)" }}>
+            {details.publisher && <div><strong>Éditeur :</strong> {details.publisher}</div>}
+            {details.developer && <div><strong>Développeur :</strong> {details.developer}</div>}
+            {details.players && <div><strong>Joueurs :</strong> {details.players}</div>}
+            {details.rating && <div><strong>Note :</strong> {details.rating}/20</div>}
+            {details.genres?.length > 0 && <div><strong>Genres :</strong> {details.genres.join(", ")}</div>}
+            {details.alt_titles?.length > 0 && <div><strong>Titres alternatifs :</strong> {details.alt_titles.map((t: any) => `${t[1]} (${t[0]})`).join(", ")}</div>}
+            {details.modes?.length > 0 && <div><strong>Modes :</strong> {details.modes.join(", ")}</div>}
+            {details.themes?.length > 0 && <div><strong>Thèmes :</strong> {details.themes.join(", ")}</div>}
+            {details.styles?.length > 0 && <div><strong>Styles :</strong> {details.styles.join(", ")}</div>}
+            {synopsis && <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}><strong>Synopsis :</strong> {synopsis}</div>}
+            {details.release_dates?.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <strong>Sorties :</strong>
+                <ul style={{ margin: "4px 0 0 16px" }}>
+                  {details.release_dates.map((d: any, i: number) => <li key={i}>{d[0]} : {d[1]}</li>)}
+                </ul>
+              </div>
+            )}
+            {details.classifications?.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <strong>Classifications :</strong>
+                <ul style={{ margin: "4px 0 0 16px" }}>
+                  {details.classifications.map((c: any, i: number) => <li key={i}>{c[0]} : {c[1]}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ marginTop: 12, fontSize: 12, color: "var(--text-muted)" }}>
           Créé le {new Date(data.game.created_at).toLocaleString()} · Mis à jour le {new Date(data.game.updated_at).toLocaleString()}
         </div>
