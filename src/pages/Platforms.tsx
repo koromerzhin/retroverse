@@ -33,7 +33,12 @@ export default function Platforms() {
   const [scanningAll, setScanningAll] = useState(false);
   const [hashingPlatform, setHashingPlatform] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"name" | "count">("name");
+  const [sortKey, setSortKey] = useState<"name" | "manufacturer" | "year" | "count">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (key: "name" | "manufacturer" | "year" | "count") => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
   const [hideEmpty, setHideEmpty] = useState(true);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.platforms.view") as "cards" | "list") || "cards");
   const [search, setSearch] = useState("");
@@ -78,10 +83,14 @@ export default function Platforms() {
     .filter((p) => !hideEmpty || (counts[p.id] ?? 0) > 0)
     .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.manufacturer ?? "").toLowerCase().includes(q) || p.slug.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
     .sort((a, b) => {
-      if (sortBy === "count") {
-        return (counts[b.id] ?? 0) - (counts[a.id] ?? 0) || a.name.localeCompare(b.name);
+      let cmp = 0;
+      switch (sortKey) {
+        case "name": cmp = a.name.localeCompare(b.name); break;
+        case "manufacturer": cmp = (a.manufacturer ?? "").localeCompare(b.manufacturer ?? ""); break;
+        case "year": cmp = (a.release_year ?? 0) - (b.release_year ?? 0); break;
+        case "count": cmp = (counts[a.id] ?? 0) - (counts[b.id] ?? 0); break;
       }
-      return a.name.localeCompare(b.name);
+      return sortDir === "asc" ? cmp : -cmp;
     });
 
   async function handleScanPlatform(p: Platform) {
@@ -191,10 +200,13 @@ export default function Platforms() {
       <div className="row" style={{ marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <input className="input" style={{ maxWidth: 260 }} placeholder="Rechercher une plateforme…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <span style={{ fontSize: 13, color: "var(--text-dim)" }}>{t("platforms.sortBy")}</span>
-        <select className="select" style={{ maxWidth: 180 }} value={sortBy} onChange={(e) => setSortBy(e.target.value as "name" | "count")}>
+        <select className="select" style={{ maxWidth: 180 }} value={sortKey} onChange={(e) => setSortKey(e.target.value as "name" | "manufacturer" | "year" | "count")}>
           <option value="name">{t("platforms.sort.name")}</option>
+          <option value="manufacturer">Fabricant</option>
+          <option value="year">Année</option>
           <option value="count">{t("platforms.sort.count")}</option>
         </select>
+        <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))} title="Ordre">{sortDir === "asc" ? "▲" : "▼"}</button>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)", marginLeft: 12 }}>
           <input type="checkbox" checked={hideEmpty} onChange={(e) => setHideEmpty(e.target.checked)} />
           Masquer les plateformes sans jeux
@@ -260,11 +272,10 @@ export default function Platforms() {
       <table className="table">
         <thead>
           <tr>
-            <th>Nom</th>
-            <th>Fabricant</th>
-            <th>Année</th>
-            <th>Jeux</th>
-            <th>Actions</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("name")}>Nom {sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("manufacturer")}>Fabricant {sortKey === "manufacturer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("year")}>Année {sortKey === "year" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("count")}>Jeux {sortKey === "count" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
           </tr>
         </thead>
         <tbody>
