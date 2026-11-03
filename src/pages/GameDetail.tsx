@@ -153,37 +153,7 @@ export default function GameDetail() {
                   {hashingFile === f.id ? "…" : "Calculer les empreintes"}
                 </button>
               )}
-              <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => {
-                const lines: string[] = [];
-                const push = (label: string, value: string | null) => { if (value) lines.push(`${label} : ${value}`); };
-                if (f.archive_hash || f.archive_md5 || f.archive_sha1 || f.archive_sha512 || f.archive_crc32) {
-                  lines.push("Fichier");
-                  push("CRC32", f.archive_crc32);
-                  push("MD5", f.archive_md5);
-                  push("SHA1", f.archive_sha1);
-                  push("SHA256", f.archive_hash);
-                  push("SHA512", f.archive_sha512);
-                } else {
-                  lines.push("Fichier");
-                  push("CRC32", f.crc32);
-                  push("MD5", f.md5);
-                  push("SHA1", f.sha1);
-                  push("SHA256", f.hash);
-                  push("SHA512", f.sha512);
-                }
-                if (f.zip_inner) {
-                  lines.push("");
-                  lines.push(`ROM interne : ${f.zip_inner}`);
-                  push("CRC32", f.crc32);
-                  push("MD5", f.md5);
-                  push("SHA1", f.sha1);
-                  push("SHA256", f.hash);
-                  push("SHA512", f.sha512);
-                }
-                navigator.clipboard?.writeText(lines.join("\n")).catch(() => {});
-              }}>
-                Copier
-              </button>
+
             </div>
 
             {(f.extension === "zip" || f.extension === "7z") ? (
