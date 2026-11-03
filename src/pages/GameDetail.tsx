@@ -120,7 +120,7 @@ export default function GameDetail() {
   }
 
   return (
-    <>
+    <div>
       <button className="btn" onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>{t("common.back")}</button>
       <h1 className="page-title">{data.game.title}</h1>
       <p className="page-sub">{data.platform?.name ?? "Plateforme inconnue"}</p>
@@ -142,20 +142,28 @@ export default function GameDetail() {
         )}
         {details && (
           <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-dim)" }}>
-            {Object.entries(details).map(([key, val]) => (
-              <div key={key} style={{ marginBottom: 6 }}>
-                <strong>{key} :</strong>{" "}
-                {Array.isArray(val)
-                  ? (val as any[]).map((v) => (typeof v === "object" ? JSON.stringify(v) : String(v))).join(", ")
-                  : typeof val === "object" && val !== null
-                  ? JSON.stringify(val)
-                  : String(val ?? "")}
-              </div>
-            ))}
+            <div><strong>Titre :</strong> {details.noms ? details.noms.map((n: any) => n.text).join(", ") : ""}</div>
+            <div><strong>Genre :</strong> {details.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : ""}</div>
+            <div><strong>Éditeur(s) :</strong> {details.editeur?.text ?? ""}</div>
+            <div><strong>Développeur(s) :</strong> {details.developpeur?.text ?? ""}</div>
+            <div><strong>Classification(s) :</strong> {details.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : ""}</div>
+            <div><strong>Date(s) de sortie :</strong> {details.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : ""}</div>
+            <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}><strong>Synopsis :</strong> {synopsis ?? ""}</div>
           </div>
         )}
-        <div style={{ marginTop: 12, fontSize: 12, color: "var(--text-muted)" }}>
-          Créé le {new Date(data.game.created_at).toLocaleString()} · Mis à jour le {new Date(data.game.updated_at).toLocaleString()}
+        <div style={{ marginTop: 12 }}>
+          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
+            if (!id) return;
+            try {
+              await api.enrichGame(id, "screenscraper");
+              qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+              api.showNotification("RETROVERSE", "Informations enregistrées.").catch(() => {});
+            } catch (e) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            }
+          }}>
+            Enregistrer toutes les informations
+          </button>
         </div>
       </div>
 
@@ -197,37 +205,7 @@ export default function GameDetail() {
         </div>
       </div>
 
-      {details && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <h3 style={{ marginTop: 0 }}>Informations détaillées</h3>
-          {synopsis && <p style={{ fontSize: 13, color: "var(--text-dim)", whiteSpace: "pre-wrap" }}>{synopsis}</p>}
-          {details.publisher && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Éditeur :</strong> <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/library?publisher=${encodeURIComponent(details.publisher)}`); }}>{details.publisher}</a></p>}
-          {details.developer && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Développeur :</strong> <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/library?developer=${encodeURIComponent(details.developer)}`); }}>{details.developer}</a></p>}
-          {details.players && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Joueurs :</strong> {details.players}</p>}
-          {details.rating && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Note :</strong> {details.rating}/20</p>}
-          {details.genres?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Genres :</strong> {details.genres.join(", ")}</p>}
-          {details.alt_titles?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Titres alternatifs :</strong> {details.alt_titles.map((t: any) => `${t[1]} (${t[0]})`).join(", ")}</p>}
-          {details.modes?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Modes :</strong> {details.modes.join(", ")}</p>}
-          {details.themes?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Thèmes :</strong> {details.themes.join(", ")}</p>}
-          {details.styles?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Styles :</strong> {details.styles.join(", ")}</p>}
-          {details.release_dates?.length > 0 && (
-            <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 8 }}>
-              <strong>Sorties :</strong>
-              <ul style={{ margin: "4px 0 0 16px" }}>
-                {details.release_dates.map((d: any, i: number) => <li key={i}>{d[0]} : {d[1]}</li>)}
-              </ul>
-            </div>
-          )}
-          {details.classifications?.length > 0 && (
-            <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 8 }}>
-              <strong>Classifications :</strong>
-              <ul style={{ margin: "4px 0 0 16px" }}>
-                {details.classifications.map((c: any, i: number) => <li key={i}>{c[0]} : {c[1]}</li>)}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+
 
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -289,6 +267,6 @@ export default function GameDetail() {
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }
