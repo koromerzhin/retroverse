@@ -15,6 +15,10 @@ pub struct MetadataResult {
     pub rating: Option<String>,
     pub release_dates: Vec<(String, String)>,
     pub classifications: Vec<(String, String)>,
+    pub alt_titles: Vec<(String, String)>,
+    pub modes: Vec<String>,
+    pub themes: Vec<String>,
+    pub styles: Vec<String>,
 }
 
 pub trait MetadataProvider: Send + Sync {
@@ -134,6 +138,76 @@ impl MetadataProvider for ScreenScraperProvider {
                     .collect()
             })
             .unwrap_or_default();
+        let alt_titles: Vec<(String, String)> = jeu["noms"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|n| {
+                        Some((
+                            n["region"].as_str()?.to_string(),
+                            n["texte"].as_str()?.to_string(),
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let modes: Vec<String> = jeu["modes"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|m| {
+                        m["noms"]
+                            .as_array()
+                            .and_then(|n| {
+                                n.iter().find(|x| {
+                                    x["langue"].as_str() == Some("en")
+                                        || x["langue"].as_str() == Some("fr")
+                                })
+                            })
+                            .and_then(|x| x["texte"].as_str())
+                            .map(|s| s.to_string())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let themes: Vec<String> = jeu["themes"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|t| {
+                        t["noms"]
+                            .as_array()
+                            .and_then(|n| {
+                                n.iter().find(|x| {
+                                    x["langue"].as_str() == Some("en")
+                                        || x["langue"].as_str() == Some("fr")
+                                })
+                            })
+                            .and_then(|x| x["texte"].as_str())
+                            .map(|s| s.to_string())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let styles: Vec<String> = jeu["styles"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|s| {
+                        s["noms"]
+                            .as_array()
+                            .and_then(|n| {
+                                n.iter().find(|x| {
+                                    x["langue"].as_str() == Some("en")
+                                        || x["langue"].as_str() == Some("fr")
+                                })
+                            })
+                            .and_then(|x| x["texte"].as_str())
+                            .map(|s| s.to_string())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         Ok(MetadataResult {
             title: jeu["noms"]
                 .as_array()
@@ -150,6 +224,10 @@ impl MetadataProvider for ScreenScraperProvider {
             rating,
             release_dates,
             classifications,
+            alt_titles,
+            modes,
+            themes,
+            styles,
         })
     }
 }

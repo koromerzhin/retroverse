@@ -24,6 +24,8 @@ pub fn list_games(
     state: State<AppState>,
     platform: Option<String>,
     search: Option<String>,
+    developer: Option<String>,
+    publisher: Option<String>,
     limit: Option<usize>,
     offset: Option<usize>,
 ) -> Result<PagedGames> {
@@ -45,6 +47,18 @@ pub fn list_games(
         where_clauses.push(format!(
             "LOWER(g.title) LIKE '%{}%'",
             q.to_lowercase().replace('\'', "''").replace('%', "\\%")
+        ));
+    }
+    if let Some(dev) = &developer {
+        where_clauses.push(format!(
+            "EXISTS (SELECT 1 FROM metadata_records m WHERE m.game_id = g.id AND m.field = 'developer' AND m.value = '{}')",
+            dev.replace('\'', "''")
+        ));
+    }
+    if let Some(publ) = &publisher {
+        where_clauses.push(format!(
+            "EXISTS (SELECT 1 FROM metadata_records m WHERE m.game_id = g.id AND m.field = 'publisher' AND m.value = '{}')",
+            publ.replace('\'', "''")
         ));
     }
     let where_sql = if where_clauses.is_empty() {

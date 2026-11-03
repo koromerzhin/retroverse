@@ -39,6 +39,8 @@ export default function GameDetail() {
   const sourceMap = new Map(sources?.map((s) => [s.id, s]) || []);
   const detailsRecord = (metadata || []).find((m: any) => m.field === "details");
   const details = detailsRecord ? JSON.parse(detailsRecord.value) : null;
+  const descRecord = (metadata || []).find((m: any) => m.field === "description");
+  const synopsis = descRecord ? descRecord.value : null;
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
   const remoteSourceId = data?.files.map((f) => f.source_id).find((sid) => sourceMap.get(sid)?.kind === "remote");
 
@@ -148,11 +150,16 @@ export default function GameDetail() {
       {details && (
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ marginTop: 0 }}>Informations détaillées</h3>
-          {details.publisher && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Éditeur :</strong> {details.publisher}</p>}
-          {details.developer && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Développeur :</strong> {details.developer}</p>}
+          {synopsis && <p style={{ fontSize: 13, color: "var(--text-dim)", whiteSpace: "pre-wrap" }}>{synopsis}</p>}
+          {details.publisher && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Éditeur :</strong> <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/library?publisher=${encodeURIComponent(details.publisher)}`); }}>{details.publisher}</a></p>}
+          {details.developer && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Développeur :</strong> <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/library?developer=${encodeURIComponent(details.developer)}`); }}>{details.developer}</a></p>}
           {details.players && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Joueurs :</strong> {details.players}</p>}
           {details.rating && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Note :</strong> {details.rating}/20</p>}
           {details.genres?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Genres :</strong> {details.genres.join(", ")}</p>}
+          {details.alt_titles?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Titres alternatifs :</strong> {details.alt_titles.map((t: any) => `${t[1]} (${t[0]})`).join(", ")}</p>}
+          {details.modes?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Modes :</strong> {details.modes.join(", ")}</p>}
+          {details.themes?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Thèmes :</strong> {details.themes.join(", ")}</p>}
+          {details.styles?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Styles :</strong> {details.styles.join(", ")}</p>}
           {details.release_dates?.length > 0 && (
             <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 8 }}>
               <strong>Sorties :</strong>

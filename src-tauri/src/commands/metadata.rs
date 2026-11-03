@@ -115,6 +115,10 @@ pub async fn enrich_game(
                 "rating": res.rating,
                 "release_dates": res.release_dates,
                 "classifications": res.classifications,
+                "alt_titles": res.alt_titles,
+                "modes": res.modes,
+                "themes": res.themes,
+                "styles": res.styles,
             });
             let exists: bool = conn
                 .query_row(
