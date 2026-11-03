@@ -191,6 +191,9 @@ pub fn scan_source(
             if skip {
                 continue;
             }
+            if p.file_name().and_then(|n| n.to_str()) == Some("systeminfo.txt") {
+                continue;
+            }
             let ext = identify::ext_of(pstr.as_ref());
             let ext_ok = if !allowed_exts.is_empty() {
                 allowed_exts

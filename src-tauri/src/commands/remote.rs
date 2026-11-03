@@ -148,6 +148,9 @@ pub async fn list_remote_dir(
                 if name == "." || name == ".." {
                     continue;
                 }
+                if name == "systeminfo.txt" {
+                    continue;
+                }
                 let full = if target.ends_with('/') {
                     format!("{}{}", target, name)
                 } else {
