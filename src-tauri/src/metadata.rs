@@ -11,6 +11,10 @@ pub struct MetadataResult {
     pub publisher: Option<String>,
     pub release_year: Option<i32>,
     pub genres: Vec<String>,
+    pub players: Option<String>,
+    pub rating: Option<String>,
+    pub release_dates: Vec<(String, String)>,
+    pub classifications: Vec<(String, String)>,
 }
 
 pub trait MetadataProvider: Send + Sync {
@@ -83,6 +87,53 @@ impl MetadataProvider for ScreenScraperProvider {
             .as_str()
             .map(|s| s.to_string())
             .or_else(|| jeu["editeur"].as_str().map(|s| s.to_string()));
+        let players = jeu["joueurs"]["text"].as_str().map(|s| s.to_string());
+        let rating = jeu["note"]["text"].as_str().map(|s| s.to_string());
+        let genres: Vec<String> = jeu["genres"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|g| {
+                        g["noms"]
+                            .as_array()
+                            .and_then(|n| {
+                                n.iter().find(|x| {
+                                    x["langue"].as_str() == Some("en")
+                                        || x["langue"].as_str() == Some("fr")
+                                })
+                            })
+                            .and_then(|x| x["texte"].as_str())
+                            .map(|s| s.to_string())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let release_dates: Vec<(String, String)> = jeu["dates"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|d| {
+                        Some((
+                            d["region"].as_str()?.to_string(),
+                            d["text"].as_str()?.to_string(),
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let classifications: Vec<(String, String)> = jeu["classifications"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|c| {
+                        Some((
+                            c["type"].as_str()?.to_string(),
+                            c["text"].as_str()?.to_string(),
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         Ok(MetadataResult {
             title: jeu["noms"]
                 .as_array()
@@ -93,7 +144,12 @@ impl MetadataProvider for ScreenScraperProvider {
             cover_url,
             developer,
             publisher,
-            ..Default::default()
+            release_year: None,
+            genres,
+            players,
+            rating,
+            release_dates,
+            classifications,
         })
     }
 }

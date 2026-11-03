@@ -20,6 +20,11 @@ export default function GameDetail() {
     queryKey: ["sources"],
     queryFn: () => api.listSources(),
   });
+  const { data: metadata } = useQuery<any[]>({
+    queryKey: ["game-metadata", id],
+    queryFn: () => api.getGameMetadata(id!),
+    enabled: !!id,
+  });
 
 
   const [title, setTitle] = useState("");
@@ -32,6 +37,8 @@ export default function GameDetail() {
   }, [data]);
 
   const sourceMap = new Map(sources?.map((s) => [s.id, s]) || []);
+  const detailsRecord = (metadata || []).find((m: any) => m.field === "details");
+  const details = detailsRecord ? JSON.parse(detailsRecord.value) : null;
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
   const remoteSourceId = data?.files.map((f) => f.source_id).find((sid) => sourceMap.get(sid)?.kind === "remote");
 
@@ -137,6 +144,33 @@ export default function GameDetail() {
           </tbody>
         </table>
       </div>
+
+      {details && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Informations détaillées</h3>
+          {details.publisher && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Éditeur :</strong> {details.publisher}</p>}
+          {details.developer && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Développeur :</strong> {details.developer}</p>}
+          {details.players && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Joueurs :</strong> {details.players}</p>}
+          {details.rating && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Note :</strong> {details.rating}/20</p>}
+          {details.genres?.length > 0 && <p style={{ fontSize: 13, color: "var(--text-dim)" }}><strong>Genres :</strong> {details.genres.join(", ")}</p>}
+          {details.release_dates?.length > 0 && (
+            <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 8 }}>
+              <strong>Sorties :</strong>
+              <ul style={{ margin: "4px 0 0 16px" }}>
+                {details.release_dates.map((d: any, i: number) => <li key={i}>{d[0]} : {d[1]}</li>)}
+              </ul>
+            </div>
+          )}
+          {details.classifications?.length > 0 && (
+            <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 8 }}>
+              <strong>Classifications :</strong>
+              <ul style={{ margin: "4px 0 0 16px" }}>
+                {details.classifications.map((c: any, i: number) => <li key={i}>{c[0]} : {c[1]}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
