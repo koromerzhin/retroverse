@@ -17,13 +17,15 @@ pub async fn app_ready(state: State<'_, AppState>, app: AppHandle) -> Result<()>
     }
 
     tracing::info!("app_ready: closing splashscreen");
+    if let Some(splash) = app.get_webview_window("splashscreen") {
+        tracing::info!("app_ready: splash close={:?}", splash.close());
+    }
     if let Some(main) = app.get_webview_window("main") {
-        tracing::info!("app_ready: show={:?} focus={:?}", main.show(), main.set_focus());
+        let _ = main.set_always_on_top(true);
+        tracing::info!("app_ready: show={:?} focus={:?} attn={:?}", main.show(), main.set_focus(), main.request_user_attention(Some(tauri::UserAttentionType::Critical)));
+        let _ = main.set_always_on_top(false);
     } else {
         tracing::error!("app_ready: main window not found");
-    }
-    if let Some(splash) = app.get_webview_window("splashscreen") {
-        let _ = splash.close();
     }
     Ok(())
 }
