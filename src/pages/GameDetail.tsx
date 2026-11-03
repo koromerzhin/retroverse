@@ -26,6 +26,7 @@ export default function GameDetail() {
     queryFn: () => api.getGameMetadata(id!),
     enabled: !!id,
   });
+  const { data: genres } = useQuery<string[]>({ queryKey: ["genres"], queryFn: () => api.listGenres() });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
 
@@ -150,7 +151,13 @@ export default function GameDetail() {
             </tr>
             <tr>
               <td style={{ fontWeight: 600 }}>Genre</td>
-              <td><input className="input" value={infoGenre} onChange={(e) => setInfoGenre(e.target.value)} style={{ width: "100%" }} /></td>
+              <td>
+                <select className="select" value={infoGenre} onChange={(e) => setInfoGenre(e.target.value)} style={{ width: "100%" }}>
+                  <option value="">—</option>
+                  {(genres || []).map((g) => <option key={g} value={g}>{g}</option>)}
+                  {!genres?.includes(infoGenre) && infoGenre && <option value={infoGenre}>{infoGenre}</option>}
+                </select>
+              </td>
             </tr>
             <tr>
               <td style={{ fontWeight: 600 }}>Éditeur(s)</td>

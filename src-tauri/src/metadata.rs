@@ -398,7 +398,7 @@ impl MetadataProvider for TheGamesDbProvider {
     }
 }
 
-fn urlencoding(s: &str) -> String {
+pub fn urlencoding(s: &str) -> String {
     s.chars()
         .map(|c| match c {
             ' ' => "%20".to_string(),

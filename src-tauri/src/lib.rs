@@ -98,6 +98,8 @@ pub fn run() {
             commands::list_metadata_providers,
             commands::enrich_game,
             commands::get_game_metadata,
+            commands::list_genres,
+            commands::sync_genres,
             commands::list_developers,
             commands::list_publishers,
             commands::set_game_metadata,
@@ -141,6 +143,12 @@ pub fn run() {
             // Spawn system tray (KDE/freedesktop StatusNotifierItem, pure Rust).
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
+
+            // Sync genres from ScreenScraper in background.
+            let state = app.state::<crate::state::AppState>().inner().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = crate::commands::genres::sync_genres_inner(&state).await;
+            });
 
             // Single-instance listener (Unix): restore window when another instance pings.
             #[cfg(unix)]
