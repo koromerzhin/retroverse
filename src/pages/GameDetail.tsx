@@ -26,12 +26,16 @@ export default function GameDetail() {
     queryFn: () => api.getGameMetadata(id!),
     enabled: !!id,
   });
+  const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
+  const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
 
 
   const [title, setTitle] = useState("");
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [hashingFile, setHashingFile] = useState<string | null>(null);
   const [hashingAll, setHashingAll] = useState(false);
+  const [infoPublisher, setInfoPublisher] = useState("");
+  const [infoDeveloper, setInfoDeveloper] = useState("");
   const [enriching, setEnriching] = useState(false);
 
   useEffect(() => {
@@ -43,6 +47,11 @@ export default function GameDetail() {
   const details = data?.game?.metadata_json ? JSON.parse(data.game.metadata_json) : (detailsRecord ? JSON.parse(detailsRecord.value) : null);
   const descRecord = (metadata || []).find((m: any) => m.field === "description");
   const synopsis = descRecord ? descRecord.value : null;
+  useEffect(() => {
+    if (!details) return;
+    setInfoPublisher(details.editeur?.text ?? details.publisher ?? "");
+    setInfoDeveloper(details.developpeur?.text ?? details.developer ?? "");
+  }, [details]);
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
   const remoteSourceId = data?.files.map((f) => f.source_id).find((sid) => sourceMap.get(sid)?.kind === "remote");
 
@@ -143,8 +152,20 @@ export default function GameDetail() {
         <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-dim)" }}>
           <div><strong>Titre :</strong> {details?.noms ? details.noms.map((n: any) => n.text).join(", ") : data.game.title}</div>
           <div><strong>Genre :</strong> {details?.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : ""}</div>
-          <div><strong>Éditeur(s) :</strong> {details?.editeur?.text ?? ""}</div>
-          <div><strong>Développeur(s) :</strong> {details?.developpeur?.text ?? ""}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><strong>Éditeur(s) :</strong>
+            <select className="select" style={{ maxWidth: 300 }} value={infoPublisher} onChange={(e) => setInfoPublisher(e.target.value)}>
+              <option value="">—</option>
+              {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
+              {!publishers?.includes(infoPublisher) && infoPublisher && <option value={infoPublisher}>{infoPublisher}</option>}
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><strong>Développeur(s) :</strong>
+            <select className="select" style={{ maxWidth: 300 }} value={infoDeveloper} onChange={(e) => setInfoDeveloper(e.target.value)}>
+              <option value="">—</option>
+              {(developers || []).map((d) => <option key={d} value={d}>{d}</option>)}
+              {!developers?.includes(infoDeveloper) && infoDeveloper && <option value={infoDeveloper}>{infoDeveloper}</option>}
+            </select>
+          </div>
           <div><strong>Classification(s) :</strong> {details?.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : ""}</div>
           <div><strong>Date(s) de sortie :</strong> {details?.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : ""}</div>
           <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}><strong>Synopsis :</strong> {synopsis ?? ""}</div>
@@ -153,8 +174,9 @@ export default function GameDetail() {
           <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
             if (!id) return;
             try {
-              await api.enrichGame(id, "screenscraper");
-              qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+              const meta = details ? { ...details, editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } } : { editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } };
+              await api.saveGameInfo(id, title || data.game.title, JSON.stringify(meta));
+              qc.invalidateQueries({ queryKey: ["game", id] });
               api.showNotification("RETROVERSE", "Informations enregistrées.").catch(() => {});
             } catch (e) {
               api.showNotification("RETROVERSE", String(e)).catch(() => {});
