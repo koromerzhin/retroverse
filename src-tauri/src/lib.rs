@@ -118,7 +118,9 @@ pub fn run() {
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
 
-            // Keep the main window hidden during startup; it is revealed by app_ready.
+            // Force the main webview to load, then hide it so only the splashscreen is visible.
+            let _ = main_window.show();
+            let _ = main_window.set_position(tauri::PhysicalPosition::new(-10000, -10000));
             let _ = main_window.hide();
 
             // Independent splashscreen window with embedded HTML (data URL, no file/URL resolution).
@@ -139,6 +141,16 @@ pub fn run() {
             .always_on_top(true)
             .visible(true)
             .build()?;
+
+            // Backend-driven transition: keep splash visible 15s, then show main and close splash.
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                if let Some(main) = app_handle.get_webview_window("main") {
+                    let _ = main.show();
+                }
+                // Splash stays until frontend signals readiness via app_ready.
+            });
 
             tracing::info!(
                 "setup: main present={}, splash present={}",
