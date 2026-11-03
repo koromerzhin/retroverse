@@ -27,7 +27,8 @@ export default function Platforms() {
   const { data: unhashedCounts } = useQuery<Record<string, number>>({
     queryKey: ["unhashed-counts"],
     queryFn: () => api.unhashedCountsByPlatform(),
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   const { data: sources } = useQuery<GameSource[]>({
     queryKey: ["sources"],
