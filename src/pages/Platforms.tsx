@@ -19,6 +19,11 @@ export default function Platforms() {
     queryFn: () => api.platformGameCounts(),
     staleTime: 60_000,
   });
+  const { data: fileCountsData } = useQuery({
+    queryKey: ["platform-file-counts"],
+    queryFn: () => api.platformFileCounts(),
+    staleTime: 60_000,
+  });
   const { data: unhashedCounts } = useQuery<Record<string, number>>({
     queryKey: ["unhashed-counts"],
     queryFn: () => api.unhashedCountsByPlatform(),
@@ -33,9 +38,9 @@ export default function Platforms() {
   const [scanningAll, setScanningAll] = useState(false);
   const [hashingPlatform, setHashingPlatform] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<"name" | "manufacturer" | "year" | "count">("name");
+  const [sortKey, setSortKey] = useState<"name" | "manufacturer" | "year" | "count" | "files">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const toggleSort = (key: "name" | "manufacturer" | "year" | "count") => {
+  const toggleSort = (key: "name" | "manufacturer" | "year" | "count" | "files") => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("asc"); }
   };
@@ -77,6 +82,7 @@ export default function Platforms() {
   }
 
   const counts: Record<string, number> = countsData || {};
+  const fileCounts: Record<string, number> = fileCountsData || {};
 
   const q = search.trim().toLowerCase();
   const sortedPlatforms = [...(platforms || [])]
@@ -89,6 +95,7 @@ export default function Platforms() {
         case "manufacturer": cmp = (a.manufacturer ?? "").localeCompare(b.manufacturer ?? ""); break;
         case "year": cmp = (a.release_year ?? 0) - (b.release_year ?? 0); break;
         case "count": cmp = (counts[a.id] ?? 0) - (counts[b.id] ?? 0); break;
+        case "files": cmp = (fileCounts[a.id] ?? 0) - (fileCounts[b.id] ?? 0); break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -205,6 +212,7 @@ export default function Platforms() {
           <option value="manufacturer">Fabricant</option>
           <option value="year">Année</option>
           <option value="count">{t("platforms.sort.count")}</option>
+          <option value="files">Fichiers</option>
         </select>
         <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))} title="Ordre">{sortDir === "asc" ? "▲" : "▼"}</button>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)", marginLeft: 12 }}>
@@ -229,8 +237,9 @@ export default function Platforms() {
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
               {p.manufacturer ?? "—"} {p.release_year ? `· ${p.release_year}` : ""}
             </div>
-            <div style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
               <span className="badge">{formatNumber(counts[p.id] ?? 0)} {t("platforms.games")}</span>
+              <span className="badge">{formatNumber(fileCounts[p.id] ?? 0)} fichiers</span>
             </div>
             <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
               <button
@@ -285,6 +294,7 @@ export default function Platforms() {
               <td>{p.manufacturer ?? "—"}</td>
               <td>{p.release_year ?? "—"}</td>
               <td>{formatNumber(counts[p.id] ?? 0)}</td>
+              <td>{formatNumber(fileCounts[p.id] ?? 0)}</td>
               <td>
                 <div className="row" style={{ gap: 6 }}>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={(counts[p.id] ?? 0) === 0} onClick={() => navigate(`/library?platform=${p.id}`)}>{t("platforms.viewLibrary")}</button>

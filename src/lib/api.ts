@@ -21,6 +21,7 @@ export const api = {
   getGame: (id: string) => invoke<any>("get_game", { id }),
   searchGamesFts: (query: string, platform?: string, limit?: number, offset?: number) => invoke<any>("search_games_fts", { query, platform, limit, offset }),
   platformGameCounts: () => invoke<any>("platform_game_counts"),
+  platformFileCounts: () => invoke<any>("platform_file_counts"),
   findDuplicates: () => invoke<any[]>("find_duplicates"),
   listCollections: () => invoke<any[]>("list_collections"),
   createCollection: (name: string) => invoke<any>("create_collection", { name }),

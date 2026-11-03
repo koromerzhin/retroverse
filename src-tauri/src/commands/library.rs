@@ -229,6 +229,23 @@ pub fn link_file_to_game(state: State<AppState>, file_id: String, game_id: Strin
 }
 
 #[tauri::command]
+pub fn platform_file_counts(state: State<AppState>) -> Result<serde_json::Value> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT platform_id, COUNT(*) FROM game_files GROUP BY platform_id")?;
+    let rows = stmt.query_map([], |r| {
+        Ok((r.get::<_, Option<String>>(0)?, r.get::<_, i64>(1)?))
+    })?;
+    let mut map = serde_json::Map::new();
+    for r in rows {
+        let (pid, c) = r?;
+        if let Some(p) = pid {
+            map.insert(p, serde_json::json!(c));
+        }
+    }
+    Ok(serde_json::Value::Object(map))
+}
+
+#[tauri::command]
 pub fn platform_game_counts(state: State<AppState>) -> Result<serde_json::Value> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn.prepare("SELECT platform_id, COUNT(*) FROM games GROUP BY platform_id")?;
