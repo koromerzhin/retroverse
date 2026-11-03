@@ -140,17 +140,15 @@ export default function GameDetail() {
             {copyMsg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{copyMsg}</p>}
           </div>
         )}
-        {details && (
-          <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-dim)" }}>
-            <div><strong>Titre :</strong> {details.noms ? details.noms.map((n: any) => n.text).join(", ") : ""}</div>
-            <div><strong>Genre :</strong> {details.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : ""}</div>
-            <div><strong>Éditeur(s) :</strong> {details.editeur?.text ?? ""}</div>
-            <div><strong>Développeur(s) :</strong> {details.developpeur?.text ?? ""}</div>
-            <div><strong>Classification(s) :</strong> {details.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : ""}</div>
-            <div><strong>Date(s) de sortie :</strong> {details.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : ""}</div>
-            <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}><strong>Synopsis :</strong> {synopsis ?? ""}</div>
-          </div>
-        )}
+        <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-dim)" }}>
+          <div><strong>Titre :</strong> {details?.noms ? details.noms.map((n: any) => n.text).join(", ") : ""}</div>
+          <div><strong>Genre :</strong> {details?.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : ""}</div>
+          <div><strong>Éditeur(s) :</strong> {details?.editeur?.text ?? ""}</div>
+          <div><strong>Développeur(s) :</strong> {details?.developpeur?.text ?? ""}</div>
+          <div><strong>Classification(s) :</strong> {details?.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : ""}</div>
+          <div><strong>Date(s) de sortie :</strong> {details?.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : ""}</div>
+          <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}><strong>Synopsis :</strong> {synopsis ?? ""}</div>
+        </div>
         <div style={{ marginTop: 12 }}>
           <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
             if (!id) return;
