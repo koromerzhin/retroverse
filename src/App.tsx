@@ -258,8 +258,7 @@ export default function App() {
           className="nav-item"
           style={{ marginTop: "auto", background: "none", border: "none", cursor: "pointer", textAlign: "left", width: "100%" }}
           onClick={async () => {
-            const { exit } = await import("@tauri-apps/api/app");
-            await exit(0);
+            await api.quit();
           }}
         >
           <span>🚪</span>

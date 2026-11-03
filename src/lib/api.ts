@@ -37,6 +37,7 @@ export const api = {
   clearLibrary: () => invoke<void>("clear_library"),
   getSystemLocale: () => invoke<string>("get_system_locale"),
   appReady: () => invoke<void>("app_ready"),
+  quit: () => invoke<void>("quit_app"),
   getProviderConfig: () => invoke<any>("get_provider_config"),
   setProviderConfig: (cfg: any) => invoke<void>("set_provider_config", { cfg }),
   importGamelists: (sourceId: string) => invoke<number>("import_gamelists", { sourceId }),
