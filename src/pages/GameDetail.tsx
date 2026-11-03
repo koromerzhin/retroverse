@@ -141,7 +141,7 @@ export default function GameDetail() {
           </div>
         )}
         <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-dim)" }}>
-          <div><strong>Titre :</strong> {details?.noms ? details.noms.map((n: any) => n.text).join(", ") : ""}</div>
+          <div><strong>Titre :</strong> {details?.noms ? details.noms.map((n: any) => n.text).join(", ") : data.game.title}</div>
           <div><strong>Genre :</strong> {details?.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : ""}</div>
           <div><strong>Éditeur(s) :</strong> {details?.editeur?.text ?? ""}</div>
           <div><strong>Développeur(s) :</strong> {details?.developpeur?.text ?? ""}</div>
