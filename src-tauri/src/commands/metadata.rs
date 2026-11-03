@@ -108,17 +108,24 @@ pub async fn enrich_game(
         // store detailed metadata as JSON
         {
             let details = serde_json::json!({
+                "ss_id": res.ss_id,
+                "notgame": res.notgame,
+                "systeme": res.systeme,
                 "publisher": res.publisher,
                 "developer": res.developer,
                 "genres": res.genres,
                 "players": res.players,
                 "rating": res.rating,
+                "topstaff": res.topstaff,
+                "rotation": res.rotation,
+                "synopsis": res.description,
                 "release_dates": res.release_dates,
                 "classifications": res.classifications,
                 "alt_titles": res.alt_titles,
                 "modes": res.modes,
                 "themes": res.themes,
                 "styles": res.styles,
+                "familles": res.familles,
             });
             let exists: bool = conn
                 .query_row(

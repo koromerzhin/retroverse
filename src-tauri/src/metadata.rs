@@ -19,6 +19,12 @@ pub struct MetadataResult {
     pub modes: Vec<String>,
     pub themes: Vec<String>,
     pub styles: Vec<String>,
+    pub ss_id: Option<String>,
+    pub notgame: Option<String>,
+    pub systeme: Option<String>,
+    pub topstaff: Option<String>,
+    pub rotation: Option<String>,
+    pub familles: Vec<String>,
 }
 
 pub trait MetadataProvider: Send + Sync {
@@ -208,6 +214,30 @@ impl MetadataProvider for ScreenScraperProvider {
                     .collect()
             })
             .unwrap_or_default();
+        let ss_id = jeu["id"].as_str().map(|s| s.to_string());
+        let notgame = jeu["notgame"].as_str().map(|s| s.to_string());
+        let systeme = jeu["systeme"]["text"].as_str().map(|s| s.to_string());
+        let topstaff = jeu["topstaff"].as_str().map(|s| s.to_string());
+        let rotation = jeu["rotation"].as_str().map(|s| s.to_string());
+        let familles: Vec<String> = jeu["familles"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|f| {
+                        f["noms"]
+                            .as_array()
+                            .and_then(|n| {
+                                n.iter().find(|x| {
+                                    x["langue"].as_str() == Some("en")
+                                        || x["langue"].as_str() == Some("fr")
+                                })
+                            })
+                            .and_then(|x| x["texte"].as_str())
+                            .map(|s| s.to_string())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         Ok(MetadataResult {
             title: jeu["noms"]
                 .as_array()
@@ -228,6 +258,12 @@ impl MetadataProvider for ScreenScraperProvider {
             modes,
             themes,
             styles,
+            ss_id,
+            notgame,
+            systeme,
+            topstaff,
+            rotation,
+            familles,
         })
     }
 }
