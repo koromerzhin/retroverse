@@ -40,7 +40,7 @@ export default function GameDetail() {
 
   const sourceMap = new Map(sources?.map((s) => [s.id, s]) || []);
   const detailsRecord = (metadata || []).find((m: any) => m.field === "details");
-  const details = detailsRecord ? JSON.parse(detailsRecord.value) : null;
+  const details = data?.game?.metadata_json ? JSON.parse(data.game.metadata_json) : (detailsRecord ? JSON.parse(detailsRecord.value) : null);
   const descRecord = (metadata || []).find((m: any) => m.field === "description");
   const synopsis = descRecord ? descRecord.value : null;
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;

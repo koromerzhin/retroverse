@@ -57,6 +57,10 @@ export const api = {
   listMetadataProviders: () => invoke<string[]>("list_metadata_providers"),
   enrichGame: (gameId: string, provider: string) => invoke<any>("enrich_game", { gameId, provider }),
   getGameMetadata: (gameId: string) => invoke<any[]>("get_game_metadata", { gameId }),
+  listDevelopers: () => invoke<string[]>("list_developers"),
+  listPublishers: () => invoke<string[]>("list_publishers"),
+  setGameMetadata: (gameId: string, field: string, value: string) => invoke<void>("set_game_metadata", { gameId, field, value }),
+  saveGameInfo: (gameId: string, title: string, metadataJson: string) => invoke<void>("save_game_info", { gameId, title, metadataJson }),
   showNotification: (title: string, body: string) => invoke<void>("show_notification", { title, body }),
 };
 

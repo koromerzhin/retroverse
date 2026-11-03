@@ -146,6 +146,34 @@ pub async fn enrich_game(
             }
         }
 
+        // also store details in game.metadata_json
+        {
+            let details = serde_json::json!({
+                "publisher": res.publisher,
+                "developer": res.developer,
+                "genres": res.genres,
+                "players": res.players,
+                "rating": res.rating,
+                "release_dates": res.release_dates,
+                "classifications": res.classifications,
+                "alt_titles": res.alt_titles,
+                "modes": res.modes,
+                "themes": res.themes,
+                "styles": res.styles,
+                "ss_id": res.ss_id,
+                "notgame": res.notgame,
+                "systeme": res.systeme,
+                "topstaff": res.topstaff,
+                "rotation": res.rotation,
+                "synopsis": res.description,
+                "familles": res.familles,
+            });
+            let _ = conn.execute(
+                "UPDATE games SET metadata_json=?1 WHERE id=?2",
+                params![details.to_string(), game_id.clone()],
+            );
+        }
+
         // record job
         let job_id = crate::models::new_id();
         conn.execute(
@@ -207,4 +235,70 @@ pub fn get_game_metadata(
         out.push(serde_json::json!({"kind": kind, "url": url}));
     }
     Ok(out)
+}
+
+#[tauri::command]
+pub fn list_developers(state: State<AppState>) -> Result<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT DISTINCT value FROM metadata_records WHERE field='developer' AND value IS NOT NULL AND value != '' ORDER BY value COLLATE NOCASE")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn list_publishers(state: State<AppState>) -> Result<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT DISTINCT value FROM metadata_records WHERE field='publisher' AND value IS NOT NULL AND value != '' ORDER BY value COLLATE NOCASE")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn set_game_metadata(
+    state: State<AppState>,
+    game_id: String,
+    field: String,
+    value: String,
+) -> Result<()> {
+    let conn = state.db.lock().unwrap();
+    conn.execute(
+        "DELETE FROM metadata_records WHERE game_id=?1 AND field=?2",
+        params![game_id.clone(), field.clone()],
+    )?;
+    if !value.trim().is_empty() {
+        let id = crate::models::new_id();
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            params![id, game_id, "manual", field, value, "manual", now],
+        )?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_game_info(
+    state: State<AppState>,
+    game_id: String,
+    title: String,
+    metadata_json: String,
+) -> Result<()> {
+    let conn = state.db.lock().unwrap();
+    conn.execute(
+        "UPDATE games SET title=?1 WHERE id=?2",
+        params![title, game_id.clone()],
+    )?;
+    conn.execute(
+        "UPDATE games SET metadata_json=?1 WHERE id=?2",
+        params![metadata_json, game_id],
+    )?;
+    Ok(())
 }
