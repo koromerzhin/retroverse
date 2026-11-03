@@ -16,7 +16,6 @@ export default function Settings() {
     queryKey: ["appInfo"],
     queryFn: () => api.appInfo(),
   });
-  const [msg, setMsg] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<"clear" | "reset" | null>(null);
 
   async function handleReset() {
@@ -34,16 +33,14 @@ export default function Settings() {
     try {
       if (action === "reset") {
         await api.resetDatabase();
-        setMsg("Base de données vidée.");
-        api.showNotification("RETROVERSE", "Base de données vidée.").catch(() => {});
+          api.showNotification("RETROVERSE", "Base de données vidée.").catch(() => {});
       } else {
         await api.clearLibrary();
-        setMsg("Bibliothèque vidée.");
-        api.showNotification("RETROVERSE", "Bibliothèque vidée.").catch(() => {});
+          api.showNotification("RETROVERSE", "Bibliothèque vidée.").catch(() => {});
       }
       qc.invalidateQueries();
     } catch (e: any) {
-      setMsg(String(e));
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     }
   }
 
@@ -70,7 +67,6 @@ export default function Settings() {
         </p>
         <button className="btn danger" onClick={handleClearLibrary}>{t("settings.clearLibrary")}</button>
         <button className="btn danger" onClick={handleReset} style={{ marginLeft: 8 }}>{t("settings.clearDb")}</button>
-        {msg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{msg}</p>}
       </div>
 
       {confirmAction && (
@@ -138,9 +134,9 @@ export default function Settings() {
               try {
                 await api.setProviderConfig(pc);
                 qc.invalidateQueries({ queryKey: ["providerConfig"] });
-                setMsg("Configuration enregistrée.");
+                api.showNotification("RETROVERSE", "Configuration enregistrée.").catch(() => {});
               } catch (e: any) {
-                setMsg(String(e));
+                api.showNotification("RETROVERSE", String(e)).catch(() => {});
               }
             }}>Enregistrer</button>
           </>
