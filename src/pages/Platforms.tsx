@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
 import { useI18n } from "../i18n";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Platform, GameSource } from "../types";
 
 export default function Platforms() {
@@ -103,7 +102,7 @@ export default function Platforms() {
 
   async function handleScanPlatform(p: Platform) {
     if (!sources || sources.length === 0) {
-      getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {}); }).catch(() => {});
+      api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {});
       return;
     }
     setScanning(p.id);
@@ -140,10 +139,10 @@ export default function Platforms() {
     setHashingPlatform(p.id);
     try {
       const n = await api.computeHashesForPlatform(p.id);
-      getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", `Empreintes calculées : ${formatNumber(n)} fichier(s) pour ${p.name}.`).catch(() => {}); }).catch(() => {});
+      api.showNotification("RETROVERSE", `Empreintes calculées : ${formatNumber(n)} fichier(s) pour ${p.name}.`).catch(() => {});
       qc.invalidateQueries({ queryKey: ["unhashed-counts"] });
     } catch (e: any) {
-      getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", `Erreur : ${e}`).catch(() => {}); }).catch(() => {});
+      api.showNotification("RETROVERSE", `Erreur : ${e}`).catch(() => {});
     } finally {
       setHashingPlatform(null);
     }
@@ -151,7 +150,7 @@ export default function Platforms() {
 
   async function handleScanAll() {
     if (!platforms || platforms.length === 0) {
-      getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", "Aucune plateforme.").catch(() => {}); }).catch(() => {});
+      api.showNotification("RETROVERSE", "Aucune plateforme.").catch(() => {});
       return;
     }
     setScanningAll(true);
@@ -161,7 +160,7 @@ export default function Platforms() {
     let errors: string[] = [];
     for (const p of platforms) {
       if (!sources || sources.length === 0) {
-        getCurrentWindow().isVisible().then((v) => { if (!v) api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {}); }).catch(() => {});
+        api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {});
         continue;
       }
       for (const s of sources) {
