@@ -66,10 +66,10 @@ pub async fn compute_hashes_inner(
         };
         if sha256.is_some() {
             let conn = state.db.lock().unwrap();
-            conn.execute(
+            let _ = conn.execute(
                 "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
                 params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, id],
-            )?;
+            );
             done += 1;
         }
         if (idx % 5 == 0 || idx + 1 == total)
@@ -710,10 +710,10 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
 
     if sha256.is_some() {
         let conn = state.db.lock().unwrap();
-        conn.execute(
+        let _ = conn.execute(
             "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
             rusqlite::params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, file_id],
-        )?;
+        );
         Ok(1)
     } else {
         Ok(0)
