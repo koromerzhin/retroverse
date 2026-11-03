@@ -366,7 +366,7 @@ pub fn scan_source(
                 };
                 let (mut title, conf) = identify::identify_file(&gf, &platforms);
                 if ext == "scummvm" {
-                    let code = std::fs::read_to_string(&fpath)
+                    let code = std::fs::read_to_string(fpath)
                         .map(|c| c.trim().to_string())
                         .unwrap_or_else(|_| {
                             std::path::Path::new(&filename)

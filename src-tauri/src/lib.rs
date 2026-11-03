@@ -23,7 +23,7 @@ fn single_instance_socket_path() -> std::path::PathBuf {
 pub fn run() {
     #[cfg(unix)]
     {
-        use std::io::{Read, Write};
+        use std::io::Write;
         use std::os::unix::net::UnixStream;
         let sock_path = single_instance_socket_path();
         // If an instance is already running, notify it and exit.
@@ -146,16 +146,14 @@ pub fn run() {
                 if let Ok(listener) = UnixListener::bind(&sock_path) {
                     let app_handle = app.handle().clone();
                     std::thread::spawn(move || {
-                        for stream in listener.incoming() {
-                            if let Ok(mut s) = stream {
-                                use std::io::Read;
-                                let mut buf = [0u8; 64];
-                                let _ = s.read(&mut buf);
-                                if let Some(w) = app_handle.get_webview_window("main") {
-                                    let _ = w.show();
-                                    let _ = w.unminimize();
-                                    let _ = w.set_focus();
-                                }
+                        for mut s in listener.incoming().flatten() {
+                            use std::io::Read;
+                            let mut buf = [0u8; 64];
+                            let _ = s.read(&mut buf);
+                            if let Some(w) = app_handle.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
                             }
                         }
                     });

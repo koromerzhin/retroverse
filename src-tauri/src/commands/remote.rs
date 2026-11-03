@@ -490,15 +490,15 @@ pub async fn scan_remote_source_inner(
         let mut scumm_contents: std::collections::HashMap<String, String> =
             std::collections::HashMap::new();
         for (fp, _, _, _) in &collected {
-            if fp.to_lowercase().ends_with(".scummvm") {
-                if let Ok(mut f) = sess.sftp.open(fp.clone()).await {
-                    use tokio::io::AsyncReadExt;
-                    let mut buf = Vec::new();
-                    if f.read_to_end(&mut buf).await.is_ok()
-                        && let Ok(content) = String::from_utf8(buf)
-                    {
-                        scumm_contents.insert(fp.clone(), content.trim().to_string());
-                    }
+            if fp.to_lowercase().ends_with(".scummvm")
+                && let Ok(mut f) = sess.sftp.open(fp.clone()).await
+            {
+                use tokio::io::AsyncReadExt;
+                let mut buf = Vec::new();
+                if f.read_to_end(&mut buf).await.is_ok()
+                    && let Ok(content) = String::from_utf8(buf)
+                {
+                    scumm_contents.insert(fp.clone(), content.trim().to_string());
                 }
             }
         }

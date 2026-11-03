@@ -433,7 +433,7 @@ pub fn scummvm_title(code: &str) -> Option<String> {
         let raw = include_str!("../resources/scummvm_compat.json");
         serde_json::from_str(raw).unwrap_or_else(|_| serde_json::Value::Object(Default::default()))
     });
-    let code = code.trim().split(':').last().unwrap_or(code).trim();
+    let code = code.trim().split(':').next_back().unwrap_or(code).trim();
     map.get(code)
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
