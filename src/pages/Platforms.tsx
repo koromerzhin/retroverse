@@ -285,6 +285,8 @@ export default function Platforms() {
               <th style={{ cursor: "pointer" }} onClick={() => toggleSort("manufacturer")}>Fabricant {sortKey === "manufacturer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
               <th style={{ cursor: "pointer" }} onClick={() => toggleSort("year")}>Année {sortKey === "year" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
               <th style={{ cursor: "pointer" }} onClick={() => toggleSort("count")}>Jeux {sortKey === "count" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th>Actions</th>
           </tr>
         </thead>
         <tbody>
