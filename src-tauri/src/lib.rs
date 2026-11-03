@@ -118,9 +118,7 @@ pub fn run() {
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
 
-            // Keep the main window hidden during startup; it is revealed by app_ready.
-            let _ = main_window.hide();
-
+            // Keep the main window visible but covered by the splashscreen so its webview loads.
             // Independent splashscreen window with embedded HTML (data URL, no file/URL resolution).
             let splash_url = format!(
                 "data:text/html;base64,{}",
