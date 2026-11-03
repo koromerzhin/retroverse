@@ -1,5 +1,13 @@
 use crate::error::{Result, RetroError};
 use crate::state::AppState;
+
+type ArchiveHashes = (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
 use rusqlite::params;
 use serde_json::json;
 
@@ -476,13 +484,7 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
     let mut done = 0usize;
     for (fid, path, _source_id, kind, connection_id) in files {
         let allowed: Vec<String> = Vec::new();
-        let mut arch_hashes: (
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ) = (None, None, None, None, None);
+        let mut arch_hashes: ArchiveHashes = (None, None, None, None, None);
         let result = if kind.as_deref() == Some("remote") {
             // download file via SFTP
             let (host, port, username, key_path) = {
