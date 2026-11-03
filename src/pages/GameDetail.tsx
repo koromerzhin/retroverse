@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { useI18n } from "../i18n";
@@ -36,6 +36,10 @@ export default function GameDetail() {
   const [hashingAll, setHashingAll] = useState(false);
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
+  const [infoGenre, setInfoGenre] = useState("");
+  const [infoClassifications, setInfoClassifications] = useState("");
+  const [infoReleaseDates, setInfoReleaseDates] = useState("");
+  const [infoSynopsis, setInfoSynopsis] = useState("");
   const [enriching, setEnriching] = useState(false);
 
   useEffect(() => {
@@ -49,9 +53,13 @@ export default function GameDetail() {
   const synopsis = descRecord ? descRecord.value : null;
   useEffect(() => {
     if (!details) return;
+    setInfoGenre(details.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : "");
     setInfoPublisher(details.editeur?.text ?? details.publisher ?? "");
     setInfoDeveloper(details.developpeur?.text ?? details.developer ?? "");
-  }, [details]);
+    setInfoClassifications(details.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : "");
+    setInfoReleaseDates(details.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : "");
+    setInfoSynopsis(synopsis ?? "");
+  }, [details, synopsis]);
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
   const remoteSourceId = data?.files.map((f) => f.source_id).find((sid) => sourceMap.get(sid)?.kind === "remote");
 
@@ -94,14 +102,6 @@ export default function GameDetail() {
     }
   };
 
-  const saveMutation = useMutation({
-    mutationFn: () => api.correctTitle(id!, title),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["game", id] });
-      qc.invalidateQueries({ queryKey: ["games"] });
-    },
-  });
-
   async function handleCopy() {
     if (!remoteSourceId || !data) return;
     const dest = await pickDirectory();
@@ -136,40 +136,56 @@ export default function GameDetail() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.info")}</h3>
-        <div className="row">
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} style={{ maxWidth: 400 }} />
-          <button className="btn primary" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <span className="spinner" /> : t("gameDetail.saveTitle")}
-          </button>
-        </div>
-        {saveMutation.isSuccess && <p style={{ color: "var(--success)", marginTop: 8 }}>{t("gameDetail.titleUpdated")}</p>}
         {isRemote && (
           <div style={{ marginTop: 12 }}>
             <button className="btn primary" onClick={handleCopy}>Copier localement…</button>
             {copyMsg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{copyMsg}</p>}
           </div>
         )}
-        <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-dim)" }}>
-          <div><strong>Titre :</strong> {details?.noms ? details.noms.map((n: any) => n.text).join(", ") : data.game.title}</div>
-          <div><strong>Genre :</strong> {details?.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : ""}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><strong>Éditeur(s) :</strong>
-            <select className="select" style={{ maxWidth: 300 }} value={infoPublisher} onChange={(e) => setInfoPublisher(e.target.value)}>
-              <option value="">—</option>
-              {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
-              {!publishers?.includes(infoPublisher) && infoPublisher && <option value={infoPublisher}>{infoPublisher}</option>}
-            </select>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><strong>Développeur(s) :</strong>
-            <select className="select" style={{ maxWidth: 300 }} value={infoDeveloper} onChange={(e) => setInfoDeveloper(e.target.value)}>
-              <option value="">—</option>
-              {(developers || []).map((d) => <option key={d} value={d}>{d}</option>)}
-              {!developers?.includes(infoDeveloper) && infoDeveloper && <option value={infoDeveloper}>{infoDeveloper}</option>}
-            </select>
-          </div>
-          <div><strong>Classification(s) :</strong> {details?.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : ""}</div>
-          <div><strong>Date(s) de sortie :</strong> {details?.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : ""}</div>
-          <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}><strong>Synopsis :</strong> {synopsis ?? ""}</div>
-        </div>
+        <table className="table" style={{ fontSize: 12, marginTop: 12 }}>
+          <tbody>
+            <tr>
+              <td style={{ width: 160, fontWeight: 600 }}>Titre</td>
+              <td><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%" }} /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Genre</td>
+              <td><input className="input" value={infoGenre} onChange={(e) => setInfoGenre(e.target.value)} style={{ width: "100%" }} /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Éditeur(s)</td>
+              <td>
+                <select className="select" value={infoPublisher} onChange={(e) => setInfoPublisher(e.target.value)} style={{ width: "100%" }}>
+                  <option value="">—</option>
+                  {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
+                  {!publishers?.includes(infoPublisher) && infoPublisher && <option value={infoPublisher}>{infoPublisher}</option>}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Développeur(s)</td>
+              <td>
+                <select className="select" value={infoDeveloper} onChange={(e) => setInfoDeveloper(e.target.value)} style={{ width: "100%" }}>
+                  <option value="">—</option>
+                  {(developers || []).map((d) => <option key={d} value={d}>{d}</option>)}
+                  {!developers?.includes(infoDeveloper) && infoDeveloper && <option value={infoDeveloper}>{infoDeveloper}</option>}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Classification(s)</td>
+              <td><input className="input" value={infoClassifications} onChange={(e) => setInfoClassifications(e.target.value)} style={{ width: "100%" }} /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Date(s) de sortie</td>
+              <td><input className="input" value={infoReleaseDates} onChange={(e) => setInfoReleaseDates(e.target.value)} style={{ width: "100%" }} /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600, verticalAlign: "top" }}>Synopsis</td>
+              <td><textarea className="input" value={infoSynopsis} onChange={(e) => setInfoSynopsis(e.target.value)} style={{ width: "100%", minHeight: 120 }} /></td>
+            </tr>
+          </tbody>
+        </table>
         <div style={{ marginTop: 12 }}>
           <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
             if (!id) return;
