@@ -14,7 +14,27 @@ use state::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 const SPLASH_HTML: &str = include_str!("../../public/splash.html");
 
+#[cfg(unix)]
+fn single_instance_socket_path() -> std::path::PathBuf {
+    let base = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    base.join("retroverse").join("single-instance.sock")
+}
+
 pub fn run() {
+    #[cfg(unix)]
+    {
+        use std::io::{Read, Write};
+        use std::os::unix::net::UnixStream;
+        let sock_path = single_instance_socket_path();
+        // If an instance is already running, notify it and exit.
+        if let Ok(mut stream) = UnixStream::connect(&sock_path) {
+            let _ = stream.write_all(b"activate\n");
+            return;
+        }
+        // Remove stale socket file if present.
+        let _ = std::fs::remove_file(&sock_path);
+    }
+
     // File-based logging (readable by external apps). Logs go to <data_dir>/retroverse/logs/
     let log_dir = crate::db::db_path()
         .parent()
@@ -118,6 +138,30 @@ pub fn run() {
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
 
+            // Single-instance listener (Unix): restore window when another instance pings.
+            #[cfg(unix)]
+            {
+                use std::os::unix::net::UnixListener;
+                let sock_path = single_instance_socket_path();
+                if let Ok(listener) = UnixListener::bind(&sock_path) {
+                    let app_handle = app.handle().clone();
+                    std::thread::spawn(move || {
+                        for stream in listener.incoming() {
+                            if let Ok(mut s) = stream {
+                                use std::io::Read;
+                                let mut buf = [0u8; 64];
+                                let _ = s.read(&mut buf);
+                                if let Some(w) = app_handle.get_webview_window("main") {
+                                    let _ = w.show();
+                                    let _ = w.unminimize();
+                                    let _ = w.set_focus();
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
             // Force the main webview to load, then hide it so only the splashscreen is visible.
             let _ = main_window.show();
             let _ = main_window.set_position(tauri::PhysicalPosition::new(-10000, -10000));
@@ -162,4 +206,9 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    #[cfg(unix)]
+    {
+        let _ = std::fs::remove_file(single_instance_socket_path());
+    }
 }

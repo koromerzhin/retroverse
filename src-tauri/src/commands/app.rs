@@ -26,7 +26,13 @@ pub async fn app_ready(state: State<'_, AppState>, app: AppHandle) -> Result<()>
         let focus_res = main.set_focus();
         let attn_res = main.request_user_attention(Some(tauri::UserAttentionType::Critical));
         let vis = main.is_visible();
-        tracing::info!("app_ready: show={:?} focus={:?} attn={:?} is_visible={:?}", show_res, focus_res, attn_res, vis);
+        tracing::info!(
+            "app_ready: show={:?} focus={:?} attn={:?} is_visible={:?}",
+            show_res,
+            focus_res,
+            attn_res,
+            vis
+        );
         let _ = main.set_always_on_top(false);
     } else {
         tracing::error!("app_ready: main window not found");

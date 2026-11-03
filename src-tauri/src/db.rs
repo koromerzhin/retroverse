@@ -87,7 +87,10 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     if current < 14 {
         apply_v14(conn)?;
     }
-    conn.execute("DELETE FROM schema_version WHERE version < ?1", params![SCHEMA_VERSION])?;
+    conn.execute(
+        "DELETE FROM schema_version WHERE version < ?1",
+        params![SCHEMA_VERSION],
+    )?;
     conn.execute(
         "INSERT OR REPLACE INTO schema_version (version) VALUES (?1)",
         params![SCHEMA_VERSION],
