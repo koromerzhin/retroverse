@@ -118,9 +118,7 @@ pub fn run() {
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
 
-            // Keep the main window hidden from the user but force its webview to load off-screen.
-            let _ = main_window.set_position(tauri::PhysicalPosition::new(-10000, -10000));
-            let _ = main_window.show();
+            // Keep the main window visible but covered by the splashscreen so its webview loads.
 
             // Independent splashscreen window with embedded HTML (data URL, no file/URL resolution).
             let splash_url = format!(
