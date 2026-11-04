@@ -107,7 +107,7 @@ export default function Settings() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Fournisseurs de métadonnées</h3>
-        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Configurez les clés API pour ScreenScraper et TheGamesDB.</p>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Configurez les clés API pour ScreenScraper.</p>
         {pc && (
           <>
             <div style={{ marginTop: 8 }}>
@@ -125,10 +125,6 @@ export default function Settings() {
             <div style={{ marginTop: 8 }}>
               <label style={{ fontSize: 12, color: "var(--text-muted)" }}>ScreenScraper user password</label>
               <input className="input" type="password" value={pc.screenscraper_sspassword || ""} onChange={(e) => setPc({ ...pc, screenscraper_sspassword: e.target.value })} />
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>TheGamesDB API key</label>
-              <input className="input" value={pc.tgdb_apikey || ""} onChange={(e) => setPc({ ...pc, tgdb_apikey: e.target.value })} />
             </div>
             <button className="btn primary" style={{ marginTop: 12 }} onClick={async () => {
               try {

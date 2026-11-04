@@ -41,7 +41,6 @@ export default function GameDetail() {
   const [infoClassifications, setInfoClassifications] = useState("");
   const [infoReleaseDates, setInfoReleaseDates] = useState("");
   const [infoSynopsis, setInfoSynopsis] = useState("");
-  const [enriching, setEnriching] = useState(false);
 
   useEffect(() => {
     if (data) setTitle(data.game.title);
@@ -87,19 +86,6 @@ export default function GameDetail() {
       api.showNotification("RETROVERSE", String(e)).catch(() => {});
     } finally {
       setHashingAll(false);
-    }
-  };
-
-  const enrich = async (provider: string) => {
-    setEnriching(true);
-    try {
-      await api.enrichGame(id!, provider);
-      qc.invalidateQueries({ queryKey: ["game-metadata", id] });
-      api.showNotification("RETROVERSE", "Métadonnées enrichies.").catch(() => {});
-    } catch (e) {
-      api.showNotification("RETROVERSE", String(e)).catch(() => {});
-    } finally {
-      setEnriching(false);
     }
   };
 
@@ -234,18 +220,6 @@ export default function GameDetail() {
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Métadonnées</h3>
-        <div className="row" style={{ gap: 8 }}>
-          <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => enrich("screenscraper")} disabled={enriching}>
-            {enriching ? "…" : "Enrichir (ScreenScraper)"}
-          </button>
-          <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => enrich("thegamesdb")} disabled={enriching}>
-            {enriching ? "…" : "Enrichir (TheGamesDB)"}
-          </button>
-        </div>
       </div>
 
 
