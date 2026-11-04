@@ -46,7 +46,7 @@ export default function Genres() {
           </button>
         </div>
         <table className="table">
-          <thead><tr><th>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Parent</th></tr></thead>
+          <thead><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Parent</th></tr></thead>
           <tbody>
             {filtered.map((g: any) => (
               <tr key={g.id}>
