@@ -162,6 +162,7 @@ pub fn run() {
             let state = app.state::<crate::state::AppState>().inner().clone();
             tauri::async_runtime::spawn(async move {
                 let _ = crate::commands::genres::sync_genres_inner(&state).await;
+                let _ = crate::commands::entities::sync_entities_from_metadata_inner(&state);
             });
 
             // Single-instance listener (Unix): restore window when another instance pings.

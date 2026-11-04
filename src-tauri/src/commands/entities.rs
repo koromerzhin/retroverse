@@ -269,8 +269,7 @@ pub fn delete_genre(state: State<'_, AppState>, id: String) -> Result<()> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn sync_entities_from_metadata(state: State<'_, AppState>) -> Result<usize> {
+pub fn sync_entities_from_metadata_inner(state: &AppState) -> Result<usize> {
     let conn = state.db.lock().unwrap();
     // Developers
     let devs: Vec<String> = conn
@@ -315,4 +314,9 @@ pub fn sync_entities_from_metadata(state: State<'_, AppState>) -> Result<usize> 
         }
     }
     Ok(0)
+}
+
+#[tauri::command]
+pub fn sync_entities_from_metadata(state: State<'_, AppState>) -> Result<usize> {
+    sync_entities_from_metadata_inner(&state)
 }
