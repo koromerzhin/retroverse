@@ -30,6 +30,8 @@ export default function Library() {
     queryKey: ["platforms"],
     queryFn: () => api.listPlatforms(),
   });
+  const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
+  const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
   const { data: platformCountsData } = useQuery<any>({
     queryKey: ["platform-game-counts"],
     queryFn: () => api.platformGameCounts(),
@@ -81,6 +83,34 @@ export default function Library() {
             <option key={p.id} value={p.id}>{p.name} ({platformCounts[p.id]})</option>
           ))}
         </select>
+        <select
+          className="select"
+          style={{ maxWidth: 200 }}
+          value={developer ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            const params = new URLSearchParams(searchParams);
+            if (v) params.set("developer", v); else params.delete("developer");
+            navigate(`/library?${params.toString()}`);
+          }}
+        >
+          <option value="">Tous développeurs</option>
+          {(developers || []).map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <select
+          className="select"
+          style={{ maxWidth: 200 }}
+          value={publisher ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            const params = new URLSearchParams(searchParams);
+            if (v) params.set("publisher", v); else params.delete("publisher");
+            navigate(`/library?${params.toString()}`);
+          }}
+        >
+          <option value="">Tous éditeurs</option>
+          {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
         <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
         <div className="row" style={{ marginLeft: "auto", gap: 4 }}>
@@ -106,6 +136,7 @@ export default function Library() {
               <div className="info">
                 <div className="title">{e.game.title}</div>
                 <div className="meta">{e.platform?.name ?? "Inconnu"} · {e.file_count} fichier(s)</div>
+                {(e.developer || e.publisher) && <div className="meta" style={{ fontSize: 10 }}>{[e.developer, e.publisher].filter(Boolean).join(" · ")}</div>}
               </div>
             </div>
           ))}
@@ -116,6 +147,8 @@ export default function Library() {
             <tr>
               <th>Titre</th>
               <th>Plateforme</th>
+              <th>Développeur</th>
+              <th>Éditeur</th>
               <th>Fichiers</th>
             </tr>
           </thead>
@@ -124,6 +157,8 @@ export default function Library() {
               <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer" }}>
                 <td>{e.game.title}</td>
                 <td>{e.platform?.name ?? "Inconnu"}</td>
+                <td>{e.developer ?? "—"}</td>
+                <td>{e.publisher ?? "—"}</td>
                 <td>{e.file_count}</td>
               </tr>
             ))}

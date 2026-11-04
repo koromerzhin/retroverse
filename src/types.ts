@@ -59,6 +59,8 @@ export interface LibraryEntry {
   platform: Platform | null;
   files: GameFile[];
   file_count: number;
+  developer: string | null;
+  publisher: string | null;
 }
 
 export interface ScanResult {
