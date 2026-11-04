@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useI18n } from "../i18n";
 
 export default function Genres() {
   const { lang } = useI18n();
+  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["genres-full"], queryFn: () => api.listGenresFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [syncing, setSyncing] = useState(false);
 
   const nameOf = (g: any) => {
     const map: Record<string, string | null> = { fr: g.name_fr, en: g.name_en, de: g.name_de, es: g.name_es, it: g.name_it, pt: g.name_pt };
@@ -28,6 +30,20 @@ export default function Genres() {
         <div className="row" style={{ gap: 8, marginBottom: 12 }}>
           <input className="input" placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
+          <button className="btn primary" disabled={syncing} onClick={async () => {
+            setSyncing(true);
+            try {
+              const n = await api.syncGenres();
+              qc.invalidateQueries({ queryKey: ["genres-full"] });
+              api.showNotification("RETROVERSE", `Genres synchronisés : ${n}`).catch(() => {});
+            } catch (e) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            } finally {
+              setSyncing(false);
+            }
+          }}>
+            {syncing ? "…" : "Synchroniser les genres (ScreenScraper)"}
+          </button>
         </div>
         <table className="table">
           <thead><tr><th>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Parent</th></tr></thead>
