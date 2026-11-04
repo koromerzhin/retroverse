@@ -28,10 +28,20 @@ pub async fn enrich_game(
         )?
     };
 
+    // Gather file hashes for this game (if available) to improve ScreenScraper matching.
+    let hashes: Option<(Option<String>, Option<String>, Option<String>)> = {
+        let conn = state.db.lock().unwrap();
+        conn.query_row(
+            "SELECT crc32, md5, sha1 FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id WHERE l.game_id = ?1 LIMIT 1",
+            [game_id.clone()],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        ).ok()
+    };
+
     let prov = metadata::provider_by_name_with_config(&provider, &crate::config::load())
         .ok_or_else(|| RetroError::Invalid("unknown provider".into()))?;
 
-    let res = prov.fetch(&title, platform.as_deref())?;
+    let res = prov.fetch(&title, platform.as_deref(), hashes)?;
 
     // store metadata records with provenance
     {

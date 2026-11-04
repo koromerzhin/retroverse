@@ -30,7 +30,12 @@ pub struct MetadataResult {
 
 pub trait MetadataProvider: Send + Sync {
     fn name(&self) -> &'static str;
-    fn fetch(&self, title: &str, platform: Option<&str>) -> Result<MetadataResult>;
+    fn fetch(
+        &self,
+        title: &str,
+        platform: Option<&str>,
+        hashes: Option<(Option<String>, Option<String>, Option<String>)>,
+    ) -> Result<MetadataResult>;
 }
 
 #[derive(Clone)]
@@ -80,55 +85,100 @@ impl MetadataProvider for ScreenScraperProvider {
         "screenscraper"
     }
 
-    fn fetch(&self, title: &str, platform: Option<&str>) -> Result<MetadataResult> {
+    fn fetch(
+        &self,
+        title: &str,
+        platform: Option<&str>,
+        hashes: Option<(Option<String>, Option<String>, Option<String>)>,
+    ) -> Result<MetadataResult> {
         let sid = screenscraper_system_id(platform);
-        // Search by name first.
-        let mut search_url = format!(
-            "https://www.screenscraper.fr/api2/jeuRecherche.php?devid={}&devpassword={}&softname=RETROVERSE&output=json&ssid={}&sspassword={}&recherche={}",
-            urlencoding(&self.cfg.screenscraper_devid),
-            urlencoding(&self.cfg.screenscraper_devpassword),
-            urlencoding(&self.cfg.screenscraper_ssid),
-            urlencoding(&self.cfg.screenscraper_sspassword),
-            urlencoding(title),
-        );
-        if let Some(s) = sid {
-            search_url.push_str(&format!("&systemeid={}", s));
-        }
-        let resp = ureq::get(&search_url)
-            .call()
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        let mut r = resp;
-        let json: serde_json::Value = r
-            .body_mut()
-            .read_json()
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        let gameid = json["response"]["jeux"]
-            .as_array()
-            .and_then(|a| a.first())
-            .and_then(|g| g["id"].as_i64().or_else(|| g["id"].as_str()?.parse().ok()))
-            .map(|n| n.to_string())
-            .ok_or_else(|| RetroError::NotFound("game not found".into()))?;
 
-        // Fetch full game info by gameid.
-        let mut url = format!(
-            "https://www.screenscraper.fr/api2/jeuInfos.php?devid={}&devpassword={}&softname=RETROVERSE&output=json&ssid={}&sspassword={}&gameid={}",
-            urlencoding(&self.cfg.screenscraper_devid),
-            urlencoding(&self.cfg.screenscraper_devpassword),
-            urlencoding(&self.cfg.screenscraper_ssid),
-            urlencoding(&self.cfg.screenscraper_sspassword),
-            gameid,
-        );
-        if let Some(s) = sid {
-            url.push_str(&format!("&systemeid={}", s));
+        // Try hash-based lookup first if hashes are available.
+        let mut json_opt: Option<serde_json::Value> = None;
+        if let Some((crc, md5, sha1)) = &hashes
+            && (crc.is_some() || md5.is_some() || sha1.is_some())
+        {
+            let mut url = format!(
+                "https://www.screenscraper.fr/api2/jeuInfos.php?devid={}&devpassword={}&softname=RETROVERSE&output=json&ssid={}&sspassword={}",
+                urlencoding(&self.cfg.screenscraper_devid),
+                urlencoding(&self.cfg.screenscraper_devpassword),
+                urlencoding(&self.cfg.screenscraper_ssid),
+                urlencoding(&self.cfg.screenscraper_sspassword),
+            );
+            if let Some(c) = crc {
+                url.push_str(&format!("&crc={}", c));
+            }
+            if let Some(m) = md5 {
+                url.push_str(&format!("&md5={}", m));
+            }
+            if let Some(sh) = sha1 {
+                url.push_str(&format!("&sha1={}", sh));
+            }
+            if let Some(s) = sid {
+                url.push_str(&format!("&systemeid={}", s));
+            }
+            url.push_str("&romtype=rom");
+            if let Ok(resp) = ureq::get(&url).call() {
+                let mut r = resp;
+                if let Ok(j) = r.body_mut().read_json::<serde_json::Value>()
+                    && j["response"]["jeu"].is_object()
+                {
+                    json_opt = Some(j);
+                }
+            }
         }
-        let resp = ureq::get(&url)
-            .call()
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        let mut r = resp;
-        let json: serde_json::Value = r
-            .body_mut()
-            .read_json()
-            .map_err(|e| RetroError::Other(e.to_string()))?;
+
+        let json = if let Some(j) = json_opt {
+            j
+        } else {
+            // Search by name.
+            let mut search_url = format!(
+                "https://www.screenscraper.fr/api2/jeuRecherche.php?devid={}&devpassword={}&softname=RETROVERSE&output=json&ssid={}&sspassword={}&recherche={}",
+                urlencoding(&self.cfg.screenscraper_devid),
+                urlencoding(&self.cfg.screenscraper_devpassword),
+                urlencoding(&self.cfg.screenscraper_ssid),
+                urlencoding(&self.cfg.screenscraper_sspassword),
+                urlencoding(title),
+            );
+            if let Some(s) = sid {
+                search_url.push_str(&format!("&systemeid={}", s));
+            }
+            let resp = ureq::get(&search_url)
+                .call()
+                .map_err(|e| RetroError::Other(e.to_string()))?;
+            let mut r = resp;
+            let json: serde_json::Value = r
+                .body_mut()
+                .read_json()
+                .map_err(|e| RetroError::Other(e.to_string()))?;
+            let gameid = json["response"]["jeux"]
+                .as_array()
+                .and_then(|a| a.first())
+                .and_then(|g| g["id"].as_i64().or_else(|| g["id"].as_str()?.parse().ok()))
+                .map(|n| n.to_string())
+                .ok_or_else(|| RetroError::NotFound("game not found".into()))?;
+
+            // Fetch full game info by gameid.
+            let mut url = format!(
+                "https://www.screenscraper.fr/api2/jeuInfos.php?devid={}&devpassword={}&softname=RETROVERSE&output=json&ssid={}&sspassword={}&gameid={}",
+                urlencoding(&self.cfg.screenscraper_devid),
+                urlencoding(&self.cfg.screenscraper_devpassword),
+                urlencoding(&self.cfg.screenscraper_ssid),
+                urlencoding(&self.cfg.screenscraper_sspassword),
+                gameid,
+            );
+            if let Some(s) = sid {
+                url.push_str(&format!("&systemeid={}", s));
+            }
+            let resp = ureq::get(&url)
+                .call()
+                .map_err(|e| RetroError::Other(e.to_string()))?;
+            let mut r = resp;
+            r.body_mut()
+                .read_json()
+                .map_err(|e| RetroError::Other(e.to_string()))?
+        };
+
         // parse
         let jeu = &json["response"]["jeu"];
         let description = jeu["synopsis"]
