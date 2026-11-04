@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 19;
+pub const SCHEMA_VERSION: i32 = 20;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -101,6 +101,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 19 {
         apply_v19(conn)?;
+    }
+    if current < 20 {
+        apply_v20(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -855,5 +858,19 @@ fn apply_v19(conn: &Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE genres ADD COLUMN updated_at TEXT", []);
     }
     let _ = conn.execute("UPDATE genres SET created_at = COALESCE(created_at, '2020-01-01T00:00:00Z'), updated_at = COALESCE(updated_at, '2020-01-01T00:00:00Z') WHERE created_at IS NULL OR updated_at IS NULL", []);
+    Ok(())
+}
+
+fn apply_v20(conn: &Connection) -> Result<()> {
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(genres)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    if cols.contains(&"name".to_string()) {
+        let _ = conn.execute("ALTER TABLE genres DROP COLUMN name", []);
+    }
     Ok(())
 }
