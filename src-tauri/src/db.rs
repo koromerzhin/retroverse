@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 18;
+pub const SCHEMA_VERSION: i32 = 19;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -98,6 +98,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 18 {
         apply_v18(conn)?;
+    }
+    if current < 19 {
+        apply_v19(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -826,9 +829,31 @@ fn apply_v18(conn: &Connection) -> Result<()> {
     add_col(conn, "name_it", "TEXT");
     add_col(conn, "name_pt", "TEXT");
     add_col(conn, "ss_id", "TEXT");
+    add_col(conn, "created_at", "TEXT");
+    add_col(conn, "updated_at", "TEXT");
     // Migrate old single name column into name_fr/name_en if present.
     if cols.contains(&"name".to_string()) {
         let _ = conn.execute("UPDATE genres SET name_fr = COALESCE(name_fr, name), name_en = COALESCE(name_en, name) WHERE name IS NOT NULL", []);
     }
+    let _ = conn.execute("UPDATE genres SET created_at = COALESCE(created_at, '2020-01-01T00:00:00Z'), updated_at = COALESCE(updated_at, '2020-01-01T00:00:00Z') WHERE created_at IS NULL OR updated_at IS NULL", []);
+    Ok(())
+}
+
+fn apply_v19(conn: &Connection) -> Result<()> {
+    // Safety net: ensure created_at/updated_at exist.
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(genres)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    if !cols.contains(&"created_at".to_string()) {
+        let _ = conn.execute("ALTER TABLE genres ADD COLUMN created_at TEXT", []);
+    }
+    if !cols.contains(&"updated_at".to_string()) {
+        let _ = conn.execute("ALTER TABLE genres ADD COLUMN updated_at TEXT", []);
+    }
+    let _ = conn.execute("UPDATE genres SET created_at = COALESCE(created_at, '2020-01-01T00:00:00Z'), updated_at = COALESCE(updated_at, '2020-01-01T00:00:00Z') WHERE created_at IS NULL OR updated_at IS NULL", []);
     Ok(())
 }
