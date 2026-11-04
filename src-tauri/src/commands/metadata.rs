@@ -156,27 +156,29 @@ pub async fn enrich_game(
             }
         }
 
-        // also store details in game.metadata_json
+        // also store details in game.metadata_json (prefer full raw ScreenScraper object)
         {
-            let details = serde_json::json!({
-                "publisher": res.publisher,
-                "developer": res.developer,
-                "genres": res.genres,
-                "players": res.players,
-                "rating": res.rating,
-                "release_dates": res.release_dates,
-                "classifications": res.classifications,
-                "alt_titles": res.alt_titles,
-                "modes": res.modes,
-                "themes": res.themes,
-                "styles": res.styles,
-                "ss_id": res.ss_id,
-                "notgame": res.notgame,
-                "systeme": res.systeme,
-                "topstaff": res.topstaff,
-                "rotation": res.rotation,
-                "synopsis": res.description,
-                "familles": res.familles,
+            let details = res.raw.clone().unwrap_or_else(|| {
+                serde_json::json!({
+                    "publisher": res.publisher,
+                    "developer": res.developer,
+                    "genres": res.genres,
+                    "players": res.players,
+                    "rating": res.rating,
+                    "release_dates": res.release_dates,
+                    "classifications": res.classifications,
+                    "alt_titles": res.alt_titles,
+                    "modes": res.modes,
+                    "themes": res.themes,
+                    "styles": res.styles,
+                    "ss_id": res.ss_id,
+                    "notgame": res.notgame,
+                    "systeme": res.systeme,
+                    "topstaff": res.topstaff,
+                    "rotation": res.rotation,
+                    "synopsis": res.description,
+                    "familles": res.familles,
+                })
             });
             let _ = conn.execute(
                 "UPDATE games SET metadata_json=?1 WHERE id=?2",
