@@ -177,7 +177,19 @@ export default function GameDetail() {
             </tr>
           </tbody>
         </table>
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
+            if (!id) return;
+            try {
+              await api.enrichGame(id, "screenscraper");
+              qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+              api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {});
+            } catch (e) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            }
+          }}>
+            Rechercher sur ScreenScraper
+          </button>
           <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
             if (!id) return;
             try {
