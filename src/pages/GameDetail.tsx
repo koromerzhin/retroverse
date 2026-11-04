@@ -26,7 +26,7 @@ export default function GameDetail() {
     queryFn: () => api.getGameMetadata(id!),
     enabled: !!id,
   });
-  const { data: genres } = useQuery<string[]>({ queryKey: ["genres"], queryFn: () => api.listGenres() });
+  const { data: allGenres } = useQuery<any[]>({ queryKey: ["genres-full"], queryFn: () => api.listGenresFull() });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
 
@@ -148,8 +148,14 @@ export default function GameDetail() {
               <td>
                 <select className="select" value={infoGenre} onChange={(e) => setInfoGenre(e.target.value)} style={{ width: "100%" }}>
                   <option value="">—</option>
-                  {(genres || []).map((g) => <option key={g} value={g}>{g}</option>)}
-                  {!genres?.includes(infoGenre) && infoGenre && <option value={infoGenre}>{infoGenre}</option>}
+                  {(allGenres || []).map((g: any) => {
+                    const name = g.name_fr || g.name_en || g.name_de || g.name_es || g.name_it || g.name_pt || "—";
+                    const parent = g.parent_id ? (allGenres || []).find((x: any) => x.id === g.parent_id) : null;
+                    const parentName = parent ? (parent.name_fr || parent.name_en || parent.name_de || parent.name_es || parent.name_it || parent.name_pt || "") : "";
+                    const label = parentName ? `  ${name} (${parentName})` : name;
+                    return <option key={g.id} value={name}>{label}</option>;
+                  })}
+                  {!allGenres?.some((g: any) => (g.name_fr || g.name_en) === infoGenre) && infoGenre && <option value={infoGenre}>{infoGenre}</option>}
                 </select>
               </td>
             </tr>
