@@ -35,13 +35,13 @@ export default function GameDetail() {
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [hashingFile, setHashingFile] = useState<string | null>(null);
   const [hashingAll, setHashingAll] = useState(false);
+  const [tab, setTab] = useState<"info" | "files" | "hashes">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
   const [infoGenre, setInfoGenre] = useState("");
   const [infoClassifications, setInfoClassifications] = useState("");
   const [infoReleaseDates, setInfoReleaseDates] = useState("");
   const [infoSynopsis, setInfoSynopsis] = useState("");
-  const [enriching, setEnriching] = useState(false);
 
   useEffect(() => {
     if (data) setTitle(data.game.title);
@@ -90,19 +90,6 @@ export default function GameDetail() {
     }
   };
 
-  const enrich = async (provider: string) => {
-    setEnriching(true);
-    try {
-      await api.enrichGame(id!, provider);
-      qc.invalidateQueries({ queryKey: ["game-metadata", id] });
-      api.showNotification("RETROVERSE", "Métadonnées enrichies.").catch(() => {});
-    } catch (e) {
-      api.showNotification("RETROVERSE", String(e)).catch(() => {});
-    } finally {
-      setEnriching(false);
-    }
-  };
-
   async function handleCopy() {
     if (!remoteSourceId || !data) return;
     const dest = await pickDirectory();
@@ -135,6 +122,13 @@ export default function GameDetail() {
       <h1 className="page-title">{data.game.title}</h1>
       <p className="page-sub">{data.platform?.name ?? "Plateforme inconnue"}</p>
 
+      <div className="row" style={{ marginBottom: 16, gap: 8 }}>
+        <button className={`btn ${tab === "info" ? "primary" : ""}`} onClick={() => setTab("info")}>Informations</button>
+        <button className={`btn ${tab === "files" ? "primary" : ""}`} onClick={() => setTab("files")}>Fichiers</button>
+        <button className={`btn ${tab === "hashes" ? "primary" : ""}`} onClick={() => setTab("hashes")}>Empreintes</button>
+      </div>
+
+      {tab === "info" && (
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.info")}</h3>
         {isRemote && (
@@ -209,9 +203,9 @@ export default function GameDetail() {
           </button>
         </div>
       </div>
+      )}
 
-
-
+      {tab === "files" && (
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.files")} ({data.files.length})</h3>
         <table className="table">
@@ -235,21 +229,9 @@ export default function GameDetail() {
           </tbody>
         </table>
       </div>
+      )}
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Métadonnées</h3>
-        <div className="row" style={{ gap: 8 }}>
-          <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => enrich("screenscraper")} disabled={enriching}>
-            {enriching ? "…" : "Enrichir (ScreenScraper)"}
-          </button>
-          <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => enrich("thegamesdb")} disabled={enriching}>
-            {enriching ? "…" : "Enrichir (TheGamesDB)"}
-          </button>
-        </div>
-      </div>
-
-
-
+      {tab === "hashes" && (
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <h3 style={{ marginTop: 0, marginBottom: 0 }}>{t("gameDetail.hashes")}</h3>
@@ -310,6 +292,7 @@ export default function GameDetail() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
