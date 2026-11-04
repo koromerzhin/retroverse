@@ -178,9 +178,9 @@ export default function GameDetail() {
                 <table className="table" style={{ fontSize: 11, width: "100%" }}>
                   <thead><tr><th>Pays</th><th>Date de sortie</th></tr></thead>
                   <tbody>
-                    <tr><td>Europe</td><td><input className="input" value={infoReleaseEU} onChange={(e) => setInfoReleaseEU(e.target.value)} style={{ width: "100%" }} placeholder="YYYY-MM-DD" /></td></tr>
-                    <tr><td>USA</td><td><input className="input" value={infoReleaseUS} onChange={(e) => setInfoReleaseUS(e.target.value)} style={{ width: "100%" }} placeholder="YYYY-MM-DD" /></td></tr>
-                    <tr><td>Japon</td><td><input className="input" value={infoReleaseJP} onChange={(e) => setInfoReleaseJP(e.target.value)} style={{ width: "100%" }} placeholder="YYYY-MM-DD" /></td></tr>
+                    <tr><td>Europe</td><td><input className="input" value={infoReleaseEU} onChange={(e) => setInfoReleaseEU(e.target.value)} style={{ width: "100%" }} type="date" /></td></tr>
+                    <tr><td>USA</td><td><input className="input" value={infoReleaseUS} onChange={(e) => setInfoReleaseUS(e.target.value)} style={{ width: "100%" }} type="date" /></td></tr>
+                    <tr><td>Japon</td><td><input className="input" value={infoReleaseJP} onChange={(e) => setInfoReleaseJP(e.target.value)} style={{ width: "100%" }} type="date" /></td></tr>
                   </tbody>
                 </table>
               </td>
