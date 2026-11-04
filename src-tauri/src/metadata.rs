@@ -336,68 +336,6 @@ impl MetadataProvider for ScreenScraperProvider {
     }
 }
 
-#[derive(Clone)]
-pub struct TheGamesDbProvider {
-    pub cfg: crate::config::ProviderConfig,
-}
-
-impl MetadataProvider for TheGamesDbProvider {
-    fn name(&self) -> &'static str {
-        "thegamesdb"
-    }
-
-    fn fetch(&self, title: &str, platform: Option<&str>) -> Result<MetadataResult> {
-        let url = format!(
-            "https://api.thegamesdb.net/v1/Games/ByGameName?apikey={}&name={}&fields=players,publishers,genres,overview,rating",
-            urlencoding(&self.cfg.tgdb_apikey),
-            urlencoding(title),
-        );
-        if let Some(p) = platform {
-            // platform id mapping not available; skip
-            let _ = p;
-        }
-        let resp = ureq::get(&url)
-            .call()
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        let mut r = resp;
-        let json: serde_json::Value = r
-            .body_mut()
-            .read_json()
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        let game = json["data"]["games"].as_array().and_then(|a| a.first());
-        let g = match game {
-            Some(g) => g,
-            None => return Ok(MetadataResult::default()),
-        };
-        let description = g["overview"].as_str().map(|s| s.to_string());
-        let developer = g["developers"]
-            .as_array()
-            .and_then(|a| a.first())
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let publisher = g["publishers"]
-            .as_array()
-            .and_then(|a| a.first())
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let cover_url = json["include"]["boxart"]["data"]
-            .as_object()
-            .and_then(|o| o.values().next())
-            .and_then(|a| a.as_array())
-            .and_then(|a| a.first())
-            .and_then(|b| b["url"].as_str())
-            .map(|s| format!("https://cdn.thegamesdb.net/images/original/{}", s));
-        Ok(MetadataResult {
-            title: g["game_title"].as_str().map(|s| s.to_string()),
-            description,
-            cover_url,
-            developer,
-            publisher,
-            ..Default::default()
-        })
-    }
-}
-
 pub fn urlencoding(s: &str) -> String {
     s.chars()
         .map(|c| match c {
@@ -421,9 +359,6 @@ pub fn providers_with_config(
     let mut v: Vec<Arc<dyn MetadataProvider>> = Vec::new();
     if !cfg.screenscraper_devid.is_empty() {
         v.push(Arc::new(ScreenScraperProvider { cfg: cfg.clone() }));
-    }
-    if !cfg.tgdb_apikey.is_empty() {
-        v.push(Arc::new(TheGamesDbProvider { cfg: cfg.clone() }));
     }
     v
 }
