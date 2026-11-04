@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 16;
+pub const SCHEMA_VERSION: i32 = 18;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -95,6 +95,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 17 {
         apply_v17(conn)?;
+    }
+    if current < 18 {
+        apply_v18(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -796,5 +799,36 @@ fn apply_v17(conn: &Connection) -> Result<()> {
         );
         "#,
     )?;
+    Ok(())
+}
+
+fn apply_v18(conn: &Connection) -> Result<()> {
+    // Ensure the genres table has the multilingual columns (old schema had only name/parent_id).
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(genres)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    let add_col = |conn: &Connection, col: &str, typ: &str| {
+        if !cols.contains(&col.to_string()) {
+            let _ = conn.execute(
+                &format!("ALTER TABLE genres ADD COLUMN {} {}", col, typ),
+                [],
+            );
+        }
+    };
+    add_col(conn, "name_en", "TEXT");
+    add_col(conn, "name_fr", "TEXT");
+    add_col(conn, "name_de", "TEXT");
+    add_col(conn, "name_es", "TEXT");
+    add_col(conn, "name_it", "TEXT");
+    add_col(conn, "name_pt", "TEXT");
+    add_col(conn, "ss_id", "TEXT");
+    // Migrate old single name column into name_fr/name_en if present.
+    if cols.contains(&"name".to_string()) {
+        let _ = conn.execute("UPDATE genres SET name_fr = COALESCE(name_fr, name), name_en = COALESCE(name_en, name) WHERE name IS NOT NULL", []);
+    }
     Ok(())
 }
