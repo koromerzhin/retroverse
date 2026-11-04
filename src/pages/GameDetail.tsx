@@ -39,7 +39,9 @@ export default function GameDetail() {
   const [infoDeveloper, setInfoDeveloper] = useState("");
   const [infoGenre, setInfoGenre] = useState("");
   const [infoClassifications, setInfoClassifications] = useState("");
-  const [infoReleaseDates, setInfoReleaseDates] = useState("");
+  const [infoReleaseEU, setInfoReleaseEU] = useState("");
+  const [infoReleaseUS, setInfoReleaseUS] = useState("");
+  const [infoReleaseJP, setInfoReleaseJP] = useState("");
   const [infoSynopsis, setInfoSynopsis] = useState("");
 
   useEffect(() => {
@@ -57,7 +59,10 @@ export default function GameDetail() {
     setInfoPublisher(details.editeur?.text ?? details.publisher ?? "");
     setInfoDeveloper(details.developpeur?.text ?? details.developer ?? "");
     setInfoClassifications(details.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : "");
-    setInfoReleaseDates(details.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : "");
+    const dates = details.dates || [];
+    setInfoReleaseEU(dates.find((d: any) => d[0] === "eu")?.[1] ?? "");
+    setInfoReleaseUS(dates.find((d: any) => d[0] === "us")?.[1] ?? "");
+    setInfoReleaseJP(dates.find((d: any) => d[0] === "jp")?.[1] ?? "");
     setInfoSynopsis(synopsis ?? "");
   }, [details, synopsis]);
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
@@ -168,8 +173,16 @@ export default function GameDetail() {
               <td><input className="input" value={infoClassifications} onChange={(e) => setInfoClassifications(e.target.value)} style={{ width: "100%" }} /></td>
             </tr>
             <tr>
-              <td style={{ fontWeight: 600 }}>Date(s) de sortie</td>
-              <td><input className="input" value={infoReleaseDates} onChange={(e) => setInfoReleaseDates(e.target.value)} style={{ width: "100%" }} /></td>
+              <td style={{ fontWeight: 600 }}>Date de sortie (Europe)</td>
+              <td><input className="input" value={infoReleaseEU} onChange={(e) => setInfoReleaseEU(e.target.value)} style={{ width: "100%" }} placeholder="YYYY-MM-DD" /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Date de sortie (USA)</td>
+              <td><input className="input" value={infoReleaseUS} onChange={(e) => setInfoReleaseUS(e.target.value)} style={{ width: "100%" }} placeholder="YYYY-MM-DD" /></td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 600 }}>Date de sortie (Japon)</td>
+              <td><input className="input" value={infoReleaseJP} onChange={(e) => setInfoReleaseJP(e.target.value)} style={{ width: "100%" }} placeholder="YYYY-MM-DD" /></td>
             </tr>
             <tr>
               <td style={{ fontWeight: 600, verticalAlign: "top" }}>Synopsis</td>
