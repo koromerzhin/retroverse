@@ -93,6 +93,12 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     if current < 16 {
         apply_v16(conn)?;
     }
+    if current < 17 {
+        apply_v17(conn)?;
+    }
+    if current < 16 {
+        apply_v16(conn)?;
+    }
     conn.execute(
         "DELETE FROM schema_version WHERE version < ?1",
         params![SCHEMA_VERSION],
@@ -739,6 +745,56 @@ fn apply_v16(conn: &Connection) -> Result<()> {
             name TEXT NOT NULL,
             parent_id TEXT
         );",
+    )?;
+    Ok(())
+}
+
+fn apply_v17(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS developers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            ss_id TEXT UNIQUE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS publishers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            ss_id TEXT UNIQUE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS genres (
+            id TEXT PRIMARY KEY,
+            name_en TEXT,
+            name_fr TEXT,
+            name_de TEXT,
+            name_es TEXT,
+            name_it TEXT,
+            name_pt TEXT,
+            parent_id TEXT REFERENCES genres(id),
+            ss_id TEXT UNIQUE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS game_developers (
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            developer_id TEXT NOT NULL REFERENCES developers(id) ON DELETE CASCADE,
+            PRIMARY KEY (game_id, developer_id)
+        );
+        CREATE TABLE IF NOT EXISTS game_publishers (
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            publisher_id TEXT NOT NULL REFERENCES publishers(id) ON DELETE CASCADE,
+            PRIMARY KEY (game_id, publisher_id)
+        );
+        CREATE TABLE IF NOT EXISTS game_genres (
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            genre_id TEXT NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
+            PRIMARY KEY (game_id, genre_id)
+        );
+        "#,
     )?;
     Ok(())
 }
