@@ -17,6 +17,12 @@ export default function Library() {
   const publisher = searchParams.get("publisher") || undefined;
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
+  const [sortKey, setSortKey] = useState<"title" | "platform" | "developer" | "publisher" | "files">("title");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (k: "title" | "platform" | "developer" | "publisher" | "files") => {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(k); setSortDir("asc"); }
+  };
   const pageSize = 24;
 
   useEffect(() => {
@@ -49,6 +55,17 @@ export default function Library() {
 
   const games = result?.items ?? [];
   const total = result?.total ?? 0;
+  const sortedGames = [...games].sort((a, b) => {
+    let cmp = 0;
+    switch (sortKey) {
+      case "title": cmp = a.game.title.localeCompare(b.game.title); break;
+      case "platform": cmp = (a.platform?.name ?? "").localeCompare(b.platform?.name ?? ""); break;
+      case "developer": cmp = (a.developer ?? "").localeCompare(b.developer ?? ""); break;
+      case "publisher": cmp = (a.publisher ?? "").localeCompare(b.publisher ?? ""); break;
+      case "files": cmp = a.file_count - b.file_count; break;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   const platformCounts: Record<string, number> = platformCountsData || {};
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
@@ -130,7 +147,7 @@ export default function Library() {
         <>
         {view === "cards" ? (
         <div className="grid games">
-          {games.map((e) => (
+          {sortedGames.map((e) => (
             <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
               <div className="cover">🎮</div>
               <div className="info">
@@ -145,15 +162,15 @@ export default function Library() {
         <table className="table">
           <thead>
             <tr>
-              <th>Titre</th>
-              <th>Plateforme</th>
-              <th>Développeur</th>
-              <th>Éditeur</th>
-              <th>Fichiers</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>Titre {sortKey === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("platform")}>Plateforme {sortKey === "platform" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("developer")}>Développeur {sortKey === "developer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("publisher")}>Éditeur {sortKey === "publisher" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
             </tr>
           </thead>
           <tbody>
-            {games.map((e) => (
+            {sortedGames.map((e) => (
               <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer" }}>
                 <td>{e.game.title}</td>
                 <td>{e.platform?.name ?? "Inconnu"}</td>
