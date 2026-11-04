@@ -34,6 +34,7 @@ export default function GameDetail() {
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [hashingFile, setHashingFile] = useState<string | null>(null);
   const [hashingAll, setHashingAll] = useState(false);
+  const [tab, setTab] = useState<"info" | "files" | "hashes">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
   const [infoGenre, setInfoGenre] = useState("");
@@ -111,6 +112,13 @@ export default function GameDetail() {
       <h1 className="page-title">{data.game.title}</h1>
       <p className="page-sub">{data.platform?.name ?? "Plateforme inconnue"}</p>
 
+      <div className="row" style={{ marginBottom: 16, gap: 8 }}>
+        <button className={`btn ${tab === "info" ? "primary" : ""}`} onClick={() => setTab("info")}>Informations</button>
+        <button className={`btn ${tab === "files" ? "primary" : ""}`} onClick={() => setTab("files")}>Fichiers</button>
+        <button className={`btn ${tab === "hashes" ? "primary" : ""}`} onClick={() => setTab("hashes")}>Empreintes</button>
+      </div>
+
+      {tab === "info" && (
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.info")}</h3>
         {isRemote && (
@@ -185,9 +193,9 @@ export default function GameDetail() {
           </button>
         </div>
       </div>
+      )}
 
-
-
+      {tab === "files" && (
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>{t("gameDetail.files")} ({data.files.length})</h3>
         <table className="table">
@@ -211,9 +219,11 @@ export default function GameDetail() {
           </tbody>
         </table>
       </div>
+      )}
 
 
 
+      {tab === "hashes" && (
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <h3 style={{ marginTop: 0, marginBottom: 0 }}>{t("gameDetail.hashes")}</h3>
@@ -274,6 +284,7 @@ export default function GameDetail() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
