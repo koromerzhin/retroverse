@@ -127,3 +127,36 @@ pub struct ScanResult {
 pub fn new_id() -> String {
     Uuid::new_v4().to_string()
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Developer {
+    pub id: String,
+    pub name: String,
+    pub ss_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Publisher {
+    pub id: String,
+    pub name: String,
+    pub ss_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Genre {
+    pub id: String,
+    pub name_en: Option<String>,
+    pub name_fr: Option<String>,
+    pub name_de: Option<String>,
+    pub name_es: Option<String>,
+    pub name_it: Option<String>,
+    pub name_pt: Option<String>,
+    pub parent_id: Option<String>,
+    pub ss_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
