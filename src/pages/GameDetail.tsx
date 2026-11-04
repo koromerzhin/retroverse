@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
@@ -11,7 +11,6 @@ export default function GameDetail() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const qc = useQueryClient();
-  const enrichedRef = useRef(false);
   const { data, isLoading } = useQuery<LibraryEntry>({
     queryKey: ["game", id],
     queryFn: () => api.getGame(id!),
@@ -101,15 +100,6 @@ export default function GameDetail() {
       setCopyMsg(String(e));
     }
   }
-
-  useEffect(() => {
-    if (!id || enrichedRef.current) return;
-    if (metadata && metadata.length > 0) return;
-    enrichedRef.current = true;
-    api.enrichGame(id, "screenscraper").then(() => {
-      qc.invalidateQueries({ queryKey: ["game-metadata", id] });
-    }).catch(() => {});
-  }, [id, metadata, qc]);
 
   if (isLoading || !data) {
     return <div className="empty"><div className="spinner" /></div>;
