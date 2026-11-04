@@ -178,7 +178,7 @@ export default function GameDetail() {
           </tbody>
         </table>
         <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
+          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={data.files.some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))} onClick={async () => {
             if (!id) return;
             try {
               await api.enrichGame(id, "screenscraper");
