@@ -170,7 +170,7 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
         platforms.into_iter().map(|p| (p.id.clone(), p)).collect();
 
     let game: Game = conn.query_row(
-        "SELECT id,title,platform_id,created_at,updated_at FROM games WHERE id=?1",
+        "SELECT id,title,platform_id,created_at,updated_at,metadata_json FROM games WHERE id=?1",
         [id.clone()],
         |r| {
             let created: String = r.get(3)?;
