@@ -34,6 +34,8 @@ export default function GameDetail() {
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [hashingFile, setHashingFile] = useState<string | null>(null);
   const [hashingAll, setHashingAll] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [searchingSS, setSearchingSS] = useState(false);
   const [tab, setTab] = useState<"info" | "files" | "hashes">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
@@ -205,20 +207,24 @@ export default function GameDetail() {
           </tbody>
         </table>
         <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={data.files.some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))} onClick={async () => {
+          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={searchingSS || data.files.some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))} onClick={async () => {
             if (!id) return;
+            setSearchingSS(true);
             try {
               await api.enrichGame(id, "screenscraper");
               qc.invalidateQueries({ queryKey: ["game-metadata", id] });
               api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {});
             } catch (e) {
               api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            } finally {
+              setSearchingSS(false);
             }
           }}>
-            Rechercher sur ScreenScraper
+            {searchingSS ? <><span className="spinner" /> Recherche en cours...</> : "Rechercher sur ScreenScraper"}
           </button>
-          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
+          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={savingInfo} onClick={async () => {
             if (!id) return;
+            setSavingInfo(true);
             try {
               const meta = details ? { ...details, editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } } : { editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } };
               await api.saveGameInfo(id, title || data.game.title, JSON.stringify(meta));
@@ -226,9 +232,11 @@ export default function GameDetail() {
               api.showNotification("RETROVERSE", "Informations enregistrées.").catch(() => {});
             } catch (e) {
               api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            } finally {
+              setSavingInfo(false);
             }
           }}>
-            Enregistrer toutes les informations
+            {savingInfo ? <><span className="spinner" /> Enregistrement en cours...</> : "Enregistrer toutes les informations"}
           </button>
         </div>
       </div>
