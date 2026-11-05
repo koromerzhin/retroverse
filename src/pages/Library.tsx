@@ -19,6 +19,7 @@ export default function Library() {
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
   const [calculatingAll, setCalculatingAll] = useState(false);
+  const [hashingGame, setHashingGame] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<"title" | "platform" | "developer" | "publisher" | "files">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const toggleSort = (k: "title" | "platform" | "developer" | "publisher" | "files") => {
@@ -72,6 +73,21 @@ export default function Library() {
 
   const platformCounts: Record<string, number> = platformCountsData || {};
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
+
+  const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
+
+  const hashGame = async (gameId: string) => {
+    setHashingGame(gameId);
+    try {
+      const n = await api.computeHashesForGame(gameId);
+      qc.invalidateQueries({ queryKey: ["games"] });
+      api.showNotification("RETROVERSE", `Empreintes calculées : ${n} fichier(s).`).catch(() => {});
+    } catch (e: any) {
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    } finally {
+      setHashingGame(null);
+    }
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -193,6 +209,11 @@ export default function Library() {
                 <div className="title">{e.game.title}</div>
                 <div className="meta">{e.platform?.name ?? "Inconnu"} · {e.file_count} fichier(s)</div>
                 {(e.developer || e.publisher) && <div className="meta" style={{ fontSize: 10 }}>{[e.developer, e.publisher].filter(Boolean).join(" · ")}</div>}
+                {needsHash(e) && (
+                  <button className="btn" style={{ fontSize: 11, padding: "2px 8px", marginTop: 6 }} disabled={hashingGame === e.game.id} onClick={(ev) => { ev.stopPropagation(); hashGame(e.game.id); }}>
+                    {hashingGame === e.game.id ? "…" : "Calculer les empreintes"}
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -216,6 +237,13 @@ export default function Library() {
                 <td>{e.developer ?? "—"}</td>
                 <td>{e.publisher ?? "—"}</td>
                 <td>{e.file_count}</td>
+                <td onClick={(ev) => ev.stopPropagation()}>
+                  {needsHash(e) ? (
+                    <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} disabled={hashingGame === e.game.id} onClick={() => hashGame(e.game.id)}>
+                      {hashingGame === e.game.id ? "…" : "Calculer"}
+                    </button>
+                  ) : "✓"}
+                </td>
               </tr>
             ))}
           </tbody>
