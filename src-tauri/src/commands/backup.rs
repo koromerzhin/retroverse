@@ -530,6 +530,12 @@ pub async fn compute_hashes_for_game_inner(
 
     let mut done = 0usize;
     for (fid, path, _source_id, kind, connection_id) in files {
+        if state.cancel_scan.load(std::sync::atomic::Ordering::SeqCst) {
+            if let Some(a) = &app {
+                let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "cancelled", "game": game_title, "platform": platform_name, "file": path}));
+            }
+            return Ok(done);
+        }
         let file_size: i64 = {
             let conn = state.db.lock().unwrap();
             conn.query_row(

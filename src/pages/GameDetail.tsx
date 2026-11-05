@@ -37,7 +37,7 @@ export default function GameDetail() {
   const [hashingAll, setHashingAll] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
   const [searchingSS, setSearchingSS] = useState(false);
-  const [tab, setTab] = useState<"info" | "files" | "hashes">("info");
+  const [tab, setTab] = useState<"info" | "files" | "hashes" | "media">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
   const [infoGenre, setInfoGenre] = useState("");
@@ -129,6 +129,7 @@ export default function GameDetail() {
         <button className={`btn ${tab === "info" ? "primary" : ""}`} onClick={() => setTab("info")}>Informations</button>
         <button className={`btn ${tab === "files" ? "primary" : ""}`} onClick={() => setTab("files")}>Fichiers</button>
         <button className={`btn ${tab === "hashes" ? "primary" : ""}`} onClick={() => setTab("hashes")}>Empreintes</button>
+        <button className={`btn ${tab === "media" ? "primary" : ""}`} onClick={() => setTab("media")}>Médias</button>
       </div>
 
       {tab === "info" && (
@@ -344,6 +345,24 @@ export default function GameDetail() {
             )}
           </div>
         ))}
+      </div>
+      )}
+
+      {tab === "media" && (
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Médias</h3>
+        {details?.cover_url || details?.medias ? (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {details?.cover_url && (
+              <img src={details.cover_url} alt="cover" style={{ maxWidth: 240, borderRadius: 8 }} />
+            )}
+            {(details?.medias || []).filter((m: any) => m?.url).slice(0, 6).map((m: any, i: number) => (
+              <img key={i} src={m.url} alt={m.type || "media"} style={{ maxWidth: 160, borderRadius: 8 }} />
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: "var(--text-muted)" }}>Aucun média disponible.</p>
+        )}
       </div>
       )}
     </div>
