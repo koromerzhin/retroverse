@@ -1,26 +1,11 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 
 export default function Developers() {
-  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["developers-full"], queryFn: () => api.listDevelopersFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [syncingDev, setSyncingDev] = useState(false);
-
-  const syncDev = async () => {
-    setSyncingDev(true);
-    try {
-      const r: any = await api.syncDevelopers();
-      qc.invalidateQueries({ queryKey: ["developers-full"] });
-      api.showNotification("RETROVERSE", `Synchronisation des développeurs terminée\n${r.already} déjà présents.\n${r.added} nouveaux ajoutés.\n0 doublon créé.\n${r.games_analyzed} jeux analysés.`).catch(() => {});
-    } catch (e) {
-      api.showNotification("RETROVERSE", String(e)).catch(() => {});
-    } finally {
-      setSyncingDev(false);
-    }
-  };
 
   const filtered = (data || [])
     .filter((d: any) => !search || d.name.toLowerCase().includes(search.toLowerCase()))
@@ -30,12 +15,9 @@ export default function Developers() {
     <>
       <h1 className="page-title">Développeurs</h1>
       <div className="card" style={{ marginTop: 16 }}>
-        <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <div className="row" style={{ gap: 8, marginBottom: 12 }}>
           <input className="input" placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
-          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={syncingDev} onClick={syncDev}>
-            {syncingDev ? <><span className="spinner" /> Synchronisation des développeurs...</> : "Synchroniser les développeurs"}
-          </button>
         </div>
         <table className="table">
           <thead><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>ID SS</th></tr></thead>
