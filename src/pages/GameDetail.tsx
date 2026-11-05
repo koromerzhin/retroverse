@@ -55,14 +55,21 @@ export default function GameDetail() {
   const synopsis = descRecord ? descRecord.value : null;
   useEffect(() => {
     if (!details) return;
-    setInfoGenre(details.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : "");
+    const ssGenres = details?.genres || [];
+    const localGenres = allGenres || [];
+    const matched = ssGenres.map((g: any) => {
+      const local = localGenres.find((lg: any) => String(lg.ss_id) === String(g.id));
+      if (local) return local.name_fr || local.name_en || local.name_de || local.name_es || local.name_it || local.name_pt || "";
+      return "";
+    }).filter(Boolean);
+    setInfoGenre(matched.length ? matched.join(", ") : ssGenres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", "));
     setInfoPublisher(details.editeur?.text ?? details.publisher ?? "");
     setInfoDeveloper(details.developpeur?.text ?? details.developer ?? "");
     setInfoClassifications(details.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : "");
     const dates = details.dates || [];
-    setInfoReleaseEU(dates.find((d: any) => d[0] === "eu")?.[1] ?? "");
-    setInfoReleaseUS(dates.find((d: any) => d[0] === "us")?.[1] ?? "");
-    setInfoReleaseJP(dates.find((d: any) => d[0] === "jp")?.[1] ?? "");
+    setInfoReleaseEU(dates.find((d: any) => d.region === "eu")?.text ?? "");
+    setInfoReleaseUS(dates.find((d: any) => d.region === "us")?.text ?? "");
+    setInfoReleaseJP(dates.find((d: any) => d.region === "jp")?.text ?? "");
     setInfoSynopsis(synopsis ?? "");
   }, [details, synopsis]);
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
