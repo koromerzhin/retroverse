@@ -224,6 +224,7 @@ export default function GameDetail() {
             setSearchingSS(true);
             try {
               await api.enrichGame(id, "screenscraper");
+              qc.invalidateQueries({ queryKey: ["game", id] });
               qc.invalidateQueries({ queryKey: ["game-metadata", id] });
               qc.invalidateQueries({ queryKey: ["game-classifications", id] });
               api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {});
