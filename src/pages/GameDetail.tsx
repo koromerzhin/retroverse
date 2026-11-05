@@ -40,7 +40,7 @@ export default function GameDetail() {
   const [tab, setTab] = useState<"info" | "files" | "hashes" | "media">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
-  const [infoGenre, setInfoGenre] = useState("");
+  const [infoGenres, setInfoGenres] = useState<string[]>([]);
   const [infoReleaseEU, setInfoReleaseEU] = useState("");
   const [infoReleaseUS, setInfoReleaseUS] = useState("");
   const [infoReleaseJP, setInfoReleaseJP] = useState("");
@@ -59,12 +59,20 @@ export default function GameDetail() {
     if (!details) return;
     const ssGenres = details?.genres || [];
     const localGenres = allGenres || [];
-    const matched = ssGenres.map((g: any) => {
-      const local = localGenres.find((lg: any) => String(lg.ss_id) === String(g.id));
-      if (local) return local.name_fr || local.name_en || local.name_de || local.name_es || local.name_it || local.name_pt || "";
-      return "";
-    }).filter(Boolean);
-    setInfoGenre(matched.length ? matched.join(", ") : ssGenres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", "));
+    let matched: string[] = [];
+    if (Array.isArray(details?._genres)) {
+      matched = details._genres;
+    } else {
+      matched = ssGenres.map((g: any) => {
+        const local = localGenres.find((lg: any) => String(lg.ss_id) === String(g.id));
+        if (local) return local.name_fr || local.name_en || local.name_de || local.name_es || local.name_it || local.name_pt || "";
+        return "";
+      }).filter(Boolean);
+      if (!matched.length) {
+        matched = ssGenres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).filter(Boolean);
+      }
+    }
+    setInfoGenres(matched);
     setInfoPublisher(details.editeur?.text ?? details.publisher ?? "");
     setInfoDeveloper(details.developpeur?.text ?? details.developer ?? "");
     const dates = details.dates || [];
@@ -150,8 +158,7 @@ export default function GameDetail() {
             <tr>
               <td style={{ fontWeight: 600 }}>Genre</td>
               <td>
-                <select className="select" value={infoGenre} onChange={(e) => setInfoGenre(e.target.value)} style={{ width: "100%" }}>
-                  <option value="">—</option>
+                <select className="select" multiple value={infoGenres} onChange={(e) => setInfoGenres(Array.from(e.target.selectedOptions, (o) => o.value))} style={{ width: "100%", minHeight: 80 }}>
                   {(allGenres || []).map((g: any) => {
                     const name = g.name_fr || g.name_en || g.name_de || g.name_es || g.name_it || g.name_pt || "—";
                     const parent = g.parent_id ? (allGenres || []).find((x: any) => x.id === g.parent_id) : null;
@@ -159,7 +166,9 @@ export default function GameDetail() {
                     const label = parentName ? `  ${name} (${parentName})` : name;
                     return <option key={g.id} value={name}>{label}</option>;
                   })}
-                  {!allGenres?.some((g: any) => (g.name_fr || g.name_en) === infoGenre) && infoGenre && <option value={infoGenre}>{infoGenre}</option>}
+                  {infoGenres.filter((g) => !(allGenres || []).some((lg: any) => (lg.name_fr || lg.name_en) === g)).map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
                 </select>
               </td>
             </tr>
@@ -241,9 +250,32 @@ export default function GameDetail() {
             if (!id) return;
             setSavingInfo(true);
             try {
-              const meta = details ? { ...details, editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } } : { editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } };
+              const meta = details ? {
+                ...details,
+                editeur: { text: infoPublisher },
+                developpeur: { text: infoDeveloper },
+                _genres: infoGenres,
+                dates: [
+                  infoReleaseEU ? { region: "eu", text: infoReleaseEU } : null,
+                  infoReleaseUS ? { region: "us", text: infoReleaseUS } : null,
+                  infoReleaseJP ? { region: "jp", text: infoReleaseJP } : null,
+                ].filter(Boolean),
+                synopsis: infoSynopsis,
+              } : {
+                editeur: { text: infoPublisher },
+                developpeur: { text: infoDeveloper },
+                _genres: infoGenres,
+                dates: [
+                  infoReleaseEU ? { region: "eu", text: infoReleaseEU } : null,
+                  infoReleaseUS ? { region: "us", text: infoReleaseUS } : null,
+                  infoReleaseJP ? { region: "jp", text: infoReleaseJP } : null,
+                ].filter(Boolean),
+                synopsis: infoSynopsis,
+              };
               await api.saveGameInfo(id, title || data.game.title, JSON.stringify(meta));
+              await api.setGameMetadata(id, "description", infoSynopsis).catch(() => {});
               qc.invalidateQueries({ queryKey: ["game", id] });
+              qc.invalidateQueries({ queryKey: ["game-metadata", id] });
               api.showNotification("RETROVERSE", "Informations enregistrées.").catch(() => {});
             } catch (e) {
               api.showNotification("RETROVERSE", String(e)).catch(() => {});
