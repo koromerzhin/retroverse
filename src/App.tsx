@@ -118,7 +118,7 @@ export default function App() {
         setScanProgress(null);
         api.showNotification("RETROVERSE", "Source inaccessible — scan ignoré").catch(() => {});
       } else if (ev.payload?.status === "done") {
-        setScanProgress((prev) => ({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id ?? prev?.sourceId, file: ev.payload?.file ?? prev?.file, folder: ev.payload?.folder ?? prev?.folder }));
+        setScanProgress((prev) => ({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id ?? prev?.sourceId, file: ev.payload?.file, folder: ev.payload?.folder ?? prev?.folder }));
         const created = ev.payload?.games_created ?? 0;
         const updated = ev.payload?.games_updated ?? 0;
         const files = ev.payload?.files_found ?? 0;
@@ -138,7 +138,7 @@ export default function App() {
           total: ev.payload?.total ?? 0,
           status: ev.payload?.status ?? "scanning",
           sourceId: ev.payload?.source_id ?? prev?.sourceId,
-          file: ev.payload?.file ?? prev?.file,
+          file: ev.payload?.file,
           folder: ev.payload?.folder ?? prev?.folder,
         }));
       }
@@ -196,11 +196,23 @@ export default function App() {
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Progression : {formatNumber(scanProgress.scanned)} / {formatNumber(scanProgress.total || 0)} fichier(s){scanProgress.total ? ` (${Math.round((scanProgress.scanned / scanProgress.total) * 100)}%)` : ""}
             </p>
-            {scanProgress.file && (
-              <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                Fichier en cours : {scanProgress.file.substring(scanProgress.file.lastIndexOf("/") + 1)}
-              </p>
-            )}
+            <div style={{ background: "var(--bg-3)", border: "1px solid var(--accent)", borderRadius: 8, padding: 12, marginTop: 8, marginBottom: 8 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", marginTop: 0, marginBottom: 6 }}>Fichier actuellement en cours de traitement</p>
+              {scanProgress.file ? (
+                <>
+                  <p style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4, wordBreak: "break-all" }}>
+                    {scanProgress.file.substring(scanProgress.file.lastIndexOf("/") + 1)}
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace", marginBottom: 4 }}>
+                    {scanProgress.file}
+                  </p>
+                  {scanProgress.folder && <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>Dossier : {scanProgress.folder}</p>}
+                  <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>Statut : {statusLabel(scanProgress.status)}</p>
+                </>
+              ) : (
+                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>Aucun fichier en cours de traitement</p>
+              )}
+            </div>
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Statut : {statusLabel(scanProgress.status)}
             </p>
