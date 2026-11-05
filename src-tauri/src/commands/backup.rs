@@ -62,13 +62,7 @@ pub async fn compute_hashes_inner(
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".zip") || lower.ends_with(".7z");
         let (arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512) = if is_archive {
-            if let Ok(data) = std::fs::read(&path) {
-                let (s, c, m, h, _, sh512) =
-                    crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &[]);
-                (s, c, m, h, sh512)
-            } else {
-                (None, None, None, None, None)
-            }
+            crate::identify::hash_file_all(&path)
         } else {
             (None, None, None, None, None)
         };
@@ -504,43 +498,41 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
                 )?
             };
             let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
-            // read file into memory
-            let mut f = sess
-                .sftp
-                .open(&path)
-                .await
-                .map_err(|e| RetroError::Other(e.to_string()))?;
-            use tokio::io::AsyncReadExt;
-            let mut buf = Vec::new();
-            f.read_to_end(&mut buf)
-                .await
-                .map_err(|e| RetroError::Other(e.to_string()))?;
+            // Stream download to a temp file to avoid loading the whole file into memory.
+            let tmp = std::env::temp_dir().join(format!("retroverse_{}", fid));
+            {
+                use tokio::io::AsyncReadExt;
+                let mut f = sess
+                    .sftp
+                    .open(&path)
+                    .await
+                    .map_err(|e| RetroError::Other(e.to_string()))?;
+                let mut out = std::fs::File::create(&tmp).map_err(RetroError::Io)?;
+                use std::io::Write;
+                let mut chunk = vec![0u8; 65536];
+                loop {
+                    let n = f
+                        .read(&mut chunk)
+                        .await
+                        .map_err(|e| RetroError::Other(e.to_string()))?;
+                    if n == 0 {
+                        break;
+                    }
+                    out.write_all(&chunk[..n]).map_err(RetroError::Io)?;
+                }
+                out.flush().map_err(RetroError::Io)?;
+            }
             let _ = sess
                 .session
                 .disconnect(russh::Disconnect::ByApplication, "", "")
                 .await;
-            let filename = std::path::Path::new(&path)
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or(&path);
-            // handle 7z: need a temp file
+            let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
             let lower = path.to_lowercase();
             let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-            let r = if lower.ends_with(".7z") {
-                // write to temp file
-                let tmp = std::env::temp_dir().join(format!("retroverse_{}.7z", fid));
-                std::fs::write(&tmp, &buf).map_err(RetroError::Io)?;
-                let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
-                let _ = std::fs::remove_file(&tmp);
-                r
-            } else {
-                crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
-            };
             if is_archive {
-                let (as_, ac, am, ah, _, ash512) =
-                    crate::identify::compute_hashes_from_bytes(&buf, "archive.bin", &[]);
-                arch_hashes = (as_, ac, am, ah, ash512);
+                arch_hashes = crate::identify::hash_file_all(tmp.to_str().unwrap_or(""));
             }
+            let _ = std::fs::remove_file(&tmp);
             r
         } else {
             crate::identify::compute_hashes(&path, &allowed)
@@ -553,13 +545,7 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
             if kind.as_deref() == Some("remote") {
                 arch_hashes
             } else {
-                if let Ok(data) = std::fs::read(&path) {
-                    let (s, c, m, h, _, sh512) =
-                        crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &[]);
-                    (s, c, m, h, sh512)
-                } else {
-                    (None, None, None, None, None)
-                }
+                crate::identify::hash_file_all(&path)
             }
         } else {
             (None, None, None, None, None)
@@ -653,43 +639,43 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
             )?
         };
         let sess = remote::connect(&host, port, &username, &key_path).await?;
-        let mut f = sess
-            .sftp
-            .open(&path)
-            .await
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        use tokio::io::AsyncReadExt;
-        let mut buf = Vec::new();
-        f.read_to_end(&mut buf)
-            .await
-            .map_err(|e| RetroError::Other(e.to_string()))?;
+        let tmp = std::env::temp_dir().join(format!("retroverse_{}", file_id));
+        {
+            use tokio::io::AsyncReadExt;
+            let mut f = sess
+                .sftp
+                .open(&path)
+                .await
+                .map_err(|e| RetroError::Other(e.to_string()))?;
+            let mut out = std::fs::File::create(&tmp).map_err(RetroError::Io)?;
+            use std::io::Write;
+            let mut chunk = vec![0u8; 65536];
+            loop {
+                let n = f
+                    .read(&mut chunk)
+                    .await
+                    .map_err(|e| RetroError::Other(e.to_string()))?;
+                if n == 0 {
+                    break;
+                }
+                out.write_all(&chunk[..n]).map_err(RetroError::Io)?;
+            }
+            out.flush().map_err(RetroError::Io)?;
+        }
         let _ = sess
             .session
             .disconnect(Disconnect::ByApplication, "", "")
             .await;
-        let filename = std::path::Path::new(&path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(&path);
+        let content = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
+        let (s, c, m, h, zi, sh512) = content;
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-        let content = if lower.ends_with(".7z") {
-            let tmp = std::env::temp_dir().join(format!("retroverse_{}.7z", file_id));
-            std::fs::write(&tmp, &buf).map_err(RetroError::Io)?;
-            let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
-            let _ = std::fs::remove_file(&tmp);
-            r
-        } else {
-            crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
-        };
-        let (s, c, m, h, zi, sh512) = content;
         let (as_, ac, am, ah, ash512) = if is_archive {
-            let (a, b, cc, d, _, e) =
-                crate::identify::compute_hashes_from_bytes(&buf, "archive.bin", &allowed);
-            (a, b, cc, d, e)
+            crate::identify::hash_file_all(tmp.to_str().unwrap_or(""))
         } else {
             (None, None, None, None, None)
         };
+        let _ = std::fs::remove_file(&tmp);
         (s, c, m, h, zi, sh512, as_, ac, am, ah, ash512)
     } else {
         let content = crate::identify::compute_hashes(&path, &allowed);
@@ -697,13 +683,7 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
         let (as_, ac, am, ah, ash512) = if is_archive {
-            if let Ok(data) = std::fs::read(&path) {
-                let (a, b, cc, d, _, e) =
-                    crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &allowed);
-                (a, b, cc, d, e)
-            } else {
-                (None, None, None, None, None)
-            }
+            crate::identify::hash_file_all(&path)
         } else {
             (None, None, None, None, None)
         };
