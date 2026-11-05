@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
 import { useI18n } from "../i18n";
@@ -9,6 +9,7 @@ import type { LibraryEntry, Platform } from "../types";
 export default function Library() {
   const navigate = useNavigate();
   const { t } = useI18n();
+  const qc = useQueryClient();
   const [searchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -17,6 +18,7 @@ export default function Library() {
   const publisher = searchParams.get("publisher") || undefined;
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
+  const [calculatingAll, setCalculatingAll] = useState(false);
   const [sortKey, setSortKey] = useState<"title" | "platform" | "developer" | "publisher" | "files">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const toggleSort = (k: "title" | "platform" | "developer" | "publisher" | "files") => {
@@ -36,6 +38,7 @@ export default function Library() {
     queryKey: ["platforms"],
     queryFn: () => api.listPlatforms(),
   });
+  const { data: sources } = useQuery<any[]>({ queryKey: ["sources"], queryFn: () => api.listSources() });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
   const { data: platformCountsData } = useQuery<any>({
@@ -71,6 +74,38 @@ export default function Library() {
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  async function handleCalculateAll() {
+    if (calculatingAll) return;
+    setCalculatingAll(true);
+    let errors: string[] = [];
+    const plats = platforms || [];
+    const srcs = sources || [];
+    if (plats.length > 0 && srcs.length > 0) {
+      for (const p of plats) {
+        for (const s of srcs) {
+          try {
+            if (s.kind === "remote") await api.scanRemoteSource(s.id, undefined, p.id);
+            else await api.scanSource(s.id, undefined, p.id);
+          } catch (e: any) {
+            errors.push(`${s.name}/${p.name}: ${e}`);
+          }
+        }
+      }
+    }
+    try {
+      await api.computeHashes();
+    } catch (e: any) {
+      errors.push(String(e));
+    }
+    qc.invalidateQueries();
+    if (errors.length > 0) {
+      api.showNotification("RETROVERSE", `Calcul terminé avec erreurs : ${errors.join(" | ")}`).catch(() => {});
+    } else {
+      api.showNotification("RETROVERSE", "Calcul terminé.").catch(() => {});
+    }
+    setCalculatingAll(false);
+  }
 
   return (
     <>
@@ -129,6 +164,9 @@ export default function Library() {
           {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
+        <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={calculatingAll} onClick={handleCalculateAll}>
+          {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
+        </button>
         <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
         <div className="row" style={{ marginLeft: "auto", gap: 4 }}>
           <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.library.view", "cards"); }} title="Cartes">Cards</button>
