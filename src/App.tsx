@@ -306,7 +306,7 @@ export default function App() {
       )}
       <aside className="sidebar">
         <div className="brand">
-          <div className="logo">R</div>
+          <div className="logo"><img src="/favicon.png" alt="RETROVERSE" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }} /></div>
           <div>
             RETROVERSE
             <small>Collection Companion</small>
