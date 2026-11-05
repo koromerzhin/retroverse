@@ -252,7 +252,7 @@ export default function Platforms() {
         <button className="btn primary" onClick={handleScanAll} disabled={scanningAll} style={{ marginLeft: "auto" }}>
           {scanningAll ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scanAll")}
         </button>
-        <button className="btn primary" onClick={handleCalculateAll} disabled={calculatingAll} style={{ fontSize: 11, padding: "4px 8px" }}>
+        <button className="btn primary" onClick={handleCalculateAll} disabled={calculatingAll}>
           {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
         </button>
         <div className="row" style={{ gap: 4 }}>
