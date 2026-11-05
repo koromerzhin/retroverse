@@ -8,23 +8,27 @@ It works independently of emulators, frontends, EmuDeck, distribution platforms,
 
 ## Status
 
-Version 0.1 — Foundation (in development).
+Version 1.0 — in development (develop branch).
 
-## Features (v0.1)
+## Features
 
-- Desktop application (Tauri + Rust + React/TypeScript)
-- Local SQLite database with migrations
+- Desktop application (Tauri 2 + Rust + React/TypeScript)
+- Local SQLite database with migrations (up to v21)
 - Platform profiles with extension-based detection
-- Local source management (add/remove folders)
-- Recursive folder scanning
-- Initial game identification by filename
-- Central library view with search and platform filter
-- Statistics dashboard
-- Settings page
-
-## Roadmap
-
-See [docs/ROADMAP.md](docs/ROADMAP.md).
+- Local and remote source management (SSH/SFTP)
+- Recursive folder scanning (local + remote) with incremental (mtime/size) skipping
+- Game identification by filename (ScummVM compatibility mapping)
+- Central library view with search, platform/developer/publisher filters and sortable headers
+- Platform cards/list with game/file counts, hash status and sorting
+- Detailed game view with editable metadata (title, genre, publisher, developer, classifications, release dates, synopsis)
+- ScreenScraper integration (hash-first lookup, raw JSON storage, developer/publisher/genre sync)
+- Hash computation (content + archive) on demand, per file/game/platform/library
+- Native OS notifications (no in-app toasts)
+- System tray (KDE-compatible via ksni) with show/hide, scan, hash, quit
+- Independent splashscreen + sequential main window display
+- Single-instance enforcement (Unix socket)
+- Referentials: developers, publishers, genres (multilingual), classifications
+- Collections, statistics dashboard, settings
 
 ## Tech stack
 
@@ -32,14 +36,25 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 |---|---|
 | Backend | Rust |
 | Desktop | Tauri 2 |
-| Frontend | React + TypeScript |
+| Frontend | React + TypeScript + Vite |
 | Database | SQLite (rusqlite bundled) |
-| Search | SQLite FTS5 (planned) |
+| Search | SQLite FTS (planned) |
 | Async | Tokio |
+| Tray | ksni (KDE-compatible) |
+| Notifications | tauri-plugin-notification |
 
 ## Development
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+## Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/DATA_MODEL.md](docs/DATA_MODEL.md)
+- [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md)
+- [docs/SOURCE_CONNECTORS.md](docs/SOURCE_CONNECTORS.md)
 
 ## License
 

@@ -30,3 +30,17 @@
 
 ## v1.0 — Universal Library
 - Stabilization, docs, tests, multiplatform, packaging, release
+## v1.0 — Collection Companion (current)
+- Tauri 2 desktop app, Rust backend, React/TypeScript frontend
+- SQLite database with migrations up to v21
+- Platform profiles, local + remote (SSH/SFTP) sources
+- Recursive scanning with incremental (mtime/size) skipping
+- Game identification (ScummVM compatibility mapping)
+- Library view with search, filters (platform/developer/publisher), sorting
+- Platform cards/list with game/file counts and hash status
+- Detailed game view with editable metadata
+- ScreenScraper integration (hash-first, raw JSON, referential sync)
+- Hash computation (content + archive) on demand
+- Native OS notifications, system tray, splashscreen, single-instance
+- Referentials: developers, publishers, genres (multilingual), classifications
+- Collections, statistics, settings
