@@ -78,6 +78,23 @@ pub async fn enrich_game(
                 )?;
             }
         }
+        if let Some(pubv) = &res.publisher {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='publisher'",
+                    [game_id.clone()],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if !exists {
+                let id = crate::models::new_id();
+                conn.execute(
+                    "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                    params![id, game_id, provider, "publisher", pubv, provider, now],
+                )?;
+            }
+        }
         if let Some(cov) = &res.cover_url {
             let exists: bool = conn
                 .query_row(

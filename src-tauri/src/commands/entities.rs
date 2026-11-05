@@ -317,6 +317,18 @@ pub fn sync_publishers_inner(state: &AppState) -> Result<SyncStats> {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty());
         }
+        if name.is_none()
+            && let Ok(details) = conn.query_row(
+                "SELECT value FROM metadata_records WHERE game_id=?1 AND field='details' LIMIT 1",
+                [gid.clone()],
+                |r| r.get::<_, String>(0),
+            )
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(&details)
+        {
+            name = json_str(&v, &["editeur", "text"])
+                .or_else(|| json_str(&v, &["publisher"]))
+                .or_else(|| json_str(&v, &["editeur"]));
+        }
         if let Some(n) = name {
             game_pubs.push((gid.clone(), n));
         }
@@ -404,6 +416,18 @@ pub fn sync_developers_inner(state: &AppState) -> Result<SyncStats> {
                 .ok()
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty());
+        }
+        if name.is_none()
+            && let Ok(details) = conn.query_row(
+                "SELECT value FROM metadata_records WHERE game_id=?1 AND field='details' LIMIT 1",
+                [gid.clone()],
+                |r| r.get::<_, String>(0),
+            )
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(&details)
+        {
+            name = json_str(&v, &["developpeur", "text"])
+                .or_else(|| json_str(&v, &["developer"]))
+                .or_else(|| json_str(&v, &["developpeur"]));
         }
         if let Some(n) = name {
             game_devs.push((gid.clone(), n));
