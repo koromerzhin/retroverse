@@ -111,6 +111,7 @@ pub fn run() {
             commands::compute_hashes_for_platform,
             commands::unhashed_counts_by_platform,
             commands::compute_hashes_for_game,
+            commands::compute_hashes_for_all_games,
             commands::export_backup,
             commands::import_backup,
             commands::list_transfer_jobs,

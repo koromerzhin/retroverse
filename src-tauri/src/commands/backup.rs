@@ -790,3 +790,20 @@ pub fn unhashed_counts_by_platform(
     }
     Ok(map)
 }
+
+#[tauri::command]
+pub async fn compute_hashes_for_all_games(state: State<'_, AppState>) -> Result<usize> {
+    let game_ids: Vec<String> = {
+        let conn = state.db.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT id FROM games")?;
+        let rows = stmt.query_map([], |r| r.get(0))?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+    let mut total = 0usize;
+    for gid in game_ids {
+        if let Ok(n) = compute_hashes_for_game_inner(&state, gid).await {
+            total += n;
+        }
+    }
+    Ok(total)
+}

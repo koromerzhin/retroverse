@@ -43,6 +43,7 @@ export const api = {
   importGamelists: (sourceId: string) => invoke<number>("import_gamelists", { sourceId }),
   computeHashes: (sourceId?: string) => invoke<number>("compute_hashes", { sourceId }),
   computeHashesForGame: (gameId: string) => invoke<number>("compute_hashes_for_game", { gameId }),
+  computeHashesForAllGames: () => invoke<number>("compute_hashes_for_all_games"),
   computeHashesForFile: (fileId: string) => invoke<number>("compute_hashes_for_file", { fileId }),
   computeHashesForPlatform: (platformId: string) => invoke<number>("compute_hashes_for_platform", { platformId }),
   unhashedCountsByPlatform: () => invoke<Record<string, number>>("unhashed_counts_by_platform"),

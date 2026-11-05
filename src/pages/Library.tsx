@@ -19,6 +19,7 @@ export default function Library() {
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
   const [calculatingAll, setCalculatingAll] = useState(false);
+  const [hashingAllGames, setHashingAllGames] = useState(false);
   const [sortKey, setSortKey] = useState<"title" | "platform" | "developer" | "publisher" | "files">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const toggleSort = (k: "title" | "platform" | "developer" | "publisher" | "files") => {
@@ -107,6 +108,20 @@ export default function Library() {
     setCalculatingAll(false);
   }
 
+  async function handleHashAllGames() {
+    if (hashingAllGames) return;
+    setHashingAllGames(true);
+    try {
+      const n = await api.computeHashesForAllGames();
+      qc.invalidateQueries();
+      api.showNotification("RETROVERSE", `Empreintes calculées : ${n} fichier(s).`).catch(() => {});
+    } catch (e: any) {
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    } finally {
+      setHashingAllGames(false);
+    }
+  }
+
   return (
     <>
       <h1 className="page-title">{t("library.title")}</h1>
@@ -166,6 +181,9 @@ export default function Library() {
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
         <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={calculatingAll} onClick={handleCalculateAll}>
           {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
+        </button>
+        <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={hashingAllGames} onClick={handleHashAllGames}>
+          {hashingAllGames ? <><span className="spinner" /> Calcul des empreintes en cours...</> : "Calculer les empreintes par jeu vidéo"}
         </button>
         <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
         <div className="row" style={{ marginLeft: "auto", gap: 4 }}>
