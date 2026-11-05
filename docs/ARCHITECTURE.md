@@ -6,23 +6,27 @@ RETROVERSE follows a modular architecture with a Rust core engine independent of
 
 - Desktop Application (Tauri + React)
 - Core Engine (Rust)
-- Source Manager
-- Metadata Provider Manager (planned)
-- Synchronization Engine
-- Background Services (planned)
-- Game Identification Engine
-- Local Storage (SQLite)
-- Backup & Preservation Services (planned)
+- Source Manager (local + remote SSH/SFTP)
+- Metadata Provider Manager (ScreenScraper)
+- Synchronization Engine (scanning, hashing, metadata sync)
+- Background Services (tray, single-instance socket, splashscreen)
+- Game Identification Engine (filename, ScummVM mapping)
+- Local Storage (SQLite, migrations up to v21)
+- Backup & Preservation Services
 
 ## Module layout (src-tauri/src)
 
-- `db.rs` — SQLite connection + migrations + seeding
-- `models.rs` — domain structs
+- `db.rs` — SQLite connection + migrations (up to v21) + seeding
+- `models.rs` — domain structs (Platform, Game, GameFile, Developer, Publisher, Genre, Classification, ...)
 - `error.rs` — error type
-- `state.rs` — app state (db handle)
-- `identify.rs` — platform detection, title cleaning
-- `scanner.rs` — recursive folder scanning + game creation
+- `state.rs` — app state (db handle, cancel flags)
+- `config.rs` — provider configuration (ScreenScraper credentials)
+- `identify.rs` — platform detection, title cleaning, hashing (streaming)
+- `scanner.rs` — recursive folder scanning + game creation (incremental)
+- `metadata.rs` — ScreenScraper provider (hash-first lookup)
+- `tray.rs` — system tray (ksni, KDE-compatible)
 - `commands/` — Tauri command handlers exposed to frontend
+  - `app`, `backup` (hashes), `entities` (developers/publishers/genres/classifications sync), `genres`, `classifications`, `library`, `metadata`, `platforms`, `scans`, `sources`, `remote`, `notifications`, `settings`, `backup`
 
 ## Frontend (src)
 
