@@ -75,6 +75,8 @@ pub fn run() {
             commands::update_publisher,
             commands::add_publisher,
             commands::list_publishers_full,
+            commands::sync_publishers,
+            commands::sync_developers,
             commands::delete_developer,
             commands::update_developer,
             commands::add_developer,

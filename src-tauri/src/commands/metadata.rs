@@ -310,7 +310,85 @@ pub fn save_game_info(
     )?;
     conn.execute(
         "UPDATE games SET metadata_json=?1 WHERE id=?2",
-        params![metadata_json, game_id],
+        params![metadata_json, game_id.clone()],
     )?;
+    // Upsert publisher/developer into referentials and link to the game.
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
+        let now = chrono::Utc::now().to_rfc3339();
+        // publisher
+        let pub_name = v
+            .get("editeur")
+            .and_then(|e| e.get("text"))
+            .and_then(|t| t.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                v.get("publisher")
+                    .and_then(|p| p.as_str())
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+            });
+        if let Some(name) = pub_name {
+            let pid: Option<String> = conn
+                .query_row(
+                    "SELECT id FROM publishers WHERE name=?1 COLLATE NOCASE",
+                    [name.clone()],
+                    |r| r.get(0),
+                )
+                .ok();
+            let pid = match pid {
+                Some(id) => id,
+                None => {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO publishers (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                        params![id, name, now, now],
+                    );
+                    id
+                }
+            };
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO game_publishers (game_id, publisher_id) VALUES (?1,?2)",
+                params![game_id, pid],
+            );
+        }
+        // developer
+        let dev_name = v
+            .get("developpeur")
+            .and_then(|e| e.get("text"))
+            .and_then(|t| t.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                v.get("developer")
+                    .and_then(|p| p.as_str())
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+            });
+        if let Some(name) = dev_name {
+            let did: Option<String> = conn
+                .query_row(
+                    "SELECT id FROM developers WHERE name=?1 COLLATE NOCASE",
+                    [name.clone()],
+                    |r| r.get(0),
+                )
+                .ok();
+            let did = match did {
+                Some(id) => id,
+                None => {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO developers (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                        params![id, name, now, now],
+                    );
+                    id
+                }
+            };
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO game_developers (game_id, developer_id) VALUES (?1,?2)",
+                params![game_id, did],
+            );
+        }
+    }
     Ok(())
 }

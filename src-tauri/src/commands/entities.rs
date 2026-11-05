@@ -18,6 +18,13 @@ pub struct GenrePayload {
 }
 use uuid::Uuid;
 
+#[derive(serde::Serialize)]
+pub struct SyncStats {
+    pub already: usize,
+    pub added: usize,
+    pub games_analyzed: usize,
+}
+
 #[tauri::command]
 pub fn list_developers_full(state: State<'_, AppState>) -> Result<Vec<Developer>> {
     let conn = state.db.lock().unwrap();
@@ -269,54 +276,208 @@ pub fn delete_genre(state: State<'_, AppState>, id: String) -> Result<()> {
     Ok(())
 }
 
-pub fn sync_entities_from_metadata_inner(state: &AppState) -> Result<usize> {
+fn json_str(v: &serde_json::Value, path: &[&str]) -> Option<String> {
+    let mut cur = v;
+    for k in path {
+        cur = cur.get(*k)?;
+    }
+    cur.as_str()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+pub fn sync_publishers_inner(state: &AppState) -> Result<SyncStats> {
     let conn = state.db.lock().unwrap();
-    // Developers
-    let devs: Vec<String> = conn
-        .prepare("SELECT DISTINCT value FROM metadata_records WHERE field='developer'")?
-        .query_map([], |r| r.get(0))?
+    let now = chrono::Utc::now().to_rfc3339();
+    // Collect game -> publisher name
+    let mut game_pubs: Vec<(String, String)> = Vec::new();
+    let mut stmt = conn.prepare("SELECT id, metadata_json FROM games")?;
+    let games: Vec<(String, Option<String>)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
         .filter_map(|r| r.ok())
         .collect();
-    for d in devs {
-        let exists: bool = conn
-            .query_row(
-                "SELECT COUNT(*) FROM developers WHERE name=?1",
-                [d.clone()],
-                |r| r.get::<_, i64>(0),
-            )
-            .unwrap_or(0)
-            > 0;
-        if !exists {
-            let id = Uuid::new_v4().to_string();
-            let now = chrono::Utc::now().to_rfc3339();
-            let _ = conn.execute("INSERT INTO developers (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)", params![id, d, now, now]);
+    let total_games = games.len();
+    for (gid, mj) in &games {
+        let mut name: Option<String> = None;
+        if let Some(j) = mj
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(j)
+        {
+            name = json_str(&v, &["editeur", "text"])
+                .or_else(|| json_str(&v, &["publisher"]))
+                .or_else(|| json_str(&v, &["editeur"]));
+        }
+        if name.is_none() {
+            name = conn
+                .query_row(
+                    "SELECT value FROM metadata_records WHERE game_id=?1 AND field='publisher' LIMIT 1",
+                    [gid.clone()],
+                    |r| r.get::<_, String>(0),
+                )
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+        }
+        if let Some(n) = name {
+            game_pubs.push((gid.clone(), n));
         }
     }
-    // Publishers
-    let pubs: Vec<String> = conn
-        .prepare("SELECT DISTINCT value FROM metadata_records WHERE field='publisher'")?
-        .query_map([], |r| r.get(0))?
+    // Distinct names
+    let distinct: std::collections::BTreeSet<String> =
+        game_pubs.iter().map(|(_, n)| n.clone()).collect();
+    let mut already = 0usize;
+    let mut added = 0usize;
+    let mut name_to_id: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    for name in &distinct {
+        let existing: Option<String> = conn
+            .query_row(
+                "SELECT id FROM publishers WHERE name=?1 COLLATE NOCASE",
+                [name.clone()],
+                |r| r.get(0),
+            )
+            .ok();
+        if let Some(id) = existing {
+            already += 1;
+            name_to_id.insert(name.clone(), id);
+        } else {
+            let id = Uuid::new_v4().to_string();
+            let _ = conn.execute(
+                "INSERT INTO publishers (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                params![id, name, now, now],
+            );
+            added += 1;
+            name_to_id.insert(name.clone(), id);
+        }
+    }
+    // Link games
+    for (gid, name) in &game_pubs {
+        if let Some(pid) = name_to_id.get(name) {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM game_publishers WHERE game_id=?1 AND publisher_id=?2",
+                    params![gid, pid],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if !exists {
+                let _ = conn.execute(
+                    "INSERT OR IGNORE INTO game_publishers (game_id, publisher_id) VALUES (?1,?2)",
+                    params![gid, pid],
+                );
+            }
+        }
+    }
+    Ok(SyncStats {
+        already,
+        added,
+        games_analyzed: total_games,
+    })
+}
+
+pub fn sync_developers_inner(state: &AppState) -> Result<SyncStats> {
+    let conn = state.db.lock().unwrap();
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut game_devs: Vec<(String, String)> = Vec::new();
+    let mut stmt = conn.prepare("SELECT id, metadata_json FROM games")?;
+    let games: Vec<(String, Option<String>)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
         .filter_map(|r| r.ok())
         .collect();
-    for p in pubs {
-        let exists: bool = conn
-            .query_row(
-                "SELECT COUNT(*) FROM publishers WHERE name=?1",
-                [p.clone()],
-                |r| r.get::<_, i64>(0),
-            )
-            .unwrap_or(0)
-            > 0;
-        if !exists {
-            let id = Uuid::new_v4().to_string();
-            let now = chrono::Utc::now().to_rfc3339();
-            let _ = conn.execute("INSERT INTO publishers (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)", params![id, p, now, now]);
+    let total_games = games.len();
+    for (gid, mj) in &games {
+        let mut name: Option<String> = None;
+        if let Some(j) = mj
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(j)
+        {
+            name = json_str(&v, &["developpeur", "text"])
+                .or_else(|| json_str(&v, &["developer"]))
+                .or_else(|| json_str(&v, &["developpeur"]));
+        }
+        if name.is_none() {
+            name = conn
+                .query_row(
+                    "SELECT value FROM metadata_records WHERE game_id=?1 AND field='developer' LIMIT 1",
+                    [gid.clone()],
+                    |r| r.get::<_, String>(0),
+                )
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+        }
+        if let Some(n) = name {
+            game_devs.push((gid.clone(), n));
         }
     }
-    Ok(0)
+    let distinct: std::collections::BTreeSet<String> =
+        game_devs.iter().map(|(_, n)| n.clone()).collect();
+    let mut already = 0usize;
+    let mut added = 0usize;
+    let mut name_to_id: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    for name in &distinct {
+        let existing: Option<String> = conn
+            .query_row(
+                "SELECT id FROM developers WHERE name=?1 COLLATE NOCASE",
+                [name.clone()],
+                |r| r.get(0),
+            )
+            .ok();
+        if let Some(id) = existing {
+            already += 1;
+            name_to_id.insert(name.clone(), id);
+        } else {
+            let id = Uuid::new_v4().to_string();
+            let _ = conn.execute(
+                "INSERT INTO developers (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                params![id, name, now, now],
+            );
+            added += 1;
+            name_to_id.insert(name.clone(), id);
+        }
+    }
+    for (gid, name) in &game_devs {
+        if let Some(did) = name_to_id.get(name) {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM game_developers WHERE game_id=?1 AND developer_id=?2",
+                    params![gid, did],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if !exists {
+                let _ = conn.execute(
+                    "INSERT OR IGNORE INTO game_developers (game_id, developer_id) VALUES (?1,?2)",
+                    params![gid, did],
+                );
+            }
+        }
+    }
+    Ok(SyncStats {
+        already,
+        added,
+        games_analyzed: total_games,
+    })
+}
+
+pub fn sync_entities_from_metadata_inner(state: &AppState) -> Result<usize> {
+    let a = sync_publishers_inner(state)?.added;
+    let b = sync_developers_inner(state)?.added;
+    Ok(a + b)
 }
 
 #[tauri::command]
 pub fn sync_entities_from_metadata(state: State<'_, AppState>) -> Result<usize> {
     sync_entities_from_metadata_inner(&state)
+}
+
+#[tauri::command]
+pub fn sync_publishers(state: State<'_, AppState>) -> Result<SyncStats> {
+    sync_publishers_inner(&state)
+}
+
+#[tauri::command]
+pub fn sync_developers(state: State<'_, AppState>) -> Result<SyncStats> {
+    sync_developers_inner(&state)
 }
