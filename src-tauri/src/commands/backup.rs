@@ -21,9 +21,9 @@ pub async fn compute_hashes_inner(
 ) -> Result<usize> {
     use tauri::Emitter;
     state
-        .cancel_scan
+        .cancel_hash
         .store(false, std::sync::atomic::Ordering::SeqCst);
-    let cancel = state.cancel_scan.clone();
+    let cancel = state.cancel_hash.clone();
 
     let rows: Vec<(String, String)> = {
         let conn = state.db.lock().unwrap();
@@ -530,7 +530,7 @@ pub async fn compute_hashes_for_game_inner(
 
     let mut done = 0usize;
     for (fid, path, _source_id, kind, connection_id) in files {
-        if state.cancel_scan.load(std::sync::atomic::Ordering::SeqCst) {
+        if state.cancel_hash.load(std::sync::atomic::Ordering::SeqCst) {
             if let Some(a) = &app {
                 let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "cancelled", "game": game_title, "platform": platform_name, "file": path}));
             }
@@ -792,9 +792,9 @@ pub async fn compute_hashes_for_platform(
 ) -> Result<usize> {
     use tauri::Emitter;
     state
-        .cancel_scan
+        .cancel_hash
         .store(false, std::sync::atomic::Ordering::SeqCst);
-    let cancel = state.cancel_scan.clone();
+    let cancel = state.cancel_hash.clone();
 
     let ids: Vec<String> = {
         let conn = state.db.lock().unwrap();
@@ -861,6 +861,9 @@ pub fn unhashed_counts_by_platform(
 
 #[tauri::command]
 pub async fn compute_hashes_for_all_games(state: State<'_, AppState>) -> Result<usize> {
+    state
+        .cancel_hash
+        .store(false, std::sync::atomic::Ordering::SeqCst);
     let game_ids: Vec<String> = {
         let conn = state.db.lock().unwrap();
         let mut stmt = conn.prepare("SELECT id FROM games")?;
@@ -874,4 +877,12 @@ pub async fn compute_hashes_for_all_games(state: State<'_, AppState>) -> Result<
         }
     }
     Ok(total)
+}
+
+#[tauri::command]
+pub fn cancel_hash(state: State<AppState>) -> Result<()> {
+    state
+        .cancel_hash
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    Ok(())
 }

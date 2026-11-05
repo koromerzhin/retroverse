@@ -244,7 +244,7 @@ export default function App() {
             }} />
           </div>
           <span style={{ fontSize: 10, color: "var(--text-muted)" }}>(cliquer pour détails)</span>
-          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); api.cancelScan().catch(() => {}); }}>Arrêter</button>
+          <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); api.cancelHash().catch(() => {}); }}>Arrêter</button>
         </div>
       )}
       {hashDetails && hashProgress && (
@@ -299,7 +299,7 @@ export default function App() {
             )}
             <div className="row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
               <button className="btn" onClick={() => setHashDetails(false)}>Fermer</button>
-              <button className="btn danger" onClick={() => { api.cancelScan().catch(() => {}); setHashDetails(false); }}>Arrêter</button>
+              <button className="btn danger" onClick={() => { api.cancelHash().catch(() => {}); setHashDetails(false); }}>Arrêter</button>
             </div>
           </div>
         </div>

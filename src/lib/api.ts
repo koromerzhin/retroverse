@@ -44,6 +44,7 @@ export const api = {
   computeHashes: (sourceId?: string) => invoke<number>("compute_hashes", { sourceId }),
   computeHashesForGame: (gameId: string) => invoke<number>("compute_hashes_for_game", { gameId }),
   computeHashesForAllGames: () => invoke<number>("compute_hashes_for_all_games"),
+  cancelHash: () => invoke<void>("cancel_hash"),
   computeHashesForFile: (fileId: string) => invoke<number>("compute_hashes_for_file", { fileId }),
   computeHashesForPlatform: (platformId: string) => invoke<number>("compute_hashes_for_platform", { platformId }),
   unhashedCountsByPlatform: () => invoke<Record<string, number>>("unhashed_counts_by_platform"),
