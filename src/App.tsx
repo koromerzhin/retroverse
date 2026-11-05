@@ -258,8 +258,6 @@ export default function App() {
                   <p style={{ fontSize: 11, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace", marginBottom: 6 }}>
                     {hashProgress.file}
                   </p>
-                  {hashProgress.game && <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>Jeu : {hashProgress.game}</p>}
-                  {hashProgress.platform && <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>Plateforme : {hashProgress.platform}</p>}
                   {typeof hashProgress.size === "number" && <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>Taille : {formatBytes(hashProgress.size)}</p>}
                   <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>
                     Opération : {hashProgress.status === "reading" ? "Lecture / calcul de l'empreinte" : hashProgress.status === "file_done" ? "Terminé" : hashProgress.status === "done" ? "Terminé" : hashProgress.status}

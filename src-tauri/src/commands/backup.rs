@@ -806,7 +806,7 @@ pub async fn compute_hashes_for_platform(
         serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}),
     );
 
-    for (idx, id) in ids.into_iter().enumerate() {
+    for id in ids.into_iter() {
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
             let _ = app.emit(
                 "hash-progress",
@@ -814,14 +814,20 @@ pub async fn compute_hashes_for_platform(
             );
             return Ok(done);
         }
+        // Fetch file info for progress reporting.
+        let (path, game_title, platform_name, file_size): (String, String, Option<String>, i64) = {
+            let conn = state.db.lock().unwrap();
+            conn.query_row(
+                "SELECT gf.path, COALESCE(g.title, '—'), p.name, gf.size FROM game_files gf LEFT JOIN game_file_links l ON l.file_id = gf.id LEFT JOIN games g ON g.id = l.game_id LEFT JOIN platforms p ON p.id = g.platform_id WHERE gf.id = ?1",
+                [id.clone()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_, i64>(3).unwrap_or(0))),
+            ).unwrap_or_else(|_| (id.clone(), "—".to_string(), None, 0))
+        };
+        let started_at = chrono::Utc::now().timestamp_millis();
+        let _ = app.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at}));
         let n = compute_hash_for_file_inner(&state, id).await?;
         done += n;
-        if idx % 5 == 0 || idx + 1 == total {
-            let _ = app.emit(
-                "hash-progress",
-                serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning"}),
-            );
-        }
+        let _ = app.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at, "ok": n > 0}));
     }
     let _ = app.emit(
         "hash-progress",
