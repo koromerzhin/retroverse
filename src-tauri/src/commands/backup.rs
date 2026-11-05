@@ -39,7 +39,7 @@ pub async fn compute_hashes_inner(
     };
 
     // Map file_id -> (game_title, platform_name) for progress reporting.
-    let file_game_map: std::collections::HashMap<String, (String, Option<String>)> = {
+    let file_game_map: std::collections::HashMap<String, (String, Option<String>, i64)> = {
         let conn = state.db.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT gf.id, g.title, p.name FROM game_files gf LEFT JOIN game_file_links l ON l.file_id = gf.id LEFT JOIN games g ON g.id = l.game_id LEFT JOIN platforms p ON p.id = g.platform_id",
@@ -50,13 +50,14 @@ pub async fn compute_hashes_inner(
                     r.get::<_, String>(0)?,
                     r.get::<_, Option<String>>(1)?,
                     r.get::<_, Option<String>>(2)?,
+                    r.get::<_, i64>(3).unwrap_or(0),
                 ))
             })
             .unwrap();
         let mut m = std::collections::HashMap::new();
         for r in rows.filter_map(|r| r.ok()) {
-            let (fid, title, plat) = r;
-            m.insert(fid, (title.unwrap_or_else(|| "—".to_string()), plat));
+            let (fid, title, plat, size) = r;
+            m.insert(fid, (title.unwrap_or_else(|| "—".to_string()), plat, size));
         }
         m
     };
@@ -71,12 +72,13 @@ pub async fn compute_hashes_inner(
     }
 
     for (id, path) in rows.into_iter() {
-        let (game_title, platform_name) = file_game_map
+        let (game_title, platform_name, file_size) = file_game_map
             .get(&id)
             .cloned()
-            .unwrap_or_else(|| ("—".to_string(), None));
+            .unwrap_or_else(|| ("—".to_string(), None, 0));
+        let started_at = chrono::Utc::now().timestamp_millis();
         if let Some(a) = &app {
-            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path}));
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at}));
         }
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
             if let Some(a) = &app {
@@ -108,7 +110,7 @@ pub async fn compute_hashes_inner(
             done += 1;
         }
         if let Some(a) = &app {
-            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "ok": sha256.is_some()}));
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at, "ok": sha256.is_some()}));
         }
     }
     if let Some(a) = &app {
@@ -528,8 +530,18 @@ pub async fn compute_hashes_for_game_inner(
 
     let mut done = 0usize;
     for (fid, path, _source_id, kind, connection_id) in files {
+        let file_size: i64 = {
+            let conn = state.db.lock().unwrap();
+            conn.query_row(
+                "SELECT size FROM game_files WHERE id=?1",
+                [fid.clone()],
+                |r| r.get(0),
+            )
+            .unwrap_or(0)
+        };
+        let started_at = chrono::Utc::now().timestamp_millis();
         if let Some(a) = &app {
-            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path}));
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at}));
         }
         let allowed: Vec<String> = Vec::new();
         let mut arch_hashes: ArchiveHashes = (None, None, None, None, None);
@@ -612,7 +624,7 @@ pub async fn compute_hashes_for_game_inner(
             )?;
             done += 1;
             if let Some(a) = &app {
-                let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path}));
+                let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at, "ok": true}));
             }
         }
     }
