@@ -24,20 +24,25 @@ impl Tray for RetroverseTray {
     }
 
     fn icon_name(&self) -> String {
-        "applications-games".into()
+        String::new()
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
-        // Load the application logo as the tray icon pixmap.
+        // Load the application logo as the tray icon pixmap (ARGB32, native byte order = BGRA on little-endian).
         let bytes = include_bytes!("../icons/icon.png");
         if let Ok(img) = image::load_from_memory(bytes) {
-            let img = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+            let img = img.resize_exact(48, 48, image::imageops::FilterType::Lanczos3);
             let rgba = img.to_rgba8();
             let (w, h) = rgba.dimensions();
+            let mut data = rgba.into_raw();
+            // Convert RGBA -> BGRA (native ARGB32 on little-endian).
+            for chunk in data.chunks_mut(4) {
+                chunk.swap(0, 2);
+            }
             return vec![ksni::Icon {
                 width: w as i32,
                 height: h as i32,
-                data: rgba.into_raw(),
+                data,
             }];
         }
         Vec::new()
