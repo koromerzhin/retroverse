@@ -37,7 +37,8 @@ const nav = [
 export default function App() {
   const qc = useQueryClient();
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string; folder?: string } | null>(null);
-  const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number } | null>(null);
+  const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number; game?: string; platform?: string } | null>(null);
+  const [hashHistory, setHashHistory] = useState<{ file: string; game?: string; ok: boolean; ts: number }[]>([]);
   const [hashDetails, setHashDetails] = useState(false);
   const { t } = useI18n();
   const [scanDetails, setScanDetails] = useState(false);
@@ -78,7 +79,11 @@ export default function App() {
         setHashProgress(null);
         api.showNotification("RETROVERSE", `Empreintes calculées : ${ev.payload?.done ?? 0} fichier(s)`).catch(() => {});
       } else {
-        setHashProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", file: ev.payload?.file, done: ev.payload?.done });
+        const status = ev.payload?.status ?? "scanning";
+        setHashProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status, file: ev.payload?.file, done: ev.payload?.done, game: ev.payload?.game, platform: ev.payload?.platform });
+        if (status === "file_done" && ev.payload?.file) {
+          setHashHistory((prev) => [{ file: ev.payload.file, game: ev.payload?.game, ok: ev.payload?.ok !== false, ts: Date.now() }, ...prev].slice(0, 50));
+        }
       }
     }).then((u) => { unlisten = u; });
     return () => { if (unlisten) unlisten(); };
@@ -231,10 +236,37 @@ export default function App() {
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Progression : {formatNumber(hashProgress.scanned)} / {formatNumber(hashProgress.total)}{hashProgress.total > 0 ? ` (${Math.round((hashProgress.scanned / hashProgress.total) * 100)}%)` : ""}
             </p>
+            {hashProgress.platform && (
+              <p style={{ fontSize: 13, color: "var(--text-dim)" }}>Plateforme : {hashProgress.platform}</p>
+            )}
+            {hashProgress.game && (
+              <p style={{ fontSize: 13, color: "var(--text-dim)" }}>Jeu : {hashProgress.game}</p>
+            )}
             {hashProgress.file && (
-              <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                Fichier en cours : {hashProgress.file.substring(hashProgress.file.lastIndexOf("/") + 1)}
-              </p>
+              <>
+                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Fichier en cours :</p>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
+                  {hashProgress.file.substring(hashProgress.file.lastIndexOf("/") + 1)}
+                </p>
+                <p style={{ fontSize: 11, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
+                  {hashProgress.file}
+                </p>
+              </>
+            )}
+            <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
+              État : {hashProgress.status === "reading" ? "En cours de lecture" : hashProgress.status === "file_done" ? "Terminé" : hashProgress.status === "done" ? "Terminé" : hashProgress.status}
+            </p>
+            {hashHistory.length > 0 && (
+              <div style={{ marginTop: 12, maxHeight: 200, overflow: "auto" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Derniers fichiers traités :</p>
+                <ul style={{ fontSize: 11, color: "var(--text-muted)", paddingLeft: 16, margin: 0 }}>
+                  {hashHistory.map((h, i) => (
+                    <li key={i} style={{ wordBreak: "break-all" }}>
+                      {h.ok ? "✓" : "✗"} {h.file.substring(h.file.lastIndexOf("/") + 1)}{h.game ? ` (${h.game})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             <div className="row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
               <button className="btn" onClick={() => setHashDetails(false)}>Fermer</button>

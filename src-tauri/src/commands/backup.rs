@@ -38,16 +38,46 @@ pub async fn compute_hashes_inner(
         }
     };
 
+    // Map file_id -> (game_title, platform_name) for progress reporting.
+    let file_game_map: std::collections::HashMap<String, (String, Option<String>)> = {
+        let conn = state.db.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT gf.id, g.title, p.name FROM game_files gf LEFT JOIN game_file_links l ON l.file_id = gf.id LEFT JOIN games g ON g.id = l.game_id LEFT JOIN platforms p ON p.id = g.platform_id",
+        ).unwrap();
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                ))
+            })
+            .unwrap();
+        let mut m = std::collections::HashMap::new();
+        for r in rows.filter_map(|r| r.ok()) {
+            let (fid, title, plat) = r;
+            m.insert(fid, (title.unwrap_or_else(|| "—".to_string()), plat));
+        }
+        m
+    };
+
     let total = rows.len();
     let mut done = 0usize;
     if let Some(a) = &app {
         let _ = a.emit(
             "hash-progress",
-            serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}),
+            serde_json::json!({"scanned": 0, "total": total, "status": "scanning", "game": null, "platform": null, "file": null}),
         );
     }
 
-    for (idx, (id, path)) in rows.into_iter().enumerate() {
+    for (id, path) in rows.into_iter() {
+        let (game_title, platform_name) = file_game_map
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| ("—".to_string(), None));
+        if let Some(a) = &app {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path}));
+        }
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
             if let Some(a) = &app {
                 let _ = a.emit(
@@ -74,10 +104,11 @@ pub async fn compute_hashes_inner(
             );
             done += 1;
         }
-        if (idx % 5 == 0 || idx + 1 == total)
-            && let Some(a) = &app
-        {
-            let _ = a.emit("hash-progress", serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning", "file": path}));
+        if sha256.is_some() {
+            done += 1;
+        }
+        if let Some(a) = &app {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "ok": sha256.is_some()}));
         }
     }
     if let Some(a) = &app {
@@ -461,7 +492,12 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     Ok(imported)
 }
 
-pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) -> Result<usize> {
+pub async fn compute_hashes_for_game_inner(
+    state: &AppState,
+    app: Option<tauri::AppHandle>,
+    game_id: String,
+) -> Result<usize> {
+    use tauri::Emitter;
     // gather files + source info
     type FileInfo = (String, String, String, Option<String>, Option<String>);
     let files: Vec<FileInfo> = {
@@ -475,8 +511,26 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
         rows.collect::<rusqlite::Result<Vec<_>>>()?
     };
 
+    // Fetch game title and platform for progress reporting.
+    let (game_title, platform_name): (String, Option<String>) = {
+        let conn = state.db.lock().unwrap();
+        conn.query_row(
+            "SELECT g.title, p.name FROM games g LEFT JOIN platforms p ON p.id = g.platform_id WHERE g.id = ?1",
+            [game_id.clone()],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap_or_else(|_| (game_id.clone(), None))
+    };
+
+    let total = files.len();
+    if let Some(a) = &app {
+        let _ = a.emit("hash-progress", serde_json::json!({"scanned": 0, "total": total, "status": "scanning", "game": game_title, "platform": platform_name, "file": null}));
+    }
+
     let mut done = 0usize;
     for (fid, path, _source_id, kind, connection_id) in files {
+        if let Some(a) = &app {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path}));
+        }
         let allowed: Vec<String> = Vec::new();
         let mut arch_hashes: ArchiveHashes = (None, None, None, None, None);
         let result = if kind.as_deref() == Some("remote") {
@@ -557,14 +611,24 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
                 params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, fid],
             )?;
             done += 1;
+            if let Some(a) = &app {
+                let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path}));
+            }
         }
+    }
+    if let Some(a) = &app {
+        let _ = a.emit("hash-progress", serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done, "game": game_title, "platform": platform_name, "file": null}));
     }
     Ok(done)
 }
 
 #[tauri::command]
-pub async fn compute_hashes_for_game(state: State<'_, AppState>, game_id: String) -> Result<usize> {
-    compute_hashes_for_game_inner(&state, game_id).await
+pub async fn compute_hashes_for_game(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    game_id: String,
+) -> Result<usize> {
+    compute_hashes_for_game_inner(&state, Some(app), game_id).await
 }
 
 #[tauri::command]
@@ -781,7 +845,7 @@ pub async fn compute_hashes_for_all_games(state: State<'_, AppState>) -> Result<
     };
     let mut total = 0usize;
     for gid in game_ids {
-        if let Ok(n) = compute_hashes_for_game_inner(&state, gid).await {
+        if let Ok(n) = compute_hashes_for_game_inner(&state, None, gid).await {
             total += n;
         }
     }

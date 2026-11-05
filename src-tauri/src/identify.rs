@@ -298,70 +298,70 @@ pub fn compute_hashes(path: &str, allowed_exts: &[String]) -> Hashes {
         && let Ok(file) = std::fs::File::open(path)
         && let Ok(mut archive) = zip::ZipArchive::new(file)
     {
-                let mut idx = None;
-                for i in 0..archive.len() {
-                    if let Ok(e) = archive.by_index(i) {
-                        if e.is_dir() {
-                            continue;
-                        }
-                        let name = e.name().to_string();
-                        let ext = std::path::Path::new(&name)
-                            .extension()
-                            .and_then(|x| x.to_str())
-                            .map(|x| format!(".{}", x.to_lowercase()))
-                            .unwrap_or_default();
-                        if allowed_exts.is_empty()
-                            || allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&ext))
-                        {
-                            idx = Some(i);
-                            break;
-                        }
-                    }
+        let mut idx = None;
+        for i in 0..archive.len() {
+            if let Ok(e) = archive.by_index(i) {
+                if e.is_dir() {
+                    continue;
                 }
-                if let Some(i) = idx
-                    && let Ok(mut entry) = archive.by_index(i)
+                let name = e.name().to_string();
+                let ext = std::path::Path::new(&name)
+                    .extension()
+                    .and_then(|x| x.to_str())
+                    .map(|x| format!(".{}", x.to_lowercase()))
+                    .unwrap_or_default();
+                if allowed_exts.is_empty()
+                    || allowed_exts.iter().any(|a| a.eq_ignore_ascii_case(&ext))
                 {
-                    let inner_name = entry.name().to_string();
-                    let mut buf = [0u8; 65536];
-                    let mut sha256 = Sha256::new();
-                    let mut md5h = Md5Context::new();
-                    let mut sha1h = Sha1::new();
-                    let mut sha512h = Sha512::new();
-                    let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
-                    let mut crc_digest = crc.digest();
-                    loop {
-                        match entry.read(&mut buf) {
-                            Ok(0) => break,
-                            Ok(n) => {
-                                sha256.update(&buf[..n]);
-                                md5h.consume(&buf[..n]);
-                                sha1h.update(&buf[..n]);
-                                sha512h.update(&buf[..n]);
-                                crc_digest.update(&buf[..n]);
-                            }
-                            Err(_) => break,
-                        }
-                    }
-                    return (
-                        Some(format!("{:x}", sha256.finalize())),
-                        Some(format!("{:08x}", crc_digest.finalize())),
-                        Some(
-                            md5h.finalize()
-                                .iter()
-                                .map(|b| format!("{:02x}", b))
-                                .collect(),
-                        ),
-                        Some(
-                            sha1h
-                                .finalize()
-                                .iter()
-                                .map(|b| format!("{:02x}", b))
-                                .collect(),
-                        ),
-                        Some(inner_name),
-                        Some(format!("{:x}", sha512h.finalize())),
-                    );
+                    idx = Some(i);
+                    break;
                 }
+            }
+        }
+        if let Some(i) = idx
+            && let Ok(mut entry) = archive.by_index(i)
+        {
+            let inner_name = entry.name().to_string();
+            let mut buf = [0u8; 65536];
+            let mut sha256 = Sha256::new();
+            let mut md5h = Md5Context::new();
+            let mut sha1h = Sha1::new();
+            let mut sha512h = Sha512::new();
+            let crc = Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+            let mut crc_digest = crc.digest();
+            loop {
+                match entry.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        sha256.update(&buf[..n]);
+                        md5h.consume(&buf[..n]);
+                        sha1h.update(&buf[..n]);
+                        sha512h.update(&buf[..n]);
+                        crc_digest.update(&buf[..n]);
+                    }
+                    Err(_) => break,
+                }
+            }
+            return (
+                Some(format!("{:x}", sha256.finalize())),
+                Some(format!("{:08x}", crc_digest.finalize())),
+                Some(
+                    md5h.finalize()
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect(),
+                ),
+                Some(
+                    sha1h
+                        .finalize()
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect(),
+                ),
+                Some(inner_name),
+                Some(format!("{:x}", sha512h.finalize())),
+            );
+        }
     }
 
     // Normal file (or .7z fallback): stream in chunks to avoid loading into memory.
