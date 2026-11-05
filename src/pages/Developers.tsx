@@ -7,21 +7,8 @@ export default function Developers() {
   const { data } = useQuery({ queryKey: ["developers-full"], queryFn: () => api.listDevelopersFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [syncingPub, setSyncingPub] = useState(false);
   const [syncingDev, setSyncingDev] = useState(false);
 
-  const syncPub = async () => {
-    setSyncingPub(true);
-    try {
-      const r: any = await api.syncPublishers();
-      qc.invalidateQueries({ queryKey: ["publishers-full"] });
-      api.showNotification("RETROVERSE", `Synchronisation des éditeurs terminée\n${r.already} déjà présents.\n${r.added} nouveaux ajoutés.\n0 doublon créé.\n${r.games_analyzed} jeux analysés.`).catch(() => {});
-    } catch (e) {
-      api.showNotification("RETROVERSE", String(e)).catch(() => {});
-    } finally {
-      setSyncingPub(false);
-    }
-  };
   const syncDev = async () => {
     setSyncingDev(true);
     try {
@@ -46,9 +33,6 @@ export default function Developers() {
         <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <input className="input" placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
-          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={syncingPub} onClick={syncPub}>
-            {syncingPub ? <><span className="spinner" /> Synchronisation des éditeurs...</> : "Synchroniser les éditeurs"}
-          </button>
           <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={syncingDev} onClick={syncDev}>
             {syncingDev ? <><span className="spinner" /> Synchronisation des développeurs...</> : "Synchroniser les développeurs"}
           </button>

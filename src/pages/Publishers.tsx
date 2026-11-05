@@ -8,7 +8,6 @@ export default function Publishers() {
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [syncingPub, setSyncingPub] = useState(false);
-  const [syncingDev, setSyncingDev] = useState(false);
 
   const syncPub = async () => {
     setSyncingPub(true);
@@ -20,18 +19,6 @@ export default function Publishers() {
       api.showNotification("RETROVERSE", String(e)).catch(() => {});
     } finally {
       setSyncingPub(false);
-    }
-  };
-  const syncDev = async () => {
-    setSyncingDev(true);
-    try {
-      const r: any = await api.syncDevelopers();
-      qc.invalidateQueries({ queryKey: ["developers-full"] });
-      api.showNotification("RETROVERSE", `Synchronisation des développeurs terminée\n${r.already} déjà présents.\n${r.added} nouveaux ajoutés.\n0 doublon créé.\n${r.games_analyzed} jeux analysés.`).catch(() => {});
-    } catch (e) {
-      api.showNotification("RETROVERSE", String(e)).catch(() => {});
-    } finally {
-      setSyncingDev(false);
     }
   };
 
@@ -48,9 +35,6 @@ export default function Publishers() {
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
           <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={syncingPub} onClick={syncPub}>
             {syncingPub ? <><span className="spinner" /> Synchronisation des éditeurs...</> : "Synchroniser les éditeurs"}
-          </button>
-          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={syncingDev} onClick={syncDev}>
-            {syncingDev ? <><span className="spinner" /> Synchronisation des développeurs...</> : "Synchroniser les développeurs"}
           </button>
         </div>
         <table className="table">
