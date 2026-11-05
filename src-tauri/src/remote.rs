@@ -35,35 +35,41 @@ pub async fn compute_hashes(
             Ok(Ok(f)) => f,
             _ => return (None, None, None, None, None, None),
         };
-    let mut buf = Vec::new();
-    // Timeout per file to avoid hanging on stalled connections.
-    let read_result =
-        tokio::time::timeout(std::time::Duration::from_secs(60), f.read_to_end(&mut buf)).await;
-    match read_result {
-        Ok(Ok(_)) => {}
-        _ => return (None, None, None, None, None, None),
-    }
-    let path = path.to_string();
-    let allowed = allowed.to_vec();
-    // Run CPU-bound hashing in a blocking thread.
-    tokio::task::spawn_blocking(move || {
-        let lower = path.to_lowercase();
-        if lower.ends_with(".7z") {
-            let tmp = std::env::temp_dir().join(format!("retroverse_remote_{}.7z", path.len()));
-            if std::fs::write(&tmp, &buf).is_ok() {
-                let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
-                let _ = std::fs::remove_file(&tmp);
-                return r;
+    // Stream download to a temp file to avoid loading the whole file into memory.
+    let tmp = std::env::temp_dir().join(format!("retroverse_remote_{}", path.len()));
+    let download = async {
+        let mut out = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+        use std::io::Write;
+        let mut chunk = vec![0u8; 65536];
+        loop {
+            let n = f.read(&mut chunk).await.map_err(|e| e.to_string())?;
+            if n == 0 {
+                break;
             }
+            out.write_all(&chunk[..n]).map_err(|e| e.to_string())?;
         }
-        let filename = std::path::Path::new(&path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(&path);
-        crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
+        out.flush().map_err(|e| e.to_string())?;
+        Ok::<(), String>(())
+    };
+    let read_result = tokio::time::timeout(std::time::Duration::from_secs(600), download).await;
+    match read_result {
+        Ok(Ok(())) => {}
+        _ => {
+            let _ = std::fs::remove_file(&tmp);
+            return (None, None, None, None, None, None);
+        }
+    }
+    let path_owned = path.to_string();
+    let allowed = allowed.to_vec();
+    let tmp_for_hash = tmp.clone();
+    let r = tokio::task::spawn_blocking(move || {
+        crate::identify::compute_hashes(tmp_for_hash.to_str().unwrap_or(""), &allowed)
     })
     .await
-    .unwrap_or((None, None, None, None, None, None))
+    .unwrap_or((None, None, None, None, None, None));
+    let _ = std::fs::remove_file(&tmp);
+    let _ = path_owned;
+    r
 }
 
 pub fn resolve_key_path(key_path: &str) -> String {

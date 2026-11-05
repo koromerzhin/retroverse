@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "./lib/api";
-import { formatNumber } from "./lib/format";
+import { formatNumber, formatBytes } from "./lib/format";
 import { useI18n } from "./i18n";
 import { NavLink, Routes, Route, Navigate } from "react-router-dom";
 const Home = lazy(() => import("./pages/Home"));
@@ -37,8 +37,15 @@ const nav = [
 export default function App() {
   const qc = useQueryClient();
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string; folder?: string } | null>(null);
-  const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number } | null>(null);
+  const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number; game?: string; platform?: string; size?: number; startedAt?: number } | null>(null);
+  const [hashHistory, setHashHistory] = useState<{ file: string; game?: string; ok: boolean; ts: number }[]>([]);
   const [hashDetails, setHashDetails] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!hashProgress) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [hashProgress]);
   const { t } = useI18n();
   const [scanDetails, setScanDetails] = useState(false);
   const [sources, setSources] = useState<any[]>([]);
@@ -78,7 +85,11 @@ export default function App() {
         setHashProgress(null);
         api.showNotification("RETROVERSE", `Empreintes calculées : ${ev.payload?.done ?? 0} fichier(s)`).catch(() => {});
       } else {
-        setHashProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: ev.payload?.status ?? "scanning", file: ev.payload?.file, done: ev.payload?.done });
+        const status = ev.payload?.status ?? "scanning";
+        setHashProgress({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status, file: ev.payload?.file, done: ev.payload?.done, game: ev.payload?.game, platform: ev.payload?.platform, size: ev.payload?.size, startedAt: ev.payload?.started_at });
+        if (status === "file_done" && ev.payload?.file) {
+          setHashHistory((prev) => [{ file: ev.payload.file, game: ev.payload?.game, ok: ev.payload?.ok !== false, ts: Date.now() }, ...prev].slice(0, 50));
+        }
       }
     }).then((u) => { unlisten = u; });
     return () => { if (unlisten) unlisten(); };
@@ -107,7 +118,7 @@ export default function App() {
         setScanProgress(null);
         api.showNotification("RETROVERSE", "Source inaccessible — scan ignoré").catch(() => {});
       } else if (ev.payload?.status === "done") {
-        setScanProgress((prev) => ({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id ?? prev?.sourceId, file: ev.payload?.file ?? prev?.file, folder: ev.payload?.folder ?? prev?.folder }));
+        setScanProgress((prev) => ({ scanned: ev.payload?.scanned ?? 0, total: ev.payload?.total ?? 0, status: "done", sourceId: ev.payload?.source_id ?? prev?.sourceId, file: ev.payload?.file, folder: ev.payload?.folder ?? prev?.folder }));
         const created = ev.payload?.games_created ?? 0;
         const updated = ev.payload?.games_updated ?? 0;
         const files = ev.payload?.files_found ?? 0;
@@ -127,7 +138,7 @@ export default function App() {
           total: ev.payload?.total ?? 0,
           status: ev.payload?.status ?? "scanning",
           sourceId: ev.payload?.source_id ?? prev?.sourceId,
-          file: ev.payload?.file ?? prev?.file,
+          file: ev.payload?.file,
           folder: ev.payload?.folder ?? prev?.folder,
         }));
       }
@@ -185,11 +196,23 @@ export default function App() {
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Progression : {formatNumber(scanProgress.scanned)} / {formatNumber(scanProgress.total || 0)} fichier(s){scanProgress.total ? ` (${Math.round((scanProgress.scanned / scanProgress.total) * 100)}%)` : ""}
             </p>
-            {scanProgress.file && (
-              <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                Fichier en cours : {scanProgress.file.substring(scanProgress.file.lastIndexOf("/") + 1)}
-              </p>
-            )}
+            <div style={{ background: "var(--bg-3)", border: "1px solid var(--accent)", borderRadius: 8, padding: 12, marginTop: 8, marginBottom: 8 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", marginTop: 0, marginBottom: 6 }}>Fichier actuellement en cours de traitement</p>
+              {scanProgress.file ? (
+                <>
+                  <p style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4, wordBreak: "break-all" }}>
+                    {scanProgress.file.substring(scanProgress.file.lastIndexOf("/") + 1)}
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace", marginBottom: 4 }}>
+                    {scanProgress.file}
+                  </p>
+                  {scanProgress.folder && <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>Dossier : {scanProgress.folder}</p>}
+                  <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>Statut : {statusLabel(scanProgress.status)}</p>
+                </>
+              ) : (
+                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>Aucun fichier en cours de traitement</p>
+              )}
+            </div>
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Statut : {statusLabel(scanProgress.status)}
             </p>
@@ -231,10 +254,48 @@ export default function App() {
             <p style={{ fontSize: 13, color: "var(--text-dim)" }}>
               Progression : {formatNumber(hashProgress.scanned)} / {formatNumber(hashProgress.total)}{hashProgress.total > 0 ? ` (${Math.round((hashProgress.scanned / hashProgress.total) * 100)}%)` : ""}
             </p>
-            {hashProgress.file && (
-              <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                Fichier en cours : {hashProgress.file.substring(hashProgress.file.lastIndexOf("/") + 1)}
-              </p>
+            {hashProgress.platform && (
+              <p style={{ fontSize: 13, color: "var(--text-dim)" }}>Plateforme : {hashProgress.platform}</p>
+            )}
+            {hashProgress.game && (
+              <p style={{ fontSize: 13, color: "var(--text-dim)" }}>Jeu : {hashProgress.game}</p>
+            )}
+            <div style={{ background: "var(--bg-3)", border: "1px solid var(--accent-2)", borderRadius: 8, padding: 12, marginTop: 8, marginBottom: 8 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-2)", marginTop: 0, marginBottom: 6 }}>Fichier actuellement en cours de traitement</p>
+              {hashProgress.file ? (
+                <>
+                  <p style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4, wordBreak: "break-all" }}>
+                    {hashProgress.file.substring(hashProgress.file.lastIndexOf("/") + 1)}
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", wordBreak: "break-all", fontFamily: "monospace", marginBottom: 6 }}>
+                    {hashProgress.file}
+                  </p>
+                  {typeof hashProgress.size === "number" && <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>Taille : {formatBytes(hashProgress.size)}</p>}
+                  <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>
+                    Opération : {hashProgress.status === "reading" ? "Lecture / calcul de l'empreinte" : hashProgress.status === "file_done" ? "Terminé" : hashProgress.status === "done" ? "Terminé" : hashProgress.status}
+                  </p>
+                  {hashProgress.startedAt && hashProgress.status === "reading" && (
+                    <p style={{ fontSize: 12, color: "var(--text-dim)", margin: "2px 0" }}>
+                      Temps écoulé : {Math.max(0, Math.round((now - hashProgress.startedAt) / 1000))} s
+                    </p>
+                  )}
+                  {hashProgress.status === "reading" && <span className="spinner" />}
+                </>
+              ) : (
+                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>Aucun fichier en cours de traitement</p>
+              )}
+            </div>
+            {hashHistory.length > 0 && (
+              <div style={{ marginTop: 12, maxHeight: 200, overflow: "auto" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Derniers fichiers traités :</p>
+                <ul style={{ fontSize: 11, color: "var(--text-muted)", paddingLeft: 16, margin: 0 }}>
+                  {hashHistory.map((h, i) => (
+                    <li key={i} style={{ wordBreak: "break-all" }}>
+                      {h.ok ? "✓" : "✗"} {h.file.substring(h.file.lastIndexOf("/") + 1)}{h.game ? ` (${h.game})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             <div className="row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
               <button className="btn" onClick={() => setHashDetails(false)}>Fermer</button>

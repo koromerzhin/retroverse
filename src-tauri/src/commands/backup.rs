@@ -38,16 +38,48 @@ pub async fn compute_hashes_inner(
         }
     };
 
+    // Map file_id -> (game_title, platform_name) for progress reporting.
+    let file_game_map: std::collections::HashMap<String, (String, Option<String>, i64)> = {
+        let conn = state.db.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT gf.id, g.title, p.name FROM game_files gf LEFT JOIN game_file_links l ON l.file_id = gf.id LEFT JOIN games g ON g.id = l.game_id LEFT JOIN platforms p ON p.id = g.platform_id",
+        ).unwrap();
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                    r.get::<_, i64>(3).unwrap_or(0),
+                ))
+            })
+            .unwrap();
+        let mut m = std::collections::HashMap::new();
+        for r in rows.filter_map(|r| r.ok()) {
+            let (fid, title, plat, size) = r;
+            m.insert(fid, (title.unwrap_or_else(|| "—".to_string()), plat, size));
+        }
+        m
+    };
+
     let total = rows.len();
     let mut done = 0usize;
     if let Some(a) = &app {
         let _ = a.emit(
             "hash-progress",
-            serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}),
+            serde_json::json!({"scanned": 0, "total": total, "status": "scanning", "game": null, "platform": null, "file": null}),
         );
     }
 
-    for (idx, (id, path)) in rows.into_iter().enumerate() {
+    for (id, path) in rows.into_iter() {
+        let (game_title, platform_name, file_size) = file_game_map
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| ("—".to_string(), None, 0));
+        let started_at = chrono::Utc::now().timestamp_millis();
+        if let Some(a) = &app {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at}));
+        }
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
             if let Some(a) = &app {
                 let _ = a.emit(
@@ -62,13 +94,7 @@ pub async fn compute_hashes_inner(
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".zip") || lower.ends_with(".7z");
         let (arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512) = if is_archive {
-            if let Ok(data) = std::fs::read(&path) {
-                let (s, c, m, h, _, sh512) =
-                    crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &[]);
-                (s, c, m, h, sh512)
-            } else {
-                (None, None, None, None, None)
-            }
+            crate::identify::hash_file_all(&path)
         } else {
             (None, None, None, None, None)
         };
@@ -80,10 +106,11 @@ pub async fn compute_hashes_inner(
             );
             done += 1;
         }
-        if (idx % 5 == 0 || idx + 1 == total)
-            && let Some(a) = &app
-        {
-            let _ = a.emit("hash-progress", serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning", "file": path}));
+        if sha256.is_some() {
+            done += 1;
+        }
+        if let Some(a) = &app {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at, "ok": sha256.is_some()}));
         }
     }
     if let Some(a) = &app {
@@ -467,7 +494,12 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     Ok(imported)
 }
 
-pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) -> Result<usize> {
+pub async fn compute_hashes_for_game_inner(
+    state: &AppState,
+    app: Option<tauri::AppHandle>,
+    game_id: String,
+) -> Result<usize> {
+    use tauri::Emitter;
     // gather files + source info
     type FileInfo = (String, String, String, Option<String>, Option<String>);
     let files: Vec<FileInfo> = {
@@ -481,8 +513,36 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
         rows.collect::<rusqlite::Result<Vec<_>>>()?
     };
 
+    // Fetch game title and platform for progress reporting.
+    let (game_title, platform_name): (String, Option<String>) = {
+        let conn = state.db.lock().unwrap();
+        conn.query_row(
+            "SELECT g.title, p.name FROM games g LEFT JOIN platforms p ON p.id = g.platform_id WHERE g.id = ?1",
+            [game_id.clone()],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap_or_else(|_| (game_id.clone(), None))
+    };
+
+    let total = files.len();
+    if let Some(a) = &app {
+        let _ = a.emit("hash-progress", serde_json::json!({"scanned": 0, "total": total, "status": "scanning", "game": game_title, "platform": platform_name, "file": null}));
+    }
+
     let mut done = 0usize;
     for (fid, path, _source_id, kind, connection_id) in files {
+        let file_size: i64 = {
+            let conn = state.db.lock().unwrap();
+            conn.query_row(
+                "SELECT size FROM game_files WHERE id=?1",
+                [fid.clone()],
+                |r| r.get(0),
+            )
+            .unwrap_or(0)
+        };
+        let started_at = chrono::Utc::now().timestamp_millis();
+        if let Some(a) = &app {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at}));
+        }
         let allowed: Vec<String> = Vec::new();
         let mut arch_hashes: ArchiveHashes = (None, None, None, None, None);
         let result = if kind.as_deref() == Some("remote") {
@@ -504,43 +564,41 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
                 )?
             };
             let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
-            // read file into memory
-            let mut f = sess
-                .sftp
-                .open(&path)
-                .await
-                .map_err(|e| RetroError::Other(e.to_string()))?;
-            use tokio::io::AsyncReadExt;
-            let mut buf = Vec::new();
-            f.read_to_end(&mut buf)
-                .await
-                .map_err(|e| RetroError::Other(e.to_string()))?;
+            // Stream download to a temp file to avoid loading the whole file into memory.
+            let tmp = std::env::temp_dir().join(format!("retroverse_{}", fid));
+            {
+                use tokio::io::AsyncReadExt;
+                let mut f = sess
+                    .sftp
+                    .open(&path)
+                    .await
+                    .map_err(|e| RetroError::Other(e.to_string()))?;
+                let mut out = std::fs::File::create(&tmp).map_err(RetroError::Io)?;
+                use std::io::Write;
+                let mut chunk = vec![0u8; 65536];
+                loop {
+                    let n = f
+                        .read(&mut chunk)
+                        .await
+                        .map_err(|e| RetroError::Other(e.to_string()))?;
+                    if n == 0 {
+                        break;
+                    }
+                    out.write_all(&chunk[..n]).map_err(RetroError::Io)?;
+                }
+                out.flush().map_err(RetroError::Io)?;
+            }
             let _ = sess
                 .session
                 .disconnect(russh::Disconnect::ByApplication, "", "")
                 .await;
-            let filename = std::path::Path::new(&path)
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or(&path);
-            // handle 7z: need a temp file
+            let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
             let lower = path.to_lowercase();
             let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-            let r = if lower.ends_with(".7z") {
-                // write to temp file
-                let tmp = std::env::temp_dir().join(format!("retroverse_{}.7z", fid));
-                std::fs::write(&tmp, &buf).map_err(RetroError::Io)?;
-                let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
-                let _ = std::fs::remove_file(&tmp);
-                r
-            } else {
-                crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
-            };
             if is_archive {
-                let (as_, ac, am, ah, _, ash512) =
-                    crate::identify::compute_hashes_from_bytes(&buf, "archive.bin", &[]);
-                arch_hashes = (as_, ac, am, ah, ash512);
+                arch_hashes = crate::identify::hash_file_all(tmp.to_str().unwrap_or(""));
             }
+            let _ = std::fs::remove_file(&tmp);
             r
         } else {
             crate::identify::compute_hashes(&path, &allowed)
@@ -553,13 +611,7 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
             if kind.as_deref() == Some("remote") {
                 arch_hashes
             } else {
-                if let Ok(data) = std::fs::read(&path) {
-                    let (s, c, m, h, _, sh512) =
-                        crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &[]);
-                    (s, c, m, h, sh512)
-                } else {
-                    (None, None, None, None, None)
-                }
+                crate::identify::hash_file_all(&path)
             }
         } else {
             (None, None, None, None, None)
@@ -571,14 +623,24 @@ pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) ->
                 params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, fid],
             )?;
             done += 1;
+            if let Some(a) = &app {
+                let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at, "ok": true}));
+            }
         }
+    }
+    if let Some(a) = &app {
+        let _ = a.emit("hash-progress", serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done, "game": game_title, "platform": platform_name, "file": null}));
     }
     Ok(done)
 }
 
 #[tauri::command]
-pub async fn compute_hashes_for_game(state: State<'_, AppState>, game_id: String) -> Result<usize> {
-    compute_hashes_for_game_inner(&state, game_id).await
+pub async fn compute_hashes_for_game(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    game_id: String,
+) -> Result<usize> {
+    compute_hashes_for_game_inner(&state, Some(app), game_id).await
 }
 
 #[tauri::command]
@@ -653,43 +715,43 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
             )?
         };
         let sess = remote::connect(&host, port, &username, &key_path).await?;
-        let mut f = sess
-            .sftp
-            .open(&path)
-            .await
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        use tokio::io::AsyncReadExt;
-        let mut buf = Vec::new();
-        f.read_to_end(&mut buf)
-            .await
-            .map_err(|e| RetroError::Other(e.to_string()))?;
+        let tmp = std::env::temp_dir().join(format!("retroverse_{}", file_id));
+        {
+            use tokio::io::AsyncReadExt;
+            let mut f = sess
+                .sftp
+                .open(&path)
+                .await
+                .map_err(|e| RetroError::Other(e.to_string()))?;
+            let mut out = std::fs::File::create(&tmp).map_err(RetroError::Io)?;
+            use std::io::Write;
+            let mut chunk = vec![0u8; 65536];
+            loop {
+                let n = f
+                    .read(&mut chunk)
+                    .await
+                    .map_err(|e| RetroError::Other(e.to_string()))?;
+                if n == 0 {
+                    break;
+                }
+                out.write_all(&chunk[..n]).map_err(RetroError::Io)?;
+            }
+            out.flush().map_err(RetroError::Io)?;
+        }
         let _ = sess
             .session
             .disconnect(Disconnect::ByApplication, "", "")
             .await;
-        let filename = std::path::Path::new(&path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(&path);
+        let content = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
+        let (s, c, m, h, zi, sh512) = content;
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-        let content = if lower.ends_with(".7z") {
-            let tmp = std::env::temp_dir().join(format!("retroverse_{}.7z", file_id));
-            std::fs::write(&tmp, &buf).map_err(RetroError::Io)?;
-            let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
-            let _ = std::fs::remove_file(&tmp);
-            r
-        } else {
-            crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
-        };
-        let (s, c, m, h, zi, sh512) = content;
         let (as_, ac, am, ah, ash512) = if is_archive {
-            let (a, b, cc, d, _, e) =
-                crate::identify::compute_hashes_from_bytes(&buf, "archive.bin", &allowed);
-            (a, b, cc, d, e)
+            crate::identify::hash_file_all(tmp.to_str().unwrap_or(""))
         } else {
             (None, None, None, None, None)
         };
+        let _ = std::fs::remove_file(&tmp);
         (s, c, m, h, zi, sh512, as_, ac, am, ah, ash512)
     } else {
         let content = crate::identify::compute_hashes(&path, &allowed);
@@ -697,13 +759,7 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
         let (as_, ac, am, ah, ash512) = if is_archive {
-            if let Ok(data) = std::fs::read(&path) {
-                let (a, b, cc, d, _, e) =
-                    crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &allowed);
-                (a, b, cc, d, e)
-            } else {
-                (None, None, None, None, None)
-            }
+            crate::identify::hash_file_all(&path)
         } else {
             (None, None, None, None, None)
         };
@@ -750,7 +806,7 @@ pub async fn compute_hashes_for_platform(
         serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}),
     );
 
-    for (idx, id) in ids.into_iter().enumerate() {
+    for id in ids.into_iter() {
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
             let _ = app.emit(
                 "hash-progress",
@@ -758,14 +814,20 @@ pub async fn compute_hashes_for_platform(
             );
             return Ok(done);
         }
+        // Fetch file info for progress reporting.
+        let (path, game_title, platform_name, file_size): (String, String, Option<String>, i64) = {
+            let conn = state.db.lock().unwrap();
+            conn.query_row(
+                "SELECT gf.path, COALESCE(g.title, '—'), p.name, gf.size FROM game_files gf LEFT JOIN game_file_links l ON l.file_id = gf.id LEFT JOIN games g ON g.id = l.game_id LEFT JOIN platforms p ON p.id = g.platform_id WHERE gf.id = ?1",
+                [id.clone()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_, i64>(3).unwrap_or(0))),
+            ).unwrap_or_else(|_| (id.clone(), "—".to_string(), None, 0))
+        };
+        let started_at = chrono::Utc::now().timestamp_millis();
+        let _ = app.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at}));
         let n = compute_hash_for_file_inner(&state, id).await?;
         done += n;
-        if idx % 5 == 0 || idx + 1 == total {
-            let _ = app.emit(
-                "hash-progress",
-                serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning"}),
-            );
-        }
+        let _ = app.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at, "ok": n > 0}));
     }
     let _ = app.emit(
         "hash-progress",
@@ -801,7 +863,7 @@ pub async fn compute_hashes_for_all_games(state: State<'_, AppState>) -> Result<
     };
     let mut total = 0usize;
     for gid in game_ids {
-        if let Ok(n) = compute_hashes_for_game_inner(&state, gid).await {
+        if let Ok(n) = compute_hashes_for_game_inner(&state, None, gid).await {
             total += n;
         }
     }
