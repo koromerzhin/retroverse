@@ -17,6 +17,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Developers = lazy(() => import("./pages/Developers"));
 const Publishers = lazy(() => import("./pages/Publishers"));
 const Genres = lazy(() => import("./pages/Genres"));
+const Classifications = lazy(() => import("./pages/Classifications"));
 
 const nav = [
   { to: "/", label: "Accueil", icon: "🏠" },
@@ -28,6 +29,7 @@ const nav = [
   { to: "/developers", label: "Développeurs", icon: "👨‍💻" },
   { to: "/publishers", label: "Éditeurs", icon: "🏢" },
   { to: "/genres", label: "Genres", icon: "🏷️" },
+  { to: "/classifications", label: "Classifications", icon: "🛡️" },
   { to: "/preservation", label: "Préservation", icon: "🛡️" },
   { to: "/settings", label: "Paramètres", icon: "⚙️" },
 ];
@@ -285,6 +287,7 @@ export default function App() {
           <Route path="/developers" element={<Developers />} />
           <Route path="/publishers" element={<Publishers />} />
           <Route path="/genres" element={<Genres />} />
+          <Route path="/classifications" element={<Classifications />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

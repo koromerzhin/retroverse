@@ -160,3 +160,24 @@ pub struct Genre {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClassificationSystem {
+    pub id: String,
+    pub name: String,
+    pub ss_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Classification {
+    pub id: String,
+    pub system_id: String,
+    pub system_name: Option<String>,
+    pub value: String,
+    pub ss_id: Option<String>,
+    pub description: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}

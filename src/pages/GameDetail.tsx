@@ -26,6 +26,7 @@ export default function GameDetail() {
     enabled: !!id,
   });
   const { data: allGenres } = useQuery<any[]>({ queryKey: ["genres-full"], queryFn: () => api.listGenresFull() });
+  const { data: gameClassifications } = useQuery<any[]>({ queryKey: ["game-classifications", id], queryFn: () => api.listGameClassifications(id!), enabled: !!id });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
 
@@ -40,7 +41,6 @@ export default function GameDetail() {
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
   const [infoGenre, setInfoGenre] = useState("");
-  const [infoClassifications, setInfoClassifications] = useState("");
   const [infoReleaseEU, setInfoReleaseEU] = useState("");
   const [infoReleaseUS, setInfoReleaseUS] = useState("");
   const [infoReleaseJP, setInfoReleaseJP] = useState("");
@@ -67,7 +67,6 @@ export default function GameDetail() {
     setInfoGenre(matched.length ? matched.join(", ") : ssGenres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", "));
     setInfoPublisher(details.editeur?.text ?? details.publisher ?? "");
     setInfoDeveloper(details.developpeur?.text ?? details.developer ?? "");
-    setInfoClassifications(details.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : "");
     const dates = details.dates || [];
     setInfoReleaseEU(dates.find((d: any) => d.region === "eu")?.text ?? "");
     setInfoReleaseUS(dates.find((d: any) => d.region === "us")?.text ?? "");
@@ -184,8 +183,21 @@ export default function GameDetail() {
               </td>
             </tr>
             <tr>
-              <td style={{ fontWeight: 600 }}>Classification(s)</td>
-              <td><input className="input" value={infoClassifications} onChange={(e) => setInfoClassifications(e.target.value)} style={{ width: "100%" }} /></td>
+              <td style={{ fontWeight: 600, verticalAlign: "top" }}>Classification(s)</td>
+              <td>
+                {(gameClassifications && gameClassifications.length > 0) ? (
+                  <table className="table" style={{ fontSize: 11, width: "100%" }}>
+                    <thead><tr><th>Organisme</th><th>Classification</th></tr></thead>
+                    <tbody>
+                      {gameClassifications.map((c: any) => (
+                        <tr key={c.id}><td>{c.system_name ?? "—"}</td><td>{c.value}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Aucune classification</span>
+                )}
+              </td>
             </tr>
             <tr>
               <td style={{ fontWeight: 600, verticalAlign: "top" }}>Date(s) de sortie</td>
@@ -213,6 +225,7 @@ export default function GameDetail() {
             try {
               await api.enrichGame(id, "screenscraper");
               qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+              qc.invalidateQueries({ queryKey: ["game-classifications", id] });
               api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {});
             } catch (e) {
               api.showNotification("RETROVERSE", String(e)).catch(() => {});

@@ -1,5 +1,6 @@
 pub mod app;
 pub mod backup;
+pub mod classifications;
 pub mod companion;
 pub mod entities;
 pub mod gamelists;
@@ -15,6 +16,7 @@ pub mod sources;
 
 pub use app::*;
 pub use backup::*;
+pub use classifications::*;
 pub use companion::*;
 pub use entities::*;
 pub use gamelists::*;

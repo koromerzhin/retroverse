@@ -203,6 +203,47 @@ pub async fn enrich_game(
             );
         }
 
+        // Associate classifications with the game via the referential.
+        for (sys_name, value) in &res.classifications {
+            if sys_name.trim().is_empty() || value.trim().is_empty() {
+                continue;
+            }
+            let sys_id: String = match conn.query_row(
+                "SELECT id FROM classification_systems WHERE name=?1",
+                [sys_name.clone()],
+                |r| r.get(0),
+            ) {
+                Ok(id) => id,
+                Err(_) => {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO classification_systems (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                        params![id, sys_name, now, now],
+                    );
+                    id
+                }
+            };
+            let cls_id: String = match conn.query_row(
+                "SELECT id FROM classifications WHERE system_id=?1 AND value=?2",
+                params![sys_id, value],
+                |r| r.get(0),
+            ) {
+                Ok(id) => id,
+                Err(_) => {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO classifications (id,system_id,value,ss_id,description,created_at,updated_at) VALUES (?1,?2,?3,NULL,NULL,?4,?5)",
+                        params![id, sys_id, value, now, now],
+                    );
+                    id
+                }
+            };
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO game_classifications (game_id, classification_id) VALUES (?1,?2)",
+                params![game_id, cls_id],
+            );
+        }
+
         // record job
         let job_id = crate::models::new_id();
         conn.execute(
