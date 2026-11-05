@@ -28,6 +28,18 @@ impl Tray for RetroverseTray {
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
+        // Load the application logo as the tray icon pixmap.
+        let bytes = include_bytes!("../icons/icon.png");
+        if let Ok(img) = image::load_from_memory(bytes) {
+            let img = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+            let rgba = img.to_rgba8();
+            let (w, h) = rgba.dimensions();
+            return vec![ksni::Icon {
+                width: w as i32,
+                height: h as i32,
+                data: rgba.into_raw(),
+            }];
+        }
         Vec::new()
     }
 
