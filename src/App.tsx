@@ -14,6 +14,10 @@ const Companion = lazy(() => import("./pages/Companion"));
 const Discovery = lazy(() => import("./pages/Discovery"));
 const Preservation = lazy(() => import("./pages/Preservation"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Developers = lazy(() => import("./pages/Developers"));
+const Publishers = lazy(() => import("./pages/Publishers"));
+const Genres = lazy(() => import("./pages/Genres"));
+const Classifications = lazy(() => import("./pages/Classifications"));
 
 const nav = [
   { to: "/", label: "Accueil", icon: "🏠" },
@@ -22,6 +26,10 @@ const nav = [
   { to: "/sources", label: "Sources", icon: "📁" },
   { to: "/companion", label: "Companion", icon: "🕹️" },
   { to: "/discovery", label: "Découverte", icon: "🧭" },
+  { to: "/developers", label: "Développeurs", icon: "👨‍💻" },
+  { to: "/publishers", label: "Éditeurs", icon: "🏢" },
+  { to: "/genres", label: "Genres", icon: "🏷️" },
+  { to: "/classifications", label: "Classifications", icon: "🛡️" },
   { to: "/preservation", label: "Préservation", icon: "🛡️" },
   { to: "/settings", label: "Paramètres", icon: "⚙️" },
 ];
@@ -276,6 +284,10 @@ export default function App() {
           <Route path="/companion" element={<Companion />} />
           <Route path="/discovery" element={<Discovery />} />
           <Route path="/preservation" element={<Preservation />} />
+          <Route path="/developers" element={<Developers />} />
+          <Route path="/publishers" element={<Publishers />} />
+          <Route path="/genres" element={<Genres />} />
+          <Route path="/classifications" element={<Classifications />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

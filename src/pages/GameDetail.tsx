@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
@@ -11,7 +11,6 @@ export default function GameDetail() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const qc = useQueryClient();
-  const enrichedRef = useRef(false);
   const { data, isLoading } = useQuery<LibraryEntry>({
     queryKey: ["game", id],
     queryFn: () => api.getGame(id!),
@@ -26,7 +25,8 @@ export default function GameDetail() {
     queryFn: () => api.getGameMetadata(id!),
     enabled: !!id,
   });
-  const { data: genres } = useQuery<string[]>({ queryKey: ["genres"], queryFn: () => api.listGenres() });
+  const { data: allGenres } = useQuery<any[]>({ queryKey: ["genres-full"], queryFn: () => api.listGenresFull() });
+  const { data: gameClassifications } = useQuery<any[]>({ queryKey: ["game-classifications", id], queryFn: () => api.listGameClassifications(id!), enabled: !!id });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
 
@@ -35,12 +35,15 @@ export default function GameDetail() {
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [hashingFile, setHashingFile] = useState<string | null>(null);
   const [hashingAll, setHashingAll] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [searchingSS, setSearchingSS] = useState(false);
   const [tab, setTab] = useState<"info" | "files" | "hashes">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
   const [infoGenre, setInfoGenre] = useState("");
-  const [infoClassifications, setInfoClassifications] = useState("");
-  const [infoReleaseDates, setInfoReleaseDates] = useState("");
+  const [infoReleaseEU, setInfoReleaseEU] = useState("");
+  const [infoReleaseUS, setInfoReleaseUS] = useState("");
+  const [infoReleaseJP, setInfoReleaseJP] = useState("");
   const [infoSynopsis, setInfoSynopsis] = useState("");
 
   useEffect(() => {
@@ -54,11 +57,20 @@ export default function GameDetail() {
   const synopsis = descRecord ? descRecord.value : null;
   useEffect(() => {
     if (!details) return;
-    setInfoGenre(details.genres ? details.genres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", ") : "");
+    const ssGenres = details?.genres || [];
+    const localGenres = allGenres || [];
+    const matched = ssGenres.map((g: any) => {
+      const local = localGenres.find((lg: any) => String(lg.ss_id) === String(g.id));
+      if (local) return local.name_fr || local.name_en || local.name_de || local.name_es || local.name_it || local.name_pt || "";
+      return "";
+    }).filter(Boolean);
+    setInfoGenre(matched.length ? matched.join(", ") : ssGenres.map((g: any) => (g.noms || []).map((n: any) => n.text).join("/")).join(", "));
     setInfoPublisher(details.editeur?.text ?? details.publisher ?? "");
     setInfoDeveloper(details.developpeur?.text ?? details.developer ?? "");
-    setInfoClassifications(details.classifications ? details.classifications.map((c: any) => `${c.type} ${c.text}`).join(", ") : "");
-    setInfoReleaseDates(details.dates ? details.dates.map((d: any) => `${d.region}: ${d.text}`).join(", ") : "");
+    const dates = details.dates || [];
+    setInfoReleaseEU(dates.find((d: any) => d.region === "eu")?.text ?? "");
+    setInfoReleaseUS(dates.find((d: any) => d.region === "us")?.text ?? "");
+    setInfoReleaseJP(dates.find((d: any) => d.region === "jp")?.text ?? "");
     setInfoSynopsis(synopsis ?? "");
   }, [details, synopsis]);
   const isRemote = data?.files.some((f) => sourceMap.get(f.source_id)?.kind === "remote") ?? false;
@@ -103,15 +115,6 @@ export default function GameDetail() {
     }
   }
 
-  useEffect(() => {
-    if (!id || enrichedRef.current) return;
-    if (metadata && metadata.length > 0) return;
-    enrichedRef.current = true;
-    api.enrichGame(id, "screenscraper").then(() => {
-      qc.invalidateQueries({ queryKey: ["game-metadata", id] });
-    }).catch(() => {});
-  }, [id, metadata, qc]);
-
   if (isLoading || !data) {
     return <div className="empty"><div className="spinner" /></div>;
   }
@@ -148,8 +151,14 @@ export default function GameDetail() {
               <td>
                 <select className="select" value={infoGenre} onChange={(e) => setInfoGenre(e.target.value)} style={{ width: "100%" }}>
                   <option value="">—</option>
-                  {(genres || []).map((g) => <option key={g} value={g}>{g}</option>)}
-                  {!genres?.includes(infoGenre) && infoGenre && <option value={infoGenre}>{infoGenre}</option>}
+                  {(allGenres || []).map((g: any) => {
+                    const name = g.name_fr || g.name_en || g.name_de || g.name_es || g.name_it || g.name_pt || "—";
+                    const parent = g.parent_id ? (allGenres || []).find((x: any) => x.id === g.parent_id) : null;
+                    const parentName = parent ? (parent.name_fr || parent.name_en || parent.name_de || parent.name_es || parent.name_it || parent.name_pt || "") : "";
+                    const label = parentName ? `  ${name} (${parentName})` : name;
+                    return <option key={g.id} value={name}>{label}</option>;
+                  })}
+                  {!allGenres?.some((g: any) => (g.name_fr || g.name_en) === infoGenre) && infoGenre && <option value={infoGenre}>{infoGenre}</option>}
                 </select>
               </td>
             </tr>
@@ -174,12 +183,34 @@ export default function GameDetail() {
               </td>
             </tr>
             <tr>
-              <td style={{ fontWeight: 600 }}>Classification(s)</td>
-              <td><input className="input" value={infoClassifications} onChange={(e) => setInfoClassifications(e.target.value)} style={{ width: "100%" }} /></td>
+              <td style={{ fontWeight: 600, verticalAlign: "top" }}>Classification(s)</td>
+              <td>
+                {(gameClassifications && gameClassifications.length > 0) ? (
+                  <table className="table" style={{ fontSize: 11, width: "100%" }}>
+                    <thead><tr><th>Organisme</th><th>Classification</th></tr></thead>
+                    <tbody>
+                      {gameClassifications.map((c: any) => (
+                        <tr key={c.id}><td>{c.system_name ?? "—"}</td><td>{c.value}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Aucune classification</span>
+                )}
+              </td>
             </tr>
             <tr>
-              <td style={{ fontWeight: 600 }}>Date(s) de sortie</td>
-              <td><input className="input" value={infoReleaseDates} onChange={(e) => setInfoReleaseDates(e.target.value)} style={{ width: "100%" }} /></td>
+              <td style={{ fontWeight: 600, verticalAlign: "top" }}>Date(s) de sortie</td>
+              <td>
+                <table className="table" style={{ fontSize: 11, width: "100%" }}>
+                  <thead><tr><th>Pays</th><th>Date de sortie</th></tr></thead>
+                  <tbody>
+                    <tr><td>Europe</td><td><input className="input" value={infoReleaseEU} onChange={(e) => setInfoReleaseEU(e.target.value)} style={{ width: "100%" }} type="date" /></td></tr>
+                    <tr><td>USA</td><td><input className="input" value={infoReleaseUS} onChange={(e) => setInfoReleaseUS(e.target.value)} style={{ width: "100%" }} type="date" /></td></tr>
+                    <tr><td>Japon</td><td><input className="input" value={infoReleaseJP} onChange={(e) => setInfoReleaseJP(e.target.value)} style={{ width: "100%" }} type="date" /></td></tr>
+                  </tbody>
+                </table>
+              </td>
             </tr>
             <tr>
               <td style={{ fontWeight: 600, verticalAlign: "top" }}>Synopsis</td>
@@ -187,9 +218,27 @@ export default function GameDetail() {
             </tr>
           </tbody>
         </table>
-        <div style={{ marginTop: 12 }}>
-          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
+        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={searchingSS || data.files.some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))} onClick={async () => {
             if (!id) return;
+            setSearchingSS(true);
+            try {
+              await api.enrichGame(id, "screenscraper");
+              qc.invalidateQueries({ queryKey: ["game", id] });
+              qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+              qc.invalidateQueries({ queryKey: ["game-classifications", id] });
+              api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {});
+            } catch (e) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            } finally {
+              setSearchingSS(false);
+            }
+          }}>
+            {searchingSS ? <><span className="spinner" /> Recherche en cours...</> : "Rechercher sur ScreenScraper"}
+          </button>
+          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={savingInfo} onClick={async () => {
+            if (!id) return;
+            setSavingInfo(true);
             try {
               const meta = details ? { ...details, editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } } : { editeur: { text: infoPublisher }, developpeur: { text: infoDeveloper } };
               await api.saveGameInfo(id, title || data.game.title, JSON.stringify(meta));
@@ -197,9 +246,11 @@ export default function GameDetail() {
               api.showNotification("RETROVERSE", "Informations enregistrées.").catch(() => {});
             } catch (e) {
               api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            } finally {
+              setSavingInfo(false);
             }
           }}>
-            Enregistrer toutes les informations
+            {savingInfo ? <><span className="spinner" /> Enregistrement en cours...</> : "Enregistrer toutes les informations"}
           </button>
         </div>
       </div>
@@ -230,6 +281,8 @@ export default function GameDetail() {
         </table>
       </div>
       )}
+
+
 
       {tab === "hashes" && (
       <div className="card" style={{ marginTop: 16 }}>

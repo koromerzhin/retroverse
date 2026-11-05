@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
 import { useI18n } from "../i18n";
@@ -9,6 +9,7 @@ import type { LibraryEntry, Platform } from "../types";
 export default function Library() {
   const navigate = useNavigate();
   const { t } = useI18n();
+  const qc = useQueryClient();
   const [searchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -17,6 +18,14 @@ export default function Library() {
   const publisher = searchParams.get("publisher") || undefined;
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
+  const [calculatingAll, setCalculatingAll] = useState(false);
+  const [hashingGame, setHashingGame] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<"title" | "platform" | "developer" | "publisher" | "files">("title");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (k: "title" | "platform" | "developer" | "publisher" | "files") => {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(k); setSortDir("asc"); }
+  };
   const pageSize = 24;
 
   useEffect(() => {
@@ -30,6 +39,9 @@ export default function Library() {
     queryKey: ["platforms"],
     queryFn: () => api.listPlatforms(),
   });
+  const { data: sources } = useQuery<any[]>({ queryKey: ["sources"], queryFn: () => api.listSources() });
+  const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
+  const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
   const { data: platformCountsData } = useQuery<any>({
     queryKey: ["platform-game-counts"],
     queryFn: () => api.platformGameCounts(),
@@ -47,11 +59,69 @@ export default function Library() {
 
   const games = result?.items ?? [];
   const total = result?.total ?? 0;
+  const sortedGames = [...games].sort((a, b) => {
+    let cmp = 0;
+    switch (sortKey) {
+      case "title": cmp = a.game.title.localeCompare(b.game.title); break;
+      case "platform": cmp = (a.platform?.name ?? "").localeCompare(b.platform?.name ?? ""); break;
+      case "developer": cmp = (a.developer ?? "").localeCompare(b.developer ?? ""); break;
+      case "publisher": cmp = (a.publisher ?? "").localeCompare(b.publisher ?? ""); break;
+      case "files": cmp = a.file_count - b.file_count; break;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   const platformCounts: Record<string, number> = platformCountsData || {};
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
 
+  const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
+
+  const hashGame = async (gameId: string) => {
+    setHashingGame(gameId);
+    try {
+      const n = await api.computeHashesForGame(gameId);
+      qc.invalidateQueries({ queryKey: ["games"] });
+      api.showNotification("RETROVERSE", `Empreintes calculées : ${n} fichier(s).`).catch(() => {});
+    } catch (e: any) {
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    } finally {
+      setHashingGame(null);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  async function handleCalculateAll() {
+    if (calculatingAll) return;
+    setCalculatingAll(true);
+    let errors: string[] = [];
+    const plats = platforms || [];
+    const srcs = sources || [];
+    if (plats.length > 0 && srcs.length > 0) {
+      for (const p of plats) {
+        for (const s of srcs) {
+          try {
+            if (s.kind === "remote") await api.scanRemoteSource(s.id, undefined, p.id);
+            else await api.scanSource(s.id, undefined, p.id);
+          } catch (e: any) {
+            errors.push(`${s.name}/${p.name}: ${e}`);
+          }
+        }
+      }
+    }
+    try {
+      await api.computeHashesForAllGames();
+    } catch (e: any) {
+      errors.push(String(e));
+    }
+    qc.invalidateQueries();
+    if (errors.length > 0) {
+      api.showNotification("RETROVERSE", `Calcul terminé avec erreurs : ${errors.join(" | ")}`).catch(() => {});
+    } else {
+      api.showNotification("RETROVERSE", "Calcul terminé.").catch(() => {});
+    }
+    setCalculatingAll(false);
+  }
 
   return (
     <>
@@ -81,7 +151,39 @@ export default function Library() {
             <option key={p.id} value={p.id}>{p.name} ({platformCounts[p.id]})</option>
           ))}
         </select>
+        <select
+          className="select"
+          style={{ maxWidth: 200 }}
+          value={developer ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            const params = new URLSearchParams(searchParams);
+            if (v) params.set("developer", v); else params.delete("developer");
+            navigate(`/library?${params.toString()}`);
+          }}
+        >
+          <option value="">Tous développeurs</option>
+          {(developers || []).map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <select
+          className="select"
+          style={{ maxWidth: 200 }}
+          value={publisher ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            const params = new URLSearchParams(searchParams);
+            if (v) params.set("publisher", v); else params.delete("publisher");
+            navigate(`/library?${params.toString()}`);
+          }}
+        >
+          <option value="">Tous éditeurs</option>
+          {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
+        <button className="btn primary" disabled={calculatingAll} onClick={handleCalculateAll}>
+          {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
+        </button>
+
         <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
         <div className="row" style={{ marginLeft: "auto", gap: 4 }}>
           <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.library.view", "cards"); }} title="Cartes">Cards</button>
@@ -100,12 +202,18 @@ export default function Library() {
         <>
         {view === "cards" ? (
         <div className="grid games">
-          {games.map((e) => (
+          {sortedGames.map((e) => (
             <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
               <div className="cover">🎮</div>
               <div className="info">
                 <div className="title">{e.game.title}</div>
                 <div className="meta">{e.platform?.name ?? "Inconnu"} · {e.file_count} fichier(s)</div>
+                {(e.developer || e.publisher) && <div className="meta" style={{ fontSize: 10 }}>{[e.developer, e.publisher].filter(Boolean).join(" · ")}</div>}
+                {needsHash(e) && (
+                  <button className="btn" style={{ fontSize: 11, padding: "2px 8px", marginTop: 6 }} disabled={hashingGame === e.game.id} onClick={(ev) => { ev.stopPropagation(); hashGame(e.game.id); }}>
+                    {hashingGame === e.game.id ? "…" : "Calculer les empreintes"}
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -114,17 +222,29 @@ export default function Library() {
         <table className="table">
           <thead>
             <tr>
-              <th>Titre</th>
-              <th>Plateforme</th>
-              <th>Fichiers</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>Titre {sortKey === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("platform")}>Plateforme {sortKey === "platform" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("developer")}>Développeur {sortKey === "developer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("publisher")}>Éditeur {sortKey === "publisher" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th>Empreintes</th>
             </tr>
           </thead>
           <tbody>
-            {games.map((e) => (
+            {sortedGames.map((e) => (
               <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer" }}>
                 <td>{e.game.title}</td>
                 <td>{e.platform?.name ?? "Inconnu"}</td>
+                <td>{e.developer ?? "—"}</td>
+                <td>{e.publisher ?? "—"}</td>
                 <td>{e.file_count}</td>
+                <td onClick={(ev) => ev.stopPropagation()}>
+                  {needsHash(e) ? (
+                    <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} disabled={hashingGame === e.game.id} onClick={() => hashGame(e.game.id)}>
+                      {hashingGame === e.game.id ? "…" : "Calculer"}
+                    </button>
+                  ) : "✓"}
+                </td>
               </tr>
             ))}
           </tbody>

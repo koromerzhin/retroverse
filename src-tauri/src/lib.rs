@@ -66,6 +66,24 @@ pub fn run() {
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::list_sources,
+            commands::sync_entities_from_metadata,
+            commands::delete_genre,
+            commands::update_genre,
+            commands::add_genre,
+            commands::list_genres_full,
+            commands::list_classifications_full,
+            commands::list_game_classifications,
+            commands::sync_classifications,
+            commands::delete_publisher,
+            commands::update_publisher,
+            commands::add_publisher,
+            commands::list_publishers_full,
+            commands::sync_publishers,
+            commands::sync_developers,
+            commands::delete_developer,
+            commands::update_developer,
+            commands::add_developer,
+            commands::list_developers_full,
             commands::app_ready,
             commands::quit_app,
             commands::show_notification,
@@ -93,6 +111,7 @@ pub fn run() {
             commands::compute_hashes_for_platform,
             commands::unhashed_counts_by_platform,
             commands::compute_hashes_for_game,
+            commands::compute_hashes_for_all_games,
             commands::export_backup,
             commands::import_backup,
             commands::list_transfer_jobs,
@@ -149,6 +168,7 @@ pub fn run() {
             let state = app.state::<crate::state::AppState>().inner().clone();
             tauri::async_runtime::spawn(async move {
                 let _ = crate::commands::genres::sync_genres_inner(&state).await;
+                let _ = crate::commands::entities::sync_entities_from_metadata_inner(&state);
             });
 
             // Single-instance listener (Unix): restore window when another instance pings.

@@ -38,6 +38,7 @@ export default function Platforms() {
   const [scanning, setScanning] = useState<string | null>(null);
   const [scanningAll, setScanningAll] = useState(false);
   const [hashingPlatform, setHashingPlatform] = useState<string | null>(null);
+  const [calculatingAll, setCalculatingAll] = useState(false);
   const [sortKey, setSortKey] = useState<"name" | "manufacturer" | "year" | "count" | "files">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const toggleSort = (key: "name" | "manufacturer" | "year" | "count" | "files") => {
@@ -189,6 +190,45 @@ export default function Platforms() {
     qc.invalidateQueries({ queryKey: ["platforms"] });
   }
 
+  async function handleCalculateAll() {
+    if (calculatingAll) return;
+    setCalculatingAll(true);
+    let errors: string[] = [];
+    if (platforms && sources && sources.length > 0) {
+      for (const p of platforms) {
+        for (const s of sources) {
+          try {
+            if (s.kind === "remote") await api.scanRemoteSource(s.id, undefined, p.id);
+            else await api.scanSource(s.id, undefined, p.id);
+          } catch (e: any) {
+            errors.push(`${s.name}/${p.name}: ${e}`);
+          }
+        }
+      }
+    }
+    if (platforms) {
+      for (const p of platforms) {
+        try {
+          await api.computeHashesForPlatform(p.id);
+        } catch (e: any) {
+          errors.push(`${p.name}: ${e}`);
+        }
+      }
+    }
+    qc.invalidateQueries({ queryKey: ["games"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+    qc.invalidateQueries({ queryKey: ["platforms"] });
+    qc.invalidateQueries({ queryKey: ["unhashed-counts"] });
+    qc.invalidateQueries({ queryKey: ["platform-game-counts"] });
+    qc.invalidateQueries({ queryKey: ["platform-file-counts"] });
+    if (errors.length > 0) {
+      api.showNotification("RETROVERSE", `Calcul terminé avec erreurs : ${errors.join(" | ")}`).catch(() => {});
+    } else {
+      api.showNotification("RETROVERSE", "Calcul terminé.").catch(() => {});
+    }
+    setCalculatingAll(false);
+  }
+
   return (
     <>
       <h1 className="page-title">{t("platforms.title")}</h1>
@@ -211,6 +251,9 @@ export default function Platforms() {
         </label>
         <button className="btn primary" onClick={handleScanAll} disabled={scanningAll} style={{ marginLeft: "auto" }}>
           {scanningAll ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scanAll")}
+        </button>
+        <button className="btn primary" onClick={handleCalculateAll} disabled={calculatingAll}>
+          {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
         </button>
         <div className="row" style={{ gap: 4 }}>
           <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.platforms.view", "cards"); }} title="Cartes">Cards</button>

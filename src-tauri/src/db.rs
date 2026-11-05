@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 16;
+pub const SCHEMA_VERSION: i32 = 21;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -89,6 +89,24 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 15 {
         apply_v15(conn)?;
+    }
+    if current < 16 {
+        apply_v16(conn)?;
+    }
+    if current < 17 {
+        apply_v17(conn)?;
+    }
+    if current < 18 {
+        apply_v18(conn)?;
+    }
+    if current < 19 {
+        apply_v19(conn)?;
+    }
+    if current < 20 {
+        apply_v20(conn)?;
+    }
+    if current < 21 {
+        apply_v21(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -740,5 +758,264 @@ fn apply_v16(conn: &Connection) -> Result<()> {
             parent_id TEXT
         );",
     )?;
+    Ok(())
+}
+
+fn apply_v17(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS developers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            ss_id TEXT UNIQUE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS publishers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            ss_id TEXT UNIQUE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS genres (
+            id TEXT PRIMARY KEY,
+            name_en TEXT,
+            name_fr TEXT,
+            name_de TEXT,
+            name_es TEXT,
+            name_it TEXT,
+            name_pt TEXT,
+            parent_id TEXT REFERENCES genres(id),
+            ss_id TEXT UNIQUE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS game_developers (
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            developer_id TEXT NOT NULL REFERENCES developers(id) ON DELETE CASCADE,
+            PRIMARY KEY (game_id, developer_id)
+        );
+        CREATE TABLE IF NOT EXISTS game_publishers (
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            publisher_id TEXT NOT NULL REFERENCES publishers(id) ON DELETE CASCADE,
+            PRIMARY KEY (game_id, publisher_id)
+        );
+        CREATE TABLE IF NOT EXISTS game_genres (
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            genre_id TEXT NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
+            PRIMARY KEY (game_id, genre_id)
+        );
+        "#,
+    )?;
+    Ok(())
+}
+
+fn apply_v18(conn: &Connection) -> Result<()> {
+    // Ensure the genres table has the multilingual columns (old schema had only name/parent_id).
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(genres)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    let add_col = |conn: &Connection, col: &str, typ: &str| {
+        if !cols.contains(&col.to_string()) {
+            let _ = conn.execute(
+                &format!("ALTER TABLE genres ADD COLUMN {} {}", col, typ),
+                [],
+            );
+        }
+    };
+    add_col(conn, "name_en", "TEXT");
+    add_col(conn, "name_fr", "TEXT");
+    add_col(conn, "name_de", "TEXT");
+    add_col(conn, "name_es", "TEXT");
+    add_col(conn, "name_it", "TEXT");
+    add_col(conn, "name_pt", "TEXT");
+    add_col(conn, "ss_id", "TEXT");
+    add_col(conn, "created_at", "TEXT");
+    add_col(conn, "updated_at", "TEXT");
+    // Migrate old single name column into name_fr/name_en if present.
+    if cols.contains(&"name".to_string()) {
+        let _ = conn.execute("UPDATE genres SET name_fr = COALESCE(name_fr, name), name_en = COALESCE(name_en, name) WHERE name IS NOT NULL", []);
+    }
+    let _ = conn.execute("UPDATE genres SET created_at = COALESCE(created_at, '2020-01-01T00:00:00Z'), updated_at = COALESCE(updated_at, '2020-01-01T00:00:00Z') WHERE created_at IS NULL OR updated_at IS NULL", []);
+    Ok(())
+}
+
+fn apply_v19(conn: &Connection) -> Result<()> {
+    // Safety net: ensure created_at/updated_at exist.
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(genres)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    if !cols.contains(&"created_at".to_string()) {
+        let _ = conn.execute("ALTER TABLE genres ADD COLUMN created_at TEXT", []);
+    }
+    if !cols.contains(&"updated_at".to_string()) {
+        let _ = conn.execute("ALTER TABLE genres ADD COLUMN updated_at TEXT", []);
+    }
+    let _ = conn.execute("UPDATE genres SET created_at = COALESCE(created_at, '2020-01-01T00:00:00Z'), updated_at = COALESCE(updated_at, '2020-01-01T00:00:00Z') WHERE created_at IS NULL OR updated_at IS NULL", []);
+    Ok(())
+}
+
+fn apply_v20(conn: &Connection) -> Result<()> {
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(genres)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    if cols.contains(&"name".to_string()) {
+        let _ = conn.execute("ALTER TABLE genres DROP COLUMN name", []);
+    }
+    Ok(())
+}
+
+fn apply_v21(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS classification_systems (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            ss_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS classifications (
+            id TEXT PRIMARY KEY,
+            system_id TEXT NOT NULL REFERENCES classification_systems(id) ON DELETE CASCADE,
+            value TEXT NOT NULL,
+            ss_id TEXT UNIQUE,
+            description TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(system_id, value)
+        );
+        CREATE TABLE IF NOT EXISTS game_classifications (
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            classification_id TEXT NOT NULL REFERENCES classifications(id) ON DELETE CASCADE,
+            PRIMARY KEY (game_id, classification_id)
+        );
+        "#,
+    )?;
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Helper closure inline: migrate a (system_name, value) pair.
+    // Collect games
+    let mut gstmt = conn.prepare("SELECT id, metadata_json FROM games")?;
+    let games: Vec<(String, Option<String>)> = gstmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    for (gid, mj) in &games {
+        // Gather (system, value) pairs from metadata_json
+        let mut pairs: Vec<(String, String)> = Vec::new();
+        if let Some(j) = mj
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(j)
+            && let Some(arr) = v.get("classifications").and_then(|c| c.as_array())
+        {
+            for c in arr {
+                // could be {type, text} or [type, text]
+                if let (Some(t), Some(val)) = (
+                    c.get("type").and_then(|x| x.as_str()),
+                    c.get("text").and_then(|x| x.as_str()),
+                ) {
+                    pairs.push((t.to_string(), val.to_string()));
+                } else if let Some(arr2) = c.as_array()
+                    && arr2.len() >= 2
+                    && let (Some(t), Some(val)) = (arr2[0].as_str(), arr2[1].as_str())
+                {
+                    pairs.push((t.to_string(), val.to_string()));
+                }
+            }
+        }
+        // Also metadata_records field='classifications'
+        if let Ok(val) = conn.query_row(
+            "SELECT value FROM metadata_records WHERE game_id=?1 AND field='classifications' LIMIT 1",
+            [gid.clone()],
+            |r| r.get::<_, String>(0),
+        ) && let Ok(v) = serde_json::from_str::<serde_json::Value>(&val)
+            && let Some(arr) = v.as_array()
+        {
+            for c in arr {
+                if let Some(arr2) = c.as_array()
+                    && arr2.len() >= 2
+                    && let (Some(t), Some(val)) = (arr2[0].as_str(), arr2[1].as_str())
+                {
+                    pairs.push((t.to_string(), val.to_string()));
+                } else if let (Some(t), Some(val)) = (c.get(0).and_then(|x| x.as_str()), c.get(1).and_then(|x| x.as_str())) {
+                    pairs.push((t.to_string(), val.to_string()));
+                }
+            }
+        }
+        // Also details record
+        if let Ok(details) = conn.query_row(
+            "SELECT value FROM metadata_records WHERE game_id=?1 AND field='details' LIMIT 1",
+            [gid.clone()],
+            |r| r.get::<_, String>(0),
+        ) && let Ok(v) = serde_json::from_str::<serde_json::Value>(&details)
+            && let Some(arr) = v.get("classifications").and_then(|c| c.as_array())
+        {
+            for c in arr {
+                if let (Some(t), Some(val)) = (
+                    c.get("type").and_then(|x| x.as_str()),
+                    c.get("text").and_then(|x| x.as_str()),
+                ) {
+                    pairs.push((t.to_string(), val.to_string()));
+                }
+            }
+        }
+
+        for (sys_name, value) in pairs {
+            if sys_name.trim().is_empty() || value.trim().is_empty() {
+                continue;
+            }
+            // upsert system
+            let sys_id: String = match conn.query_row(
+                "SELECT id FROM classification_systems WHERE name=?1",
+                [sys_name.clone()],
+                |r| r.get(0),
+            ) {
+                Ok(id) => id,
+                Err(_) => {
+                    let id = uuid::Uuid::new_v4().to_string();
+                    let _ = conn.execute(
+                        "INSERT INTO classification_systems (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                        rusqlite::params![id, sys_name, now, now],
+                    );
+                    id
+                }
+            };
+            // upsert classification
+            let cls_id: String = match conn.query_row(
+                "SELECT id FROM classifications WHERE system_id=?1 AND value=?2",
+                rusqlite::params![sys_id, value],
+                |r| r.get(0),
+            ) {
+                Ok(id) => id,
+                Err(_) => {
+                    let id = uuid::Uuid::new_v4().to_string();
+                    let _ = conn.execute(
+                        "INSERT INTO classifications (id,system_id,value,ss_id,description,created_at,updated_at) VALUES (?1,?2,?3,NULL,NULL,?4,?5)",
+                        rusqlite::params![id, sys_id, value, now, now],
+                    );
+                    id
+                }
+            };
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO game_classifications (game_id, classification_id) VALUES (?1,?2)",
+                rusqlite::params![gid, cls_id],
+            );
+        }
+    }
     Ok(())
 }
