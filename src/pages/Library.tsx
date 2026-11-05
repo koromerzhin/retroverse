@@ -181,6 +181,13 @@ export default function Library() {
           {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
+        <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => {
+          const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = "retroverse-library.json"; a.click();
+          URL.revokeObjectURL(url);
+        }}>Exporter JSON</button>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)" }}>
           <input type="checkbox" checked={onlyMissingHash} onChange={(e) => setOnlyMissingHash(e.target.checked)} />
           Empreintes manquantes uniquement
@@ -207,9 +214,12 @@ export default function Library() {
         <>
         {view === "cards" ? (
         <div className="grid games">
-          {sortedGames.map((e) => (
+          {sortedGames.map((e) => {
+            let cover: string | null = null;
+            try { cover = e.game.metadata_json ? JSON.parse(e.game.metadata_json).cover_url : null; } catch {}
+            return (
             <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
-              <div className="cover">🎮</div>
+              <div className="cover">{cover ? <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} /> : "🎮"}</div>
               <div className="info">
                 <div className="title">{e.game.title}</div>
                 <div className="meta">{e.platform?.name ?? "Inconnu"} · {e.file_count} fichier(s)</div>
@@ -221,7 +231,8 @@ export default function Library() {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         ) : (
         <table className="table">
