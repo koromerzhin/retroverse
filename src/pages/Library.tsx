@@ -19,6 +19,7 @@ export default function Library() {
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
   const [calculatingAll, setCalculatingAll] = useState(false);
+  const [onlyMissingHash, setOnlyMissingHash] = useState(false);
   const [hashingGame, setHashingGame] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<"title" | "platform" | "developer" | "publisher" | "files">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -59,7 +60,7 @@ export default function Library() {
 
   const games = result?.items ?? [];
   const total = result?.total ?? 0;
-  const sortedGames = [...games].sort((a, b) => {
+  const sortedGames = [...games].filter((e) => !onlyMissingHash || needsHash(e)).sort((a, b) => {
     let cmp = 0;
     switch (sortKey) {
       case "title": cmp = a.game.title.localeCompare(b.game.title); break;
@@ -180,6 +181,10 @@ export default function Library() {
           {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)" }}>
+          <input type="checkbox" checked={onlyMissingHash} onChange={(e) => setOnlyMissingHash(e.target.checked)} />
+          Empreintes manquantes uniquement
+        </label>
         <button className="btn primary" disabled={calculatingAll} onClick={handleCalculateAll}>
           {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
         </button>
