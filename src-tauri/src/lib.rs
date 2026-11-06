@@ -81,6 +81,7 @@ pub fn run() {
             commands::list_preservation_statuses,
             commands::preservation_summary,
             commands::export_preservation_pack,
+            commands::import_preservation_pack,
             commands::list_audit_log,
             commands::log_audit,
             commands::export_dat,

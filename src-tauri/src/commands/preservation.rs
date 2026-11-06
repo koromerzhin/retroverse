@@ -98,12 +98,23 @@ pub fn verify_library(state: State<AppState>) -> Result<usize> {
                 )
                 .ok();
         }
+        let is_bad = if let Some(ref mid) = matched {
+            conn.query_row(
+                "SELECT bad FROM dat_entries WHERE id=?1",
+                [mid.clone()],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+                != 0
+        } else {
+            false
+        };
         let status = if matched.is_some() {
-            "verified"
+            if is_bad { "bad_dump" } else { "verified" }
         } else {
             "unknown"
         };
-        if matched.is_some() {
+        if matched.is_some() && !is_bad {
             verified += 1;
         }
         conn.execute(
@@ -323,5 +334,69 @@ pub fn export_dat(state: State<AppState>, dest_path: String) -> Result<usize> {
         count += 1;
     }
     std::fs::write(&dest_path, content).map_err(RetroError::Io)?;
+    Ok(count)
+}
+
+#[tauri::command]
+pub fn import_preservation_pack(state: State<AppState>, path: String) -> Result<usize> {
+    let file = std::fs::File::open(&path).map_err(RetroError::Io)?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| RetroError::Other(e.to_string()))?;
+    let mut manifest_file = archive
+        .by_name("manifest.json")
+        .map_err(|e| RetroError::Other(e.to_string()))?;
+    use std::io::Read;
+    let mut manifest_str = String::new();
+    manifest_file
+        .read_to_string(&mut manifest_str)
+        .map_err(RetroError::Io)?;
+    drop(manifest_file);
+    let manifest: serde_json::Value =
+        serde_json::from_str(&manifest_str).map_err(RetroError::Serde)?;
+    let conn = state.db.lock().unwrap();
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut count = 0usize;
+    if let Some(games) = manifest["games"].as_array() {
+        for g in games {
+            let gid = g["id"].as_str().unwrap_or("").to_string();
+            if gid.is_empty() {
+                continue;
+            }
+            let title = g["title"].as_str().unwrap_or("Unknown").to_string();
+            let platform_id = g["platform_id"].as_str().map(|s| s.to_string());
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM games WHERE id=?1",
+                    [gid.clone()],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if !exists {
+                conn.execute("INSERT INTO games (id,title,platform_id,created_at,updated_at,metadata_json) VALUES (?1,?2,?3,?4,?5,NULL)", params![gid, title, platform_id, now, now])?;
+            } else {
+                conn.execute(
+                    "UPDATE games SET title=?1, platform_id=?2, updated_at=?3 WHERE id=?4",
+                    params![title, platform_id, now, gid],
+                )?;
+            }
+            let game_file = g["file"].as_str().unwrap_or("");
+            if !game_file.is_empty()
+                && let Ok(mut zf) = archive.by_name(game_file)
+            {
+                let mut content = String::new();
+                let _ = zf.read_to_string(&mut content);
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content)
+                    && let Some(meta) = v.get("metadata")
+                {
+                    let meta_str = meta.to_string();
+                    conn.execute(
+                        "UPDATE games SET metadata_json=?1 WHERE id=?2",
+                        params![meta_str, gid],
+                    )?;
+                }
+            }
+            count += 1;
+        }
+    }
     Ok(count)
 }
