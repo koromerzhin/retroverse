@@ -573,6 +573,18 @@ mod tests {
         assert_eq!(guess_platform("sfc", &platforms), Some("snes".into()));
         assert_eq!(guess_platform("txt", &platforms), None);
     }
+
+    #[test]
+    fn ext_of_works() {
+        assert_eq!(ext_of("foo.BIN"), "bin");
+        assert_eq!(ext_of("noext"), "");
+    }
+
+    #[test]
+    fn scummvm_title_known() {
+        // Just ensure no panic
+        let _ = scummvm_title("monkey");
+    }
 }
 
 /// Stream-hash an entire file, returning (sha256, crc32, md5, sha1, sha512) without loading it into memory.
