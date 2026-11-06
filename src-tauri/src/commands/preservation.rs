@@ -126,3 +126,28 @@ pub fn get_preservation_status(state: State<AppState>, game_id: String) -> Resul
         .unwrap_or_else(|_| "unknown".to_string());
     Ok(status)
 }
+
+#[tauri::command]
+pub fn list_preservation_statuses(state: State<AppState>) -> Result<Vec<(String, String)>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT game_id, status FROM game_preservation")?;
+    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn preservation_summary(state: State<AppState>) -> Result<Vec<(String, i64)>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt =
+        conn.prepare("SELECT status, COUNT(*) FROM game_preservation GROUP BY status")?;
+    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
