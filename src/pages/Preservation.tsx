@@ -8,6 +8,7 @@ export default function Preservation() {
   const qc = useQueryClient();
   const { t } = useI18n();
   const { data: jobs } = useQuery({ queryKey: ["transfer-jobs"], queryFn: () => api.listTransferJobs() });
+  const { data: presSummary } = useQuery({ queryKey: ["preservation-summary"], queryFn: () => api.preservationSummary() });
   const [hashing, setHashing] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
@@ -81,6 +82,13 @@ export default function Preservation() {
       <p className="page-sub">{t("preservation.subtitle")}</p>
 
       <div className="card">
+        <h3 style={{ marginTop: 0 }}>Tableau de bord de préservation</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>
+          {(presSummary || []).map((p: any) => `${p[0]}: ${p[1]}`).join(" · ") || "Aucune vérification effectuée."}
+        </p>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Intégrité</h3>
         <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Calcule les empreintes SHA-256 des fichiers locaux.</p>
         <button className="btn primary" onClick={handleComputeHashes} disabled={hashing}>

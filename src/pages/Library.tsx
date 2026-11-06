@@ -41,6 +41,7 @@ export default function Library() {
     queryFn: () => api.listPlatforms(),
   });
   const { data: sources } = useQuery<any[]>({ queryKey: ["sources"], queryFn: () => api.listSources() });
+  const { data: presStatuses } = useQuery<any[]>({ queryKey: ["preservation-statuses"], queryFn: () => api.listPreservationStatuses() });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
   const { data: platformCountsData } = useQuery<any>({
@@ -76,6 +77,8 @@ export default function Library() {
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
 
   const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
+  const presStatus = (id: string) => (presStatuses || []).find((p: any) => p[0] === id)?.[1] ?? "unknown";
+  const presBadge = (status: string) => status === "verified" ? "✓" : status === "bad_dump" ? "✗" : "·";
 
   const hashGame = async (gameId: string) => {
     setHashingGame(gameId);
@@ -234,7 +237,7 @@ export default function Library() {
               <div className="cover">{cover ? <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} /> : "🎮"}</div>
               <div className="info">
                 <div className="title">{e.game.title}</div>
-                <div className="meta">{e.platform?.name ?? "Inconnu"} · {e.file_count} fichier(s)</div>
+                <div className="meta">{e.platform?.name ?? "Inconnu"} · {e.file_count} fichier(s) · {presBadge(presStatus(e.game.id))}</div>
                 {(e.developer || e.publisher) && <div className="meta" style={{ fontSize: 10 }}>{[e.developer, e.publisher].filter(Boolean).join(" · ")}</div>}
                 {needsHash(e) && (
                   <button className="btn" style={{ fontSize: 11, padding: "2px 8px", marginTop: 6 }} disabled={hashingGame === e.game.id} onClick={(ev) => { ev.stopPropagation(); hashGame(e.game.id); }}>
@@ -257,6 +260,7 @@ export default function Library() {
                 <th style={{ cursor: "pointer" }} onClick={() => toggleSort("publisher")}>Éditeur {sortKey === "publisher" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
                 <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
                 <th>Empreintes</th>
+              <th>Préserv.</th>
               </tr>
             </thead>
             <tbody>

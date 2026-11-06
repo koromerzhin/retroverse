@@ -78,6 +78,8 @@ pub fn run() {
             commands::import_dat,
             commands::verify_library,
             commands::get_preservation_status,
+            commands::list_preservation_statuses,
+            commands::preservation_summary,
             commands::sync_classifications,
             commands::delete_publisher,
             commands::update_publisher,
