@@ -74,27 +74,27 @@ Manquants :
 
 ## 4. Plan d'implémentation
 
-### Phase 1 — Fondations (v1.x)
-1. Créer la table `audit_log` (migration).
+### Phase 1 — Fondations (v1.x) ✅
+1. Créer la table `audit_log` (migration). ✅
 2. Ajouter le champ `preservation_status` à `games` (ou table dédiée).
-3. Parser DAT No-Intro/Redump (module `dat.rs`).
-4. Stocker les DAT importés (`dat_files`, `dat_entries`).
-5. Vérification d'un jeu contre un DAT → statut.
+3. Parser DAT No-Intro/Redump (module `dat.rs`). ✅
+4. Stocker les DAT importés (`dat_files`, `dat_entries`). ✅
+5. Vérification d'un jeu contre un DAT → statut. ✅
 
-### Phase 2 — Vérification globale
-6. Commande `verify_library` → rapport par plateforme.
-7. Page "Préservation" avec tableau de bord et liste des problèmes.
-8. Badges dans la bibliothèque.
+### Phase 2 — Vérification globale ✅
+6. Commande `verify_library` → rapport par plateforme. ✅
+7. Page "Préservation" avec tableau de bord et liste des problèmes. ✅
+8. Badges dans la bibliothèque. ✅
 
-### Phase 3 — Archivage
-9. Export de pack de préservation (zip avec ROMs + metadata + manifest).
-10. Import/restauration d'un pack.
-11. Backup complet de la base + cache.
+### Phase 3 — Archivage ✅
+9. Export de pack de préservation (zip avec metadata + manifest) ✅ (ROMs référencées par chemin).
+10. Import/restauration d'un pack. ❌ (non implémenté)
+11. Backup complet de la base + cache. ✅ (auto-backup avant migration)
 
-### Phase 4 — Avancé
-12. Détection de bad dumps / hacks.
-13. Export DAT personnalisé.
-14. Historique et audit trail UI.
+### Phase 4 — Avancé (partiel)
+12. Détection de bad dumps / hacks. ❌ (non implémenté)
+13. Export DAT personnalisé. ✅ (export_dat ClrMamePro)
+14. Historique et audit trail UI. ✅
 
 ## 5. Schéma DB proposé
 
