@@ -49,12 +49,15 @@ export default function Genres() {
         <table className="table">
           <thead><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Parent</th></tr></thead>
           <tbody>
-            {filtered.map((g: any) => (
+            {filtered.map((g: any) => {
+              const isChild = !!g.parent_id;
+              return (
               <tr key={g.id}>
-                <td>{nameOf(g)}</td>
+                <td style={{ paddingLeft: isChild ? 24 : 8 }}>{isChild ? "└ " : ""}{nameOf(g)}</td>
                 <td>{g.parent_id ? (data || []).find((x: any) => x.id === g.parent_id)?.name_en || g.parent_id : "—"}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{filtered.length} genre(s)</p>
