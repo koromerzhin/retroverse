@@ -61,8 +61,9 @@ export default function Genres() {
           ))}
         </div>
         ) : (
-        <table className="table">
-          <thead><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Parent</th></tr></thead>
+        <div style={{ maxHeight: 400, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
+        <table className="table" style={{ width: "100%" }}>
+          <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Parent</th></tr></thead>
           <tbody>
             {filtered.map((g: any) => {
               const isChild = !!g.parent_id;
@@ -75,6 +76,7 @@ export default function Genres() {
             })}
           </tbody>
         </table>
+        </div>
         )}
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{filtered.length} genre(s)</p>
       </div>

@@ -47,8 +47,9 @@ export default function Developers() {
           ))}
         </div>
         ) : (
-        <table className="table">
-          <thead><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Jeux</th><th>ID SS</th></tr></thead>
+        <div style={{ maxHeight: 400, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
+        <table className="table" style={{ width: "100%" }}>
+          <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Jeux</th><th>ID SS</th></tr></thead>
           <tbody>
             {filtered.map((d: any) => (
               <tr key={d.id}>
@@ -59,6 +60,7 @@ export default function Developers() {
             ))}
           </tbody>
         </table>
+        </div>
         )}
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{filtered.length} développeur(s)</p>
       </div>

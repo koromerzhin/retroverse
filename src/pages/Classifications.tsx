@@ -37,7 +37,7 @@ export default function Classifications() {
   return (
     <>
       <h1 className="page-title">{t("nav.classifications")}</h1>
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card" style={{ marginTop: 16, maxHeight: 480, overflow: "auto" }}>
         <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <SearchInput value={search} onChange={setSearch} placeholder="Rechercher…" maxWidth={240} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
@@ -71,7 +71,7 @@ export default function Classifications() {
             <div key={sys} style={{ marginBottom: 12 }}>
               <h4 style={{ margin: "8px 0 4px", color: "var(--text-dim)", fontSize: 13 }}>{sys} ({items.length})</h4>
               <table className="table">
-                <thead><tr><th>Valeur</th><th>ID SS</th></tr></thead>
+                <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}><tr><th>Valeur</th><th>ID SS</th></tr></thead>
                 <tbody>
                   {items.map((c: any) => (
                     <tr key={c.id}>
