@@ -47,6 +47,6 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 
 ## Architecture
 
-29. **Refactoring**: extract hashing logic into a dedicated module with traits.
+29. **Refactoring**: extract hashing logic into a dedicated module with traits ✅ (hashing.rs).
 30. **Database**: versioned migrations with rollback, automatic backup.
 31. **Configuration**: in-app management of providers (ScreenScraper credentials) ✅ (Settings page).

@@ -21,7 +21,8 @@ RETROVERSE follows a modular architecture with a Rust core engine independent of
 - `error.rs` — error type
 - `state.rs` — app state (db handle, cancel flags)
 - `config.rs` — provider configuration (ScreenScraper credentials)
-- `identify.rs` — platform detection, title cleaning, hashing (streaming)
+- `identify.rs` — platform detection, title cleaning
+- `hashing.rs` — dedicated hashing module (streaming, traits, orchestration)
 - `scanner.rs` — recursive folder scanning + game creation (incremental)
 - `metadata.rs` — ScreenScraper provider (hash-first lookup)
 - `tray.rs` — system tray (ksni, KDE-compatible)

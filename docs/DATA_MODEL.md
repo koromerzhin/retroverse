@@ -1,12 +1,12 @@
 # Data model
 
-SQLite is the primary store. Schema version tracked in `schema_version` (current: v21).
+SQLite is the primary store. Schema version tracked in `schema_version` (current: v22).
 
 ## Core entities
 
 - `platforms` — supported platforms with extension lists.
 - `game_sources` — registered sources (local or remote/SSH).
-- `game_files` — physical files discovered (with hashes, sizes, mtimes).
+- `game_files` — physical files discovered (with hashes, sizes, mtimes, hashed_mtime, hashed_size).
 - `games` — works (logical games), with `metadata_json`.
 - `game_file_links` — links files to games with confidence + manual flag.
 - `user_corrections` — manual corrections (protected).
