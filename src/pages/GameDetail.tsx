@@ -400,7 +400,11 @@ export default function GameDetail() {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             {(() => {
               const ma = (metadata || []).find((m: any) => m.kind === "cover");
-              const src = ma?.path ? convertFileSrc(ma.path) : details?.cover_url;
+              let src = ma?.path ? convertFileSrc(ma.path) : (details?.cover_url || null);
+              if (!src && Array.isArray(details?.medias)) {
+                const m = details.medias.find((x: any) => x?.type === "box-2D" || x?.type === "box-3D");
+                src = m?.url || null;
+              }
               return src ? <img src={src} alt="cover" style={{ maxWidth: 240, borderRadius: 8 }} /> : null;
             })()}
             {(details?.medias || []).filter((m: any) => m?.url).slice(0, 6).map((m: any, i: number) => (
