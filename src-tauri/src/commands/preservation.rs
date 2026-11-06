@@ -226,3 +226,102 @@ pub fn export_preservation_pack(state: State<AppState>, dest_path: String) -> Re
     zip.finish().map_err(|e| RetroError::Other(e.to_string()))?;
     Ok(count)
 }
+
+#[tauri::command]
+pub fn list_audit_log(
+    state: State<AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<serde_json::Value>> {
+    let conn = state.db.lock().unwrap();
+    let lim = limit.unwrap_or(50) as i64;
+    let mut stmt = conn.prepare("SELECT id,timestamp,action,target_type,target_id,details,provenance FROM audit_log ORDER BY timestamp DESC LIMIT ?1")?;
+    let rows = stmt.query_map([lim], |r| {
+        Ok(serde_json::json!({
+            "id": r.get::<_, String>(0)?,
+            "timestamp": r.get::<_, String>(1)?,
+            "action": r.get::<_, String>(2)?,
+            "target_type": r.get::<_, Option<String>>(3)?,
+            "target_id": r.get::<_, Option<String>>(4)?,
+            "details": r.get::<_, Option<String>>(5)?,
+            "provenance": r.get::<_, Option<String>>(6)?,
+        }))
+    })?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn log_audit(
+    state: State<AppState>,
+    action: String,
+    target_type: Option<String>,
+    target_id: Option<String>,
+    details: Option<String>,
+    provenance: Option<String>,
+) -> Result<()> {
+    let conn = state.db.lock().unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO audit_log (id,timestamp,action,target_type,target_id,details,provenance) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+        params![id, now, action, target_type, target_id, details, provenance],
+    )?;
+    Ok(())
+}
+
+#[allow(clippy::type_complexity)]
+#[tauri::command]
+pub fn export_dat(state: State<AppState>, dest_path: String) -> Result<usize> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT g.title, g.platform_id, gf.size, gf.crc32, gf.md5, gf.sha1 FROM games g JOIN game_file_links l ON l.game_id=g.id JOIN game_files gf ON gf.id=l.file_id ORDER BY g.title")?;
+    let rows: Vec<(
+        String,
+        Option<String>,
+        i64,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )> = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+            ))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+    let mut content = String::new();
+    content.push_str("clrmamepro (\n");
+    content.push_str("    name \"Retroverse Export\"\n");
+    content.push_str("    description \"Exported from RETROVERSE\"\n");
+    content.push_str(")\n\n");
+    let mut count = 0usize;
+    for (title, _platform, size, crc, md5, sha1) in &rows {
+        content.push_str("game (\n");
+        content.push_str(&format!("    name \"{}\"\n", title.replace('"', "'")));
+        content.push_str("    rom (\n");
+        content.push_str(&format!("        name \"{}\"\n", title.replace('"', "'")));
+        content.push_str(&format!("        size {}\n", size));
+        if let Some(c) = crc {
+            content.push_str(&format!("        crc {}\n", c));
+        }
+        if let Some(m) = md5 {
+            content.push_str(&format!("        md5 {}\n", m));
+        }
+        if let Some(s) = sha1 {
+            content.push_str(&format!("        sha1 {}\n", s));
+        }
+        content.push_str("    )\n");
+        content.push_str(")\n\n");
+        count += 1;
+    }
+    std::fs::write(&dest_path, content).map_err(RetroError::Io)?;
+    Ok(count)
+}
