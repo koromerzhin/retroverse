@@ -133,6 +133,7 @@ pub struct Developer {
     pub id: String,
     pub name: String,
     pub ss_id: Option<String>,
+    pub game_count: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -142,6 +143,7 @@ pub struct Publisher {
     pub id: String,
     pub name: String,
     pub ss_id: Option<String>,
+    pub game_count: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
