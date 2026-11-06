@@ -23,6 +23,7 @@ export default function Sources() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<SourceType | null>(null);
   const [editing, setEditing] = useState<GameSource | null>(null);
+  const [editKind, setEditKind] = useState<SourceType>("local");
 
   // Local form
   const [localName, setLocalName] = useState("");
@@ -58,12 +59,14 @@ export default function Sources() {
   function openAdd() {
     setEditing(null);
     setDialogType(null);
+    setEditKind("local");
     resetForms();
     setDialogOpen(true);
   }
 
   async function startEdit(src: GameSource) {
     setEditing(src);
+    setEditKind(src.kind === "remote" ? "remote" : "local");
     setDialogType(src.kind === "remote" ? "remote" : "local");
     resetForms();
     setEditName(src.name);
@@ -103,7 +106,14 @@ export default function Sources() {
   async function saveSource() {
     setSaving(true); setError(null);
     try {
-      if (editing) {
+      if (editing && editKind !== editing.kind) {
+        // type conversion
+        if (editKind === "local") {
+          await api.convertSource(editing.id, "local", editName || editing.name, editPath || editing.path, undefined, undefined, undefined, undefined, undefined);
+        } else {
+          await api.convertSource(editing.id, "remote", editName || editing.name, undefined, editHost, Number(editPort) || 22, editUser, editKey, editRPath || editing.path);
+        }
+      } else if (editing) {
         if (editing.kind === "local") {
           await api.updateSource(editing.id, editName || editing.name, editPath || editing.path);
         } else {
@@ -294,6 +304,16 @@ export default function Sources() {
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
             <h3 style={{ marginTop: 0 }}>{editing ? "Modifier la source" : "Ajouter une source"}</h3>
 
+            {editing && (
+              <div style={{ marginTop: 8, marginBottom: 8 }}>
+                <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Type</label>
+                <select className="select" value={editKind} onChange={(e) => setEditKind(e.target.value as SourceType)}>
+                  <option value="local">Local</option>
+                  <option value="remote">Distant (SSH)</option>
+                </select>
+              </div>
+            )}
+
             {!editing && dialogType === null && (
               <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
                 <button className="btn" style={{ flex: 1, padding: 16, flexDirection: "column" }} onClick={() => setDialogType("local")}>
@@ -313,7 +333,7 @@ export default function Sources() {
               <button className="btn" style={{ marginBottom: 12, fontSize: 12 }} onClick={() => setDialogType(null)}>← Retour</button>
             )}
 
-            {dialogType === "local" && (
+            {((editing ? editKind : dialogType) === "local") && (
               <>
                 <div style={{ marginTop: 8 }}>
                   <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Nom</label>
@@ -329,7 +349,7 @@ export default function Sources() {
               </>
             )}
 
-            {dialogType === "remote" && (
+            {((editing ? editKind : dialogType) === "remote") && (
               <>
                 <div style={{ marginTop: 8 }}>
                   <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Nom</label>
@@ -363,7 +383,7 @@ export default function Sources() {
 
             {error && <p style={{ color: "var(--danger)", fontSize: 12, marginTop: 8 }}>{error}</p>}
 
-            {(dialogType === "local" || dialogType === "remote" || editing) && (
+            {((dialogType === "local" || dialogType === "remote") || editing) && (
               <div className="row" style={{ marginTop: 16, justifyContent: "flex-end", gap: 8 }}>
                 <button className="btn" onClick={() => setDialogOpen(false)}>Annuler</button>
                 <button className="btn primary" onClick={saveSource} disabled={saving}>

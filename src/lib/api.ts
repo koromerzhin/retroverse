@@ -9,6 +9,7 @@ export const api = {
   setActiveSource: (id: string) => invoke<void>("set_active_source", { id }),
   getActiveSource: () => invoke<any>("get_active_source"),
   testSource: (id: string) => invoke<string>("test_source", { id }),
+  convertSource: (id: string, newKind: string, name: string, localPath?: string, host?: string, port?: number, username?: string, keyPath?: string, remotePath?: string) => invoke<any>("convert_source", { id, newKind, name, localPath, host, port, username, keyPath, remotePath }),
   getRemoteConnection: (sourceId: string) => invoke<any>("get_remote_connection", { sourceId }),
   scanSource: (sourceId: string, folder?: string, platformFilter?: string) => invoke<any>("scan_source", { sourceId, folder, platformFilter }),
   scanLocalFolder: (sourceId: string, folderPath: string, platformFilter?: string) => invoke<any>("scan_local_folder", { sourceId, folderPath, platformFilter }),

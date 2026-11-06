@@ -426,3 +426,149 @@ pub fn get_remote_connection(
     )?;
     Ok(serde_json::json!({"host": host, "port": port, "username": user, "key_path": key}))
 }
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub async fn convert_source(
+    state: State<'_, AppState>,
+    id: String,
+    new_kind: String,
+    name: String,
+    local_path: Option<String>,
+    host: Option<String>,
+    port: Option<i64>,
+    username: Option<String>,
+    key_path: Option<String>,
+    remote_path: Option<String>,
+) -> Result<GameSource> {
+    // Validate before transaction.
+    if new_kind == "local" {
+        let p = local_path.clone().unwrap_or_default();
+        let pp = std::path::Path::new(&p);
+        if !pp.exists() || !pp.is_dir() {
+            return Err(RetroError::Invalid(format!(
+                "path does not exist or is not a directory: {}",
+                p
+            )));
+        }
+        if pp
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(RetroError::Invalid(
+                "path must not contain '..' components".into(),
+            ));
+        }
+    } else if new_kind == "remote" {
+        let host = host.clone().unwrap_or_default();
+        let port = port.unwrap_or(22);
+        let username = username.clone().unwrap_or_default();
+        let key_path = key_path.clone().unwrap_or_default();
+        let remote_path = remote_path.clone().unwrap_or_default();
+        if host.is_empty() || username.is_empty() || key_path.is_empty() || remote_path.is_empty() {
+            return Err(RetroError::Invalid(
+                "host, username, key and remote path are required".into(),
+            ));
+        }
+        // Test SSH connection.
+        let out = std::process::Command::new("ssh")
+            .args([
+                "-i",
+                &key_path,
+                "-p",
+                &port.to_string(),
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=10",
+                &format!("{}@{}", username, host),
+                "test -d",
+                &remote_path,
+            ])
+            .output()
+            .map_err(RetroError::Io)?;
+        if !out.status.success() {
+            return Err(RetroError::Other(format!(
+                "SSH connection failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            )));
+        }
+    } else {
+        return Err(RetroError::Invalid(format!("unknown kind: {}", new_kind)));
+    }
+
+    let conn = state.db.lock().unwrap();
+    let tx = conn.unchecked_transaction().map_err(RetroError::Db)?;
+
+    // Get old kind and connection_id.
+    let (_old_kind, old_conn_id): (String, Option<String>) = tx
+        .query_row(
+            "SELECT kind, connection_id FROM game_sources WHERE id=?1",
+            [&id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(RetroError::Db)?;
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    if new_kind == "local" {
+        let path = local_path.unwrap_or_default();
+        // Remove old remote connection if any.
+        if let Some(cid) = old_conn_id {
+            let _ = tx.execute("DELETE FROM remote_connections WHERE id=?1", [cid]);
+        }
+        tx.execute(
+            "UPDATE game_sources SET name=?1, kind='local', path=?2, connection_id=NULL, remote_path=NULL, available=1, last_error=NULL WHERE id=?3",
+            params![name, path, id],
+        ).map_err(RetroError::Db)?;
+    } else {
+        let host = host.unwrap_or_default();
+        let port = port.unwrap_or(22);
+        let username = username.unwrap_or_default();
+        let key_path = key_path.unwrap_or_default();
+        let remote_path = remote_path.unwrap_or_default();
+        // Create or update remote connection.
+        let conn_id = match old_conn_id {
+            Some(cid) => {
+                tx.execute("UPDATE remote_connections SET name=?1, host=?2, port=?3, username=?4, key_path=?5 WHERE id=?6", params![name, host, port, username, key_path, cid])?;
+                cid
+            }
+            None => {
+                let new_id = crate::models::new_id();
+                tx.execute("INSERT INTO remote_connections (id,name,host,port,username,key_path,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7)", params![new_id, name, host, port, username, key_path, now])?;
+                new_id
+            }
+        };
+        tx.execute(
+            "UPDATE game_sources SET name=?1, kind='remote', path=?2, connection_id=?3, remote_path=?2, available=1, last_error=NULL WHERE id=?4",
+            params![name, remote_path, conn_id, id],
+        ).map_err(RetroError::Db)?;
+    }
+
+    tx.commit().map_err(RetroError::Db)?;
+
+    // Return updated source.
+    let conn = state.db.lock().unwrap();
+    let src: GameSource = conn.query_row(
+        "SELECT id,name,kind,path,created_at,last_scan_at,connection_id,remote_path,available,last_error,active FROM game_sources WHERE id=?1",
+        [id],
+        |r| {
+            let created: String = r.get(4)?;
+            let last: Option<String> = r.get(5)?;
+            Ok(GameSource {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                kind: r.get(2)?,
+                path: r.get(3)?,
+                created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                last_scan_at: last.and_then(|s| s.parse().ok()),
+                connection_id: r.get(6)?,
+                remote_path: r.get(7)?,
+                available: r.get::<_, i64>(8).unwrap_or(1) != 0,
+                last_error: r.get(9)?,
+                active: r.get::<_, i64>(10).unwrap_or(0) != 0,
+            })
+        },
+    )?;
+    Ok(src)
+}
