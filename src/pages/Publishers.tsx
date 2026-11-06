@@ -7,7 +7,7 @@ export default function Publishers() {
   const { data } = useQuery({ queryKey: ["publishers-full"], queryFn: () => api.listPublishersFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [cols, setCols] = useState<Record<string, boolean>>(() => { try { const c = JSON.parse(localStorage.getItem("retroverse.publishers.cols") || "{}"); return Object.keys(c).length ? c : { name: true, games: true, ss: true }; } catch { return { name: true, games: true, ss: true }; } });
+  const [cols, setCols] = useState<Record<string, boolean>>(() => { try { const c = JSON.parse(localStorage.getItem("retroverse.publishers.cols") || "{}"); return Object.keys(c).length ? c : { name: true, games: true }; } catch { return { name: true, games: true }; } });
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.publishers.view") as "cards" | "list") || "list");
 
   useEffect(() => { localStorage.setItem("retroverse.publishers.cols", JSON.stringify(cols)); }, [cols]);
@@ -42,7 +42,7 @@ export default function Publishers() {
             <div className="card" key={p.id} style={{ padding: 12 }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.name}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.game_count ?? 0} jeu(x)</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>SS: {p.ss_id ?? "—"}</div>
+
             </div>
           ))}
         </div>
@@ -55,7 +55,6 @@ export default function Publishers() {
               <tr key={p.id}>
                 {cols.name && <td>{p.name}</td>}
                 {cols.games && <td>{p.game_count ?? 0}</td>}
-                {cols.ss && <td>{p.ss_id ?? "—"}</td>}
               </tr>
             ))}
           </tbody>
