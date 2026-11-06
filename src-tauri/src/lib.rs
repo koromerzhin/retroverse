@@ -2,6 +2,7 @@ pub mod commands;
 pub mod config;
 pub mod db;
 pub mod error;
+pub mod hashing;
 pub mod identify;
 pub mod metadata;
 pub mod models;
