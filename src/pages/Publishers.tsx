@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { SearchInput } from "../components";
@@ -7,7 +7,10 @@ export default function Publishers() {
   const { data } = useQuery({ queryKey: ["publishers-full"], queryFn: () => api.listPublishersFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [cols, setCols] = useState<Record<string, boolean>>(() => { try { const c = JSON.parse(localStorage.getItem("retroverse.publishers.cols") || "{}"); return Object.keys(c).length ? c : { name: true, games: true, ss: true }; } catch { return { name: true, games: true, ss: true }; } });
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.publishers.view") as "cards" | "list") || "list");
+
+  useEffect(() => { localStorage.setItem("retroverse.publishers.cols", JSON.stringify(cols)); }, [cols]);
 
   const filtered = (data || [])
     .filter((p: any) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
@@ -25,6 +28,14 @@ export default function Publishers() {
             <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.publishers.view", "list"); }}>Liste</button>
           </div>
         </div>
+        <div className="row" style={{ gap: 8, marginBottom: 8, flexWrap: "wrap", fontSize: 12, color: "var(--text-dim)" }}>
+          {Object.keys(cols).map((c) => (
+            <label key={c} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input type="checkbox" checked={cols[c]} onChange={(e) => setCols({ ...cols, [c]: e.target.checked })} />
+              {c}
+            </label>
+          ))}
+        </div>
         {view === "cards" ? (
         <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
           {filtered.map((p: any) => (
@@ -41,9 +52,9 @@ export default function Publishers() {
           <tbody>
             {filtered.map((p: any) => (
               <tr key={p.id}>
-                <td>{p.name}</td>
-                <td>{p.game_count ?? 0}</td>
-                <td>{p.ss_id ?? "—"}</td>
+                {cols.name && <td>{p.name}</td>}
+                {cols.games && <td>{p.game_count ?? 0}</td>}
+                {cols.ss && <td>{p.ss_id ?? "—"}</td>}
               </tr>
             ))}
           </tbody>

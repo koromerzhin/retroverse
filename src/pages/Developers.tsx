@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { SearchInput } from "../components";
@@ -7,7 +7,10 @@ export default function Developers() {
   const { data } = useQuery({ queryKey: ["developers-full"], queryFn: () => api.listDevelopersFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [cols, setCols] = useState<Record<string, boolean>>(() => { try { const c = JSON.parse(localStorage.getItem("retroverse.developers.cols") || "{}"); return Object.keys(c).length ? c : { name: true, games: true, ss: true }; } catch { return { name: true, games: true, ss: true }; } });
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.developers.view") as "cards" | "list") || "list");
+
+  useEffect(() => { localStorage.setItem("retroverse.developers.cols", JSON.stringify(cols)); }, [cols]);
 
   const filtered = (data || [])
     .filter((d: any) => !search || d.name.toLowerCase().includes(search.toLowerCase()))
@@ -25,6 +28,14 @@ export default function Developers() {
             <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.developers.view", "list"); }}>Liste</button>
           </div>
         </div>
+        <div className="row" style={{ gap: 8, marginBottom: 8, flexWrap: "wrap", fontSize: 12, color: "var(--text-dim)" }}>
+          {Object.keys(cols).map((c) => (
+            <label key={c} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input type="checkbox" checked={cols[c]} onChange={(e) => setCols({ ...cols, [c]: e.target.checked })} />
+              {c}
+            </label>
+          ))}
+        </div>
         {view === "cards" ? (
         <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
           {filtered.map((d: any) => (
@@ -41,9 +52,9 @@ export default function Developers() {
           <tbody>
             {filtered.map((d: any) => (
               <tr key={d.id}>
-                <td>{d.name}</td>
-                <td>{d.game_count ?? 0}</td>
-                <td>{d.ss_id ?? "—"}</td>
+                {cols.name && <td>{d.name}</td>}
+                {cols.games && <td>{d.game_count ?? 0}</td>}
+                {cols.ss && <td>{d.ss_id ?? "—"}</td>}
               </tr>
             ))}
           </tbody>
