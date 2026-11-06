@@ -26,6 +26,7 @@ export default function Developers() {
             {filtered.map((d: any) => (
               <tr key={d.id}>
                 <td>{d.name}</td>
+                <td>{d.game_count ?? 0}</td>
                 <td>{d.ss_id ?? "—"}</td>
               </tr>
             ))}

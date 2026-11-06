@@ -21,11 +21,12 @@ export default function Publishers() {
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
         </div>
         <table className="table">
-          <thead><tr><th>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>ID SS</th></tr></thead>
+          <thead><tr><th>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Jeux</th><th>ID SS</th></tr></thead>
           <tbody>
             {filtered.map((p: any) => (
               <tr key={p.id}>
                 <td>{p.name}</td>
+                <td>{p.game_count ?? 0}</td>
                 <td>{p.ss_id ?? "—"}</td>
               </tr>
             ))}

@@ -29,7 +29,7 @@ pub struct SyncStats {
 pub fn list_developers_full(state: State<'_, AppState>) -> Result<Vec<Developer>> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id,name,ss_id,created_at,updated_at FROM developers ORDER BY name COLLATE NOCASE",
+        "SELECT d.id,d.name,d.ss_id,d.created_at,d.updated_at, (SELECT COUNT(*) FROM game_developers gd WHERE gd.developer_id=d.id) FROM developers d ORDER BY d.name COLLATE NOCASE",
     )?;
     let rows = stmt.query_map([], |r| {
         let created: String = r.get(3)?;
@@ -38,6 +38,7 @@ pub fn list_developers_full(state: State<'_, AppState>) -> Result<Vec<Developer>
             id: r.get(0)?,
             name: r.get(1)?,
             ss_id: r.get(2)?,
+            game_count: r.get(5).unwrap_or(0),
             created_at: created.parse().unwrap_or_else(|_| Utc::now()),
             updated_at: updated.parse().unwrap_or_else(|_| Utc::now()),
         })
@@ -66,6 +67,7 @@ pub fn add_developer(
         id,
         name,
         ss_id,
+        game_count: 0,
         created_at: now.parse().unwrap(),
         updated_at: now.parse().unwrap(),
     })
@@ -108,7 +110,7 @@ pub fn delete_developer(state: State<'_, AppState>, id: String) -> Result<()> {
 pub fn list_publishers_full(state: State<'_, AppState>) -> Result<Vec<Publisher>> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id,name,ss_id,created_at,updated_at FROM publishers ORDER BY name COLLATE NOCASE",
+        "SELECT p.id,p.name,p.ss_id,p.created_at,p.updated_at, (SELECT COUNT(*) FROM game_publishers gp WHERE gp.publisher_id=p.id) FROM publishers p ORDER BY p.name COLLATE NOCASE",
     )?;
     let rows = stmt.query_map([], |r| {
         let created: String = r.get(3)?;
@@ -117,6 +119,7 @@ pub fn list_publishers_full(state: State<'_, AppState>) -> Result<Vec<Publisher>
             id: r.get(0)?,
             name: r.get(1)?,
             ss_id: r.get(2)?,
+            game_count: r.get(5).unwrap_or(0),
             created_at: created.parse().unwrap_or_else(|_| Utc::now()),
             updated_at: updated.parse().unwrap_or_else(|_| Utc::now()),
         })
@@ -145,6 +148,7 @@ pub fn add_publisher(
         id,
         name,
         ss_id,
+        game_count: 0,
         created_at: now.parse().unwrap(),
         updated_at: now.parse().unwrap(),
     })
