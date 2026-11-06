@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatNumber } from "../lib/format";
 import { useI18n } from "../i18n";
+import { EmptyState } from "../components";
 
 export default function Companion() {
   const { t } = useI18n();
@@ -20,14 +21,14 @@ export default function Companion() {
         {emudeck ? (
           <p style={{ color: "var(--success)" }}>Détecté : <code>{emudeck}</code></p>
         ) : (
-          <p style={{ color: "var(--text-muted)" }}>Non détecté.</p>
+          <EmptyState icon="🎮" message="Non détecté." />
         )}
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Émulateurs en cours d'exécution</h3>
         {(emus || []).length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>Aucun émulateur détecté.</p>
+          <EmptyState icon="🎮" message="Aucun émulateur détecté." />
         ) : (
           <div className="row">{(emus || []).map((e: string) => <span className="badge" key={e}>{e}</span>)}</div>
         )}
@@ -54,7 +55,7 @@ export default function Companion() {
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Sessions récentes</h3>
         {(sessions || []).length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>Aucune session.</p>
+          <EmptyState icon="🎮" message="Aucune session." />
         ) : (
           <table className="table">
             <thead><tr><th>Jeu</th><th>Début</th><th>Durée</th></tr></thead>
