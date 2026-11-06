@@ -138,7 +138,7 @@ export default function GameDetail() {
         <button className={`btn ${tab === "info" ? "primary" : ""}`} onClick={() => setTab("info")}>Informations</button>
         <button className={`btn ${tab === "files" ? "primary" : ""}`} onClick={() => setTab("files")}>Fichiers</button>
         <button className={`btn ${tab === "hashes" ? "primary" : ""}`} onClick={() => setTab("hashes")}>Empreintes</button>
-        <button className={`btn ${tab === "media" ? "primary" : ""}`} onClick={() => setTab("media")}>Médias</button>
+        <button className={`btn ${tab === "media" ? "primary" : ""}`} onClick={() => setTab("media")}>{t("game.media")}</button>
       </div>
 
       {tab === "info" && (
@@ -239,7 +239,7 @@ export default function GameDetail() {
                 api.showNotification("RETROVERSE", String(e)).catch(() => {});
               }
             }}>
-              Ouvrir le fichier
+              {t("game.openFile")}
             </button>
           )}
           <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={searchingSS || data.files.some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))} onClick={async () => {
@@ -408,7 +408,7 @@ export default function GameDetail() {
             ))}
           </div>
         ) : (
-          <p style={{ color: "var(--text-muted)" }}>Aucun média disponible.</p>
+          <p style={{ color: "var(--text-muted)" }}>{t("game.noMedia")}</p>
         )}
       </div>
       )}

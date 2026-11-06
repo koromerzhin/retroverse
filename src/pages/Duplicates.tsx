@@ -1,15 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { useI18n } from "../i18n";
 
 export default function Duplicates() {
+  const { t } = useI18n();
   const { data } = useQuery({ queryKey: ["duplicates"], queryFn: () => api.findDuplicates() });
 
   return (
     <>
-      <h1 className="page-title">Doublons</h1>
+      <h1 className="page-title">{t("nav.duplicates")}</h1>
       <div className="card" style={{ marginTop: 16 }}>
         {(data || []).length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>Aucun doublon détecté.</p>
+          <p style={{ color: "var(--text-muted)" }}>{t("duplicates.none")}</p>
         ) : (
           <ul style={{ fontSize: 13, color: "var(--text-dim)", paddingLeft: 16 }}>
             {(data || []).map((g: any, i: number) => (
@@ -22,7 +24,7 @@ export default function Duplicates() {
             ))}
           </ul>
         )}
-        <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{(data || []).length} groupe(s) de doublons</p>
+        <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{(data || []).length} {t("duplicates.groups")}</p>
       </div>
     </>
   );

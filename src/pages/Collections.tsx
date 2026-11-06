@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { useI18n } from "../i18n";
 
 export default function Collections() {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const { data: collections } = useQuery({ queryKey: ["collections"], queryFn: () => api.listCollections() });
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -18,11 +20,11 @@ export default function Collections() {
 
   return (
     <>
-      <h1 className="page-title">Collections</h1>
+      <h1 className="page-title">{t("nav.collections")}</h1>
       <div className="card" style={{ marginTop: 16 }}>
         <div className="row" style={{ gap: 8, marginBottom: 12 }}>
-          <input className="input" placeholder="Nouvelle collection…" value={name} onChange={(e) => setName(e.target.value)} style={{ maxWidth: 240 }} />
-          <button className="btn primary" onClick={create}>Créer</button>
+          <input className="input" placeholder={t("collections.new")} value={name} onChange={(e) => setName(e.target.value)} style={{ maxWidth: 240 }} />
+          <button className="btn primary" onClick={create}>{t("collections.create")}</button>
         </div>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           {(collections || []).map((c: any) => (
@@ -33,7 +35,7 @@ export default function Collections() {
         </div>
         {selected && (
           <div style={{ marginTop: 16 }}>
-            <p style={{ color: "var(--text-dim)", fontSize: 12 }}>{(games || []).length} jeu(x) dans cette collection.</p>
+            <p style={{ color: "var(--text-dim)", fontSize: 12 }}>{(games || []).length} {t("collections.gamesIn")}</p>
             <ul style={{ fontSize: 12, color: "var(--text-dim)", paddingLeft: 16 }}>
               {(games || []).map((g: string) => <li key={g}>{g}</li>)}
             </ul>
