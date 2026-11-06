@@ -9,6 +9,7 @@ export default function Preservation() {
   const { t } = useI18n();
   const { data: jobs } = useQuery({ queryKey: ["transfer-jobs"], queryFn: () => api.listTransferJobs() });
   const [hashing, setHashing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   async function handleComputeHashes() {
     setHashing(true);
@@ -48,6 +49,32 @@ export default function Preservation() {
     }
   }
 
+  async function handleImportDat() {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const src = await open({ multiple: false, filters: [{ name: "DAT", extensions: ["dat", "xml"] }] });
+    if (typeof src !== "string") return;
+    try {
+      const n = await api.importDat(src);
+      api.showNotification("RETROVERSE", `DAT importé : ${n} entrée(s).`).catch(() => {});
+      qc.invalidateQueries();
+    } catch (e: any) {
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    }
+  }
+
+  async function handleVerifyLibrary() {
+    setVerifying(true);
+    try {
+      const n = await api.verifyLibrary();
+      api.showNotification("RETROVERSE", `Vérification terminée : ${n} jeu(x) vérifié(s).`).catch(() => {});
+      qc.invalidateQueries();
+    } catch (e: any) {
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   return (
     <>
       <h1 className="page-title">{t("preservation.title")}</h1>
@@ -59,6 +86,17 @@ export default function Preservation() {
         <button className="btn primary" onClick={handleComputeHashes} disabled={hashing}>
           {hashing ? <span className="spinner" /> : "Calculer les empreintes"}
         </button>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Vérification d'intégrité (DAT)</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Importez un fichier DAT (No-Intro/Redump) puis vérifiez la bibliothèque.</p>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn" onClick={handleImportDat}>Importer un DAT</button>
+          <button className="btn primary" onClick={handleVerifyLibrary} disabled={verifying}>
+            {verifying ? <><span className="spinner" /> Vérification...</> : "Vérifier la bibliothèque"}
+          </button>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
