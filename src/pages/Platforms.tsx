@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { SearchInput } from "../components";
 import { formatNumber } from "../lib/format";
 import { useI18n } from "../i18n";
 import type { Platform, GameSource } from "../types";
@@ -235,7 +236,7 @@ export default function Platforms() {
       <p className="page-sub">{t("platforms.subtitle")}</p>
 
       <div className="row" style={{ marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
-        <input className="input" style={{ maxWidth: 260 }} placeholder="Rechercher une plateforme…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <SearchInput value={search} onChange={setSearch} placeholder="Rechercher une plateforme…" maxWidth={260} />
         <span style={{ fontSize: 13, color: "var(--text-dim)" }}>{t("platforms.sortBy")}</span>
         <select className="select" style={{ maxWidth: 180 }} value={sortKey} onChange={(e) => setSortKey(e.target.value as "name" | "manufacturer" | "year" | "count")}>
           <option value="name">{t("platforms.sort.name")}</option>
