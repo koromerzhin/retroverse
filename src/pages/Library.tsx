@@ -373,11 +373,18 @@ export default function Library() {
         <div className="grid games">
           {sortedGames.map((e) => {
             let cover: string | null = null;
-            try { cover = e.game.metadata_json ? JSON.parse(e.game.metadata_json).cover_url : null; } catch {}
+            try {
+              const d = e.game.metadata_json ? JSON.parse(e.game.metadata_json) : null;
+              cover = d?.cover_url || null;
+              if (!cover && Array.isArray(d?.medias)) {
+                const m = d.medias.find((x: any) => x?.type === "box-2D" || x?.type === "box-3D" || x?.type === "cover");
+                cover = m?.url || null;
+              }
+            } catch {}
             return (
             <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
               <input type="checkbox" checked={selected.has(e.game.id)} onChange={() => toggleSelect(e.game.id)} onClick={(ev) => ev.stopPropagation()} style={{ position: "absolute", top: 8, left: 8, zIndex: 2 }} />
-              <div className="cover">{cover ? <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} /> : "🎮"}</div>
+              <div className="cover">{cover ? <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 8 }} loading="lazy" /> : "🎮"}</div>
               <div className="info">
                 <div className="title">{e.game.title}</div>
                 <div className="meta">{e.platform?.name ?? "Inconnu"} · {e.file_count} fichier(s) · {presBadge(presStatus(e.game.id))}</div>
