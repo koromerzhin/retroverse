@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 25;
+pub const SCHEMA_VERSION: i32 = 26;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -147,8 +147,8 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     if current < 25 {
         apply_v25(conn)?;
     }
-    if current < 25 {
-        apply_v25(conn)?;
+    if current < 26 {
+        apply_v26(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1164,5 +1164,32 @@ fn apply_v25(conn: &Connection) -> Result<()> {
         );
         "#,
     )?;
+    Ok(())
+}
+
+fn apply_v26(conn: &Connection) -> Result<()> {
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(game_sources)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    if !cols.contains(&"active".to_string()) {
+        let _ = conn.execute(
+            "ALTER TABLE game_sources ADD COLUMN active INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+    }
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM game_sources WHERE active=1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    if count == 0 {
+        let _ = conn.execute("UPDATE game_sources SET active=1 WHERE id=(SELECT id FROM game_sources ORDER BY created_at LIMIT 1)", []);
+    }
     Ok(())
 }
