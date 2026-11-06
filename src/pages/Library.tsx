@@ -23,6 +23,8 @@ export default function Library() {
   const [onlyMissingHash, setOnlyMissingHash] = useState(false);
   const [onlyNoMeta, setOnlyNoMeta] = useState(false);
   const [onlyRecent, setOnlyRecent] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batching, setBatching] = useState(false);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [hashingGame, setHashingGame] = useState<string | null>(null);
@@ -114,6 +116,42 @@ export default function Library() {
     } finally {
       setHashingGame(null);
     }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const selectAll = () => setSelected(new Set(sortedGames.map((e) => e.game.id)));
+  const clearSelection = () => setSelected(new Set());
+
+  const batchHash = async () => {
+    if (selected.size === 0) return;
+    setBatching(true);
+    let done = 0;
+    for (const id of selected) {
+      try { await api.computeHashesForGame(id); done++; } catch {}
+    }
+    qc.invalidateQueries({ queryKey: ["games"] });
+    api.showNotification("RETROVERSE", `Empreintes calculées pour ${done} jeu(x).`).catch(() => {});
+    setBatching(false);
+    clearSelection();
+  };
+
+  const batchEnrich = async () => {
+    if (selected.size === 0) return;
+    setBatching(true);
+    let done = 0;
+    for (const id of selected) {
+      try { await api.enrichGame(id, "screenscraper"); done++; } catch {}
+    }
+    qc.invalidateQueries({ queryKey: ["games"] });
+    api.showNotification("RETROVERSE", `Métadonnées récupérées pour ${done} jeu(x).`).catch(() => {});
+    setBatching(false);
+    clearSelection();
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -276,6 +314,19 @@ export default function Library() {
         </div>
       )}
 
+      {selected.size > 0 && (
+        <div className="card" style={{ marginBottom: 12, padding: 10, display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 13, color: "var(--text-dim)" }}>{selected.size} sélectionné(s)</span>
+          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={batching} onClick={batchHash}>
+            {batching ? "…" : "Calculer les empreintes"}
+          </button>
+          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={batching} onClick={batchEnrich}>
+            {batching ? "…" : "Rechercher sur ScreenScraper"}
+          </button>
+          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={clearSelection}>Annuler</button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
       ) : total === 0 ? (
@@ -292,6 +343,7 @@ export default function Library() {
             try { cover = e.game.metadata_json ? JSON.parse(e.game.metadata_json).cover_url : null; } catch {}
             return (
             <div className="game-card" key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)}>
+              <input type="checkbox" checked={selected.has(e.game.id)} onChange={() => toggleSelect(e.game.id)} onClick={(ev) => ev.stopPropagation()} style={{ position: "absolute", top: 8, left: 8, zIndex: 2 }} />
               <div className="cover">{cover ? <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} /> : "🎮"}</div>
               <div className="info">
                 <div className="title">{e.game.title}</div>
@@ -315,7 +367,8 @@ export default function Library() {
           <table className="table" style={{ width: "100%" }}>
             <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}>
               <tr>
-                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>Titre {sortKey === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+                <th><input type="checkbox" onChange={(e) => e.target.checked ? selectAll() : clearSelection()} /></th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>Titre {sortKey === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
                 <th style={{ cursor: "pointer" }} onClick={() => toggleSort("platform")}>Plateforme {sortKey === "platform" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
                 <th style={{ cursor: "pointer" }} onClick={() => toggleSort("developer")}>Développeur {sortKey === "developer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
                 <th style={{ cursor: "pointer" }} onClick={() => toggleSort("publisher")}>Éditeur {sortKey === "publisher" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
@@ -328,6 +381,7 @@ export default function Library() {
               <tr style={{ height: offsetY }}><td colSpan={6} style={{ padding: 0, border: "none" }}></td></tr>
               {visibleRows.map((e) => (
                 <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer", height: ROW_HEIGHT }}>
+                <td onClick={(ev) => ev.stopPropagation()}><input type="checkbox" checked={selected.has(e.game.id)} onChange={() => toggleSelect(e.game.id)} /></td>
                   <td>{e.game.title}</td>
                   <td>{e.platform?.name ?? "Inconnu"}</td>
                   <td>{e.developer ?? "—"}</td>
