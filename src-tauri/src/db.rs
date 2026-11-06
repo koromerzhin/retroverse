@@ -14,6 +14,33 @@ pub fn db_path() -> PathBuf {
 
 pub fn open() -> Result<Connection> {
     let path = db_path();
+    // Auto-backup before migration (keep last 5).
+    if path.exists() {
+        let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S").to_string();
+        let backup = path.with_extension(format!("db.bak.{}", ts));
+        let _ = std::fs::copy(&path, &backup);
+        // prune old backups
+        if let Some(parent) = path.parent() {
+            let mut backups: Vec<_> = std::fs::read_dir(parent)
+                .ok()
+                .into_iter()
+                .flatten()
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.file_name()
+                        .to_string_lossy()
+                        .starts_with("retroverse.db.bak.")
+                })
+                .collect();
+            backups.sort_by_key(|e| e.file_name());
+            while backups.len() > 5 {
+                if let Some(old) = backups.first() {
+                    let _ = std::fs::remove_file(old.path());
+                }
+                backups.remove(0);
+            }
+        }
+    }
     let conn = Connection::open(&path)?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;

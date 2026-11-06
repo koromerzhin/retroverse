@@ -557,3 +557,29 @@ pub async fn compute_hashes_for_all_games(state: State<'_, AppState>) -> Result<
 pub fn cancel_hash(state: State<AppState>) -> Result<()> {
     crate::hashing::cancel_hash(state)
 }
+
+#[tauri::command]
+pub fn list_db_backups() -> Result<Vec<String>> {
+    let path = crate::db::db_path();
+    let parent = path
+        .parent()
+        .ok_or_else(|| RetroError::Invalid("no parent".into()))?;
+    let mut out = Vec::new();
+    for e in std::fs::read_dir(parent).map_err(RetroError::Io)? {
+        let e = e.map_err(RetroError::Io)?;
+        let name = e.file_name().to_string_lossy().to_string();
+        if name.starts_with("retroverse.db.bak.") {
+            out.push(e.path().to_string_lossy().to_string());
+        }
+    }
+    out.sort();
+    out.reverse();
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn restore_db_backup(backup_path: String) -> Result<()> {
+    let path = crate::db::db_path();
+    std::fs::copy(&backup_path, &path).map_err(RetroError::Io)?;
+    Ok(())
+}
