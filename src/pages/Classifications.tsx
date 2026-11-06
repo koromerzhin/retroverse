@@ -44,18 +44,30 @@ export default function Classifications() {
             {syncing ? <><span className="spinner" /> Synchronisation...</> : t("classifications.sync")}
           </button>
         </div>
-        <table className="table">
-          <thead><tr><th>Organisme</th><th>Valeur</th><th>ID SS</th></tr></thead>
-          <tbody>
-            {filtered.map((c: any) => (
-              <tr key={c.id}>
-                <td>{c.system_name ?? "—"}</td>
-                <td>{c.value}</td>
-                <td>{c.ss_id ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {(() => {
+          const groups = new Map<string, any[]>();
+          for (const c of filtered) {
+            const key = c.system_name ?? "—";
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(c);
+          }
+          return Array.from(groups.entries()).map(([sys, items]) => (
+            <div key={sys} style={{ marginBottom: 12 }}>
+              <h4 style={{ margin: "8px 0 4px", color: "var(--text-dim)", fontSize: 13 }}>{sys} ({items.length})</h4>
+              <table className="table">
+                <thead><tr><th>Valeur</th><th>ID SS</th></tr></thead>
+                <tbody>
+                  {items.map((c: any) => (
+                    <tr key={c.id}>
+                      <td>{c.value}</td>
+                      <td>{c.ss_id ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ));
+        })()}
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{filtered.length} classification(s)</p>
       </div>
     </>
