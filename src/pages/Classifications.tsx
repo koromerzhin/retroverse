@@ -10,6 +10,7 @@ export default function Classifications() {
   const { data } = useQuery({ queryKey: ["classifications-full"], queryFn: () => api.listClassificationsFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.classifications.view") as "cards" | "list") || "list");
   const [syncing, setSyncing] = useState(false);
 
   const sync = async () => {
@@ -40,11 +41,26 @@ export default function Classifications() {
         <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <SearchInput value={search} onChange={setSearch} placeholder="Rechercher…" maxWidth={240} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
+          <div className="row" style={{ gap: 4, marginLeft: "auto" }}>
+            <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.classifications.view", "cards"); }}>Cards</button>
+            <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.classifications.view", "list"); }}>Liste</button>
+          </div>
           <button className="btn primary" disabled={syncing} onClick={sync}>
             {syncing ? <><span className="spinner" /> Synchronisation...</> : t("classifications.sync")}
           </button>
         </div>
-        {(() => {
+        {view === "cards" ? (
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+          {filtered.map((c: any) => (
+            <div className="card" key={c.id} style={{ padding: 12 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>{c.system_name ?? "—"}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{c.value}</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>SS: {c.ss_id ?? "—"}</div>
+            </div>
+          ))}
+        </div>
+        ) : (
+        (() => {
           const groups = new Map<string, any[]>();
           for (const c of filtered) {
             const key = c.system_name ?? "—";
@@ -67,7 +83,8 @@ export default function Classifications() {
               </table>
             </div>
           ));
-        })()}
+        })()
+        )}
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{filtered.length} classification(s)</p>
       </div>
     </>
