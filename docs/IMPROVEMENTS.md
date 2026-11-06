@@ -43,7 +43,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 25. **Logging**: structured tracing with configurable levels.
 26. **Error handling**: more precise user messages, error codes.
 27. **Security**: path validation (path traversal), sandboxing.
-28. **i18n**: complete translations (currently partial).
+28. **i18n**: complete translations (fr/en complete, others fallback to English).
 
 ## Architecture
 
