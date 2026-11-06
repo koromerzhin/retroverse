@@ -311,7 +311,7 @@ export default function App() {
           </div>
         </div>
       )}
-      <button className="btn hamburger" onClick={() => setSidebarOpen((v) => !v)} style={{ position: "fixed", top: 8, left: 8, zIndex: 301, display: "none" }}>☰</button>
+      <button className="btn hamburger" onClick={() => setSidebarOpen((v) => !v)} style={{ position: "fixed", top: 8, left: 8, zIndex: 301 }}>☰</button>
       <aside className={"sidebar" + (sidebarOpen ? " open" : "")}>
         <div className="brand">
           <div className="logo"><img src="/favicon.png" alt="RETROVERSE" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }} /></div>
