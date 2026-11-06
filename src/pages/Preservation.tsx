@@ -119,6 +119,20 @@ export default function Preservation() {
             }
           }}>Exporter un pack de préservation</button>
         </div>
+        <div style={{ marginTop: 8 }}>
+          <button className="btn" onClick={async () => {
+            const { open } = await import("@tauri-apps/plugin-dialog");
+            const src = await open({ multiple: false, filters: [{ name: "ZIP", extensions: ["zip"] }] });
+            if (typeof src !== "string") return;
+            try {
+              const n = await api.importPreservationPack(src);
+              api.showNotification("RETROVERSE", `Pack importé : ${n} jeu(x).`).catch(() => {});
+              qc.invalidateQueries();
+            } catch (e: any) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            }
+          }}>Importer un pack de préservation</button>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
