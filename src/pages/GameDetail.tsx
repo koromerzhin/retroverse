@@ -27,6 +27,7 @@ export default function GameDetail() {
     enabled: !!id,
   });
   const { data: allGenres } = useQuery<any[]>({ queryKey: ["genres-full"], queryFn: () => api.listGenresFull() });
+  const { data: presStatus } = useQuery<string>({ queryKey: ["preservation-status", id], queryFn: () => api.getPreservationStatus(id!), enabled: !!id });
   const { data: gameClassifications } = useQuery<any[]>({ queryKey: ["game-classifications", id], queryFn: () => api.listGameClassifications(id!), enabled: !!id });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
@@ -131,7 +132,7 @@ export default function GameDetail() {
   return (
     <div>
       <button className="btn" onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>{t("common.back")}</button>
-      <h1 className="page-title">{data.game.title}</h1>
+      <h1 className="page-title">{data.game.title}{presStatus && presStatus !== "unknown" && <span className="badge" style={{ fontSize: 11, marginLeft: 8, verticalAlign: "middle" }}>{presStatus === "verified" ? "✓ vérifié" : presStatus === "bad_dump" ? "✗ bad dump" : presStatus}</span>}</h1>
       <p className="page-sub">{data.platform?.name ?? "Plateforme inconnue"}</p>
 
       <div className="row" style={{ marginBottom: 16, gap: 8 }}>
@@ -230,6 +231,19 @@ export default function GameDetail() {
           </tbody>
         </table>
         <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          {data.files.length > 0 && (
+            <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
+              try {
+                const { openPath } = await import("@tauri-apps/plugin-opener");
+                const dir = data.files[0].path.substring(0, data.files[0].path.lastIndexOf("/"));
+                await openPath(dir);
+              } catch (e: any) {
+                api.showNotification("RETROVERSE", String(e)).catch(() => {});
+              }
+            }}>
+              Ouvrir le dossier
+            </button>
+          )}
           {data.files.length > 0 && (
             <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
               try {
