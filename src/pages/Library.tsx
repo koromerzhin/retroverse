@@ -8,8 +8,8 @@ import type { LibraryEntry, Platform } from "../types";
 
 export default function Library() {
   const navigate = useNavigate();
-  const { t } = useI18n();
   const qc = useQueryClient();
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -23,6 +23,7 @@ export default function Library() {
   const [onlyMissingHash, setOnlyMissingHash] = useState(false);
   const [onlyNoMeta, setOnlyNoMeta] = useState(false);
   const [onlyRecent, setOnlyRecent] = useState(false);
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [hashingGame, setHashingGame] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<"title" | "platform" | "developer" | "publisher" | "files">("title");
@@ -48,6 +49,7 @@ export default function Library() {
   const { data: presStatuses } = useQuery<any[]>({ queryKey: ["preservation-statuses"], queryFn: () => api.listPreservationStatuses() });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: genres } = useQuery<string[]>({ queryKey: ["genres"], queryFn: () => api.listGenres() });
+  const { data: favorites } = useQuery<string[]>({ queryKey: ["favorites"], queryFn: () => api.listFavorites() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
   const { data: platformCountsData } = useQuery<any>({
     queryKey: ["platform-game-counts"],
@@ -69,6 +71,7 @@ export default function Library() {
   const sortedGames = [...games].filter((e) => {
     if (onlyMissingHash && !needsHash(e)) return false;
     if (onlyNoMeta && e.game.metadata_json) return false;
+    if (onlyFavorites && !(favorites || []).includes(e.game.id)) return false;
     if (genre) {
       let g: any = null;
       try { g = e.game.metadata_json ? JSON.parse(e.game.metadata_json) : null; } catch {}
@@ -265,6 +268,10 @@ export default function Library() {
               <input type="checkbox" checked={onlyRecent} onChange={(e) => setOnlyRecent(e.target.checked)} />
               Récemment ajoutés
             </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)" }}>
+              <input type="checkbox" checked={onlyFavorites} onChange={(e) => setOnlyFavorites(e.target.checked)} />
+              Favoris uniquement
+            </label>
           </div>
         </div>
       )}
@@ -290,6 +297,9 @@ export default function Library() {
                 <div className="title">{e.game.title}</div>
                 <div className="meta">{e.platform?.name ?? "Inconnu"} · {e.file_count} fichier(s) · {presBadge(presStatus(e.game.id))}</div>
                 {(e.developer || e.publisher) && <div className="meta" style={{ fontSize: 10 }}>{[e.developer, e.publisher].filter(Boolean).join(" · ")}</div>}
+                <button className="btn" style={{ fontSize: 11, padding: "2px 6px", marginTop: 4 }} onClick={(ev) => { ev.stopPropagation(); api.toggleFavorite(e.game.id).then(() => qc.invalidateQueries({ queryKey: ["favorites"] })); }}>
+                  {(favorites || []).includes(e.game.id) ? "★" : "☆"}
+                </button>
                 {needsHash(e) && (
                   <button className="btn" style={{ fontSize: 11, padding: "2px 8px", marginTop: 6 }} disabled={hashingGame === e.game.id} onClick={(ev) => { ev.stopPropagation(); hashGame(e.game.id); }}>
                     {hashingGame === e.game.id ? "…" : "Calculer les empreintes"}

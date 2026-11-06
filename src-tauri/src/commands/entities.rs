@@ -505,3 +505,101 @@ pub fn sync_publishers(state: State<'_, AppState>) -> Result<SyncStats> {
 pub fn sync_developers(state: State<'_, AppState>) -> Result<SyncStats> {
     sync_developers_inner(&state)
 }
+
+#[tauri::command]
+pub fn toggle_favorite(state: State<'_, AppState>, game_id: String) -> Result<bool> {
+    let conn = state.db.lock().unwrap();
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM game_favorites WHERE game_id=?1",
+            [game_id.clone()],
+            |r| r.get::<_, i64>(0),
+        )
+        .unwrap_or(0)
+        > 0;
+    if exists {
+        conn.execute("DELETE FROM game_favorites WHERE game_id=?1", [game_id])?;
+        Ok(false)
+    } else {
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO game_favorites (game_id, created_at) VALUES (?1,?2)",
+            params![game_id, now],
+        )?;
+        Ok(true)
+    }
+}
+
+#[tauri::command]
+pub fn list_favorites(state: State<'_, AppState>) -> Result<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT game_id FROM game_favorites")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn create_tag(
+    state: State<'_, AppState>,
+    name: String,
+    color: Option<String>,
+) -> Result<String> {
+    let conn = state.db.lock().unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT OR IGNORE INTO game_tags (id,name,color,created_at) VALUES (?1,?2,?3,?4)",
+        params![id, name, color, now],
+    )?;
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn list_tags(state: State<'_, AppState>) -> Result<Vec<(String, String, Option<String>)>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT id,name,color FROM game_tags ORDER BY name")?;
+    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn assign_tag(state: State<'_, AppState>, game_id: String, tag_id: String) -> Result<()> {
+    let conn = state.db.lock().unwrap();
+    conn.execute(
+        "INSERT OR IGNORE INTO game_tag_links (game_id, tag_id) VALUES (?1,?2)",
+        params![game_id, tag_id],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_tag(state: State<'_, AppState>, game_id: String, tag_id: String) -> Result<()> {
+    let conn = state.db.lock().unwrap();
+    conn.execute(
+        "DELETE FROM game_tag_links WHERE game_id=?1 AND tag_id=?2",
+        params![game_id, tag_id],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn list_game_tags(state: State<'_, AppState>, game_id: String) -> Result<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT t.name FROM game_tags t JOIN game_tag_links l ON l.tag_id=t.id WHERE l.game_id=?1",
+    )?;
+    let rows = stmt.query_map([game_id], |r| r.get(0))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}

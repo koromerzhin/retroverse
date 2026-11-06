@@ -144,6 +144,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     if current < 24 {
         apply_v24(conn)?;
     }
+    if current < 25 {
+        apply_v25(conn)?;
+    }
     if current < 16 {
         apply_v16(conn)?;
     }
@@ -1135,5 +1138,28 @@ fn apply_v24(conn: &Connection) -> Result<()> {
             [],
         );
     }
+    Ok(())
+}
+
+fn apply_v25(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS game_favorites (
+            game_id TEXT PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS game_tags (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            color TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS game_tag_links (
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            tag_id TEXT NOT NULL REFERENCES game_tags(id) ON DELETE CASCADE,
+            PRIMARY KEY (game_id, tag_id)
+        );
+        "#,
+    )?;
     Ok(())
 }
