@@ -17,6 +17,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Developers = lazy(() => import("./pages/Developers"));
 const Publishers = lazy(() => import("./pages/Publishers"));
 const Genres = lazy(() => import("./pages/Genres"));
+const Duplicates = lazy(() => import("./pages/Duplicates"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Collections = lazy(() => import("./pages/Collections"));
 const Classifications = lazy(() => import("./pages/Classifications"));
@@ -31,6 +32,7 @@ const nav = [
   { to: "/developers", label: "Développeurs", icon: "👨‍💻" },
   { to: "/publishers", label: "Éditeurs", icon: "🏢" },
   { to: "/genres", label: "Genres", icon: "🏷️" },
+  { to: "/duplicates", label: "Doublons", icon: "🔍" },
   { to: "/stats", label: "Statistiques", icon: "📊" },
   { to: "/collections", label: "Collections", icon: "📂" },
   { to: "/classifications", label: "Classifications", icon: "🛡️" },
@@ -352,6 +354,7 @@ export default function App() {
           <Route path="/developers" element={<Developers />} />
           <Route path="/publishers" element={<Publishers />} />
           <Route path="/genres" element={<Genres />} />
+          <Route path="/duplicates" element={<Duplicates />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/collections" element={<Collections />} />
           <Route path="/classifications" element={<Classifications />} />

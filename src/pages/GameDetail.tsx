@@ -229,6 +229,18 @@ export default function GameDetail() {
           </tbody>
         </table>
         <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          {data.files.length > 0 && (
+            <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={async () => {
+              try {
+                const { openPath } = await import("@tauri-apps/plugin-opener");
+                await openPath(data.files[0].path);
+              } catch (e: any) {
+                api.showNotification("RETROVERSE", String(e)).catch(() => {});
+              }
+            }}>
+              Ouvrir le fichier
+            </button>
+          )}
           <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={searchingSS || data.files.some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))} onClick={async () => {
             if (!id) return;
             setSearchingSS(true);
