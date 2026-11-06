@@ -102,6 +102,7 @@ pub async fn add_remote_source(
                     remote_path: r.get(7)?,
                     available: avail != 0,
                     last_error: r.get(9)?,
+                    active: r.get::<_, i64>(10).unwrap_or(0) != 0,
                 })
             },
         )?

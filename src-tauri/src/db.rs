@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 24;
+pub const SCHEMA_VERSION: i32 = 25;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -143,6 +143,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 24 {
         apply_v24(conn)?;
+    }
+    if current < 25 {
+        apply_v25(conn)?;
     }
     if current < 25 {
         apply_v25(conn)?;

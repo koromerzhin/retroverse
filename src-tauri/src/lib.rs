@@ -68,6 +68,12 @@ pub fn run() {
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::list_sources,
+            commands::update_source,
+            commands::update_remote_source,
+            commands::set_active_source,
+            commands::get_active_source,
+            commands::test_source,
+            commands::get_remote_connection,
             commands::sync_entities_from_metadata,
             commands::delete_genre,
             commands::update_genre,

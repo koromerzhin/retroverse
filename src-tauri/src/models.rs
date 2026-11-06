@@ -25,6 +25,7 @@ pub struct GameSource {
     pub remote_path: Option<String>,
     pub available: bool,
     pub last_error: Option<String>,
+    pub active: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
