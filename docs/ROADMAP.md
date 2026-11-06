@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.1 — Foundation (current)
+## v1.0 — Collection Companion (current) ✅
 - Repo + Git Flow + GitHub
 - Tauri app, Rust backend, React frontend
 - SQLite + migrations
@@ -28,7 +28,6 @@
 ## v0.6 — Companion
 - EmuDeck detection, emulator/frontend integrations, sessions, stats
 
-## v1.0 — Collection Companion (current) ✅
 - Tauri 2 desktop app, Rust backend, React/TypeScript frontend
 - SQLite database with migrations up to v23
 - Platform profiles, local + remote (SSH/SFTP) sources

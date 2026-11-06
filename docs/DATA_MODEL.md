@@ -1,6 +1,6 @@
 # Data model
 
-SQLite is the primary store. Schema version tracked in `schema_version` (current: v23).
+SQLite is the primary store. Schema version tracked in `schema_version` (current: v24).
 
 ## Core entities
 
