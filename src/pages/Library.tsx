@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { SearchInput, EmptyState } from "../components";
 import { formatNumber } from "../lib/format";
 import { useI18n } from "../i18n";
 import type { LibraryEntry, Platform } from "../types";
@@ -222,13 +223,7 @@ export default function Library() {
       <p className="page-sub">{t("library.subtitle")}</p>
 
       <div className="row" style={{ marginBottom: 18 }}>
-        <input
-          className="input"
-          style={{ maxWidth: 320 }}
-          placeholder={t("library.search")}
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
+        <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t("library.search")} maxWidth={320} />
         <select
           className="select"
           style={{ maxWidth: 260 }}
@@ -363,10 +358,7 @@ export default function Library() {
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
       ) : total === 0 ? (
-        <div className="empty">
-          <div className="icon">📚</div>
-          <p>{t("library.empty")}</p>
-        </div>
+        <EmptyState icon="📚" message={t("library.empty")} />
       ) : (
         <>
         {view === "cards" ? (
