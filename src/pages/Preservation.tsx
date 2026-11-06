@@ -105,6 +105,19 @@ export default function Preservation() {
             {verifying ? <><span className="spinner" /> Vérification...</> : "Vérifier la bibliothèque"}
           </button>
         </div>
+        <div style={{ marginTop: 12 }}>
+          <button className="btn" onClick={async () => {
+            const { save } = await import("@tauri-apps/plugin-dialog");
+            const dest = await save({ defaultPath: "retroverse-preservation.zip" });
+            if (!dest) return;
+            try {
+              const n = await api.exportPreservationPack(dest);
+              api.showNotification("RETROVERSE", `Pack exporté : ${n} jeu(x).`).catch(() => {});
+            } catch (e: any) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            }
+          }}>Exporter un pack de préservation</button>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>

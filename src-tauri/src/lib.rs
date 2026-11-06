@@ -80,6 +80,7 @@ pub fn run() {
             commands::get_preservation_status,
             commands::list_preservation_statuses,
             commands::preservation_summary,
+            commands::export_preservation_pack,
             commands::sync_classifications,
             commands::delete_publisher,
             commands::update_publisher,
