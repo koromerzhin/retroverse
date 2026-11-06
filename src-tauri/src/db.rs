@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 21;
+pub const SCHEMA_VERSION: i32 = 22;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -107,6 +107,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 21 {
         apply_v21(conn)?;
+    }
+    if current < 22 {
+        apply_v22(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1017,5 +1020,25 @@ fn apply_v21(conn: &Connection) -> Result<()> {
             );
         }
     }
+    Ok(())
+}
+
+fn apply_v22(conn: &Connection) -> Result<()> {
+    // Add hashed_mtime and hashed_size to track when hashes were computed.
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(game_files)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    if !cols.contains(&"hashed_mtime".to_string()) {
+        let _ = conn.execute("ALTER TABLE game_files ADD COLUMN hashed_mtime INTEGER", []);
+    }
+    if !cols.contains(&"hashed_size".to_string()) {
+        let _ = conn.execute("ALTER TABLE game_files ADD COLUMN hashed_size INTEGER", []);
+    }
+    // Backfill: existing hashed files get their current mtime/size as hashed values.
+    let _ = conn.execute("UPDATE game_files SET hashed_mtime = COALESCE(hashed_mtime, modified_at), hashed_size = COALESCE(hashed_size, size) WHERE hash IS NOT NULL", []);
     Ok(())
 }
