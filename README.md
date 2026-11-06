@@ -13,7 +13,7 @@ Version 1.0 — in development (develop branch).
 ## Features
 
 - Desktop application (Tauri 2 + Rust + React/TypeScript)
-- Local SQLite database with migrations (up to v21)
+- Local SQLite database with migrations (up to v24)
 - Platform profiles with extension-based detection
 - Local and remote source management (SSH/SFTP)
 - Recursive folder scanning (local + remote) with incremental (mtime/size) skipping
@@ -28,6 +28,9 @@ Version 1.0 — in development (develop branch).
 - Independent splashscreen + sequential main window display
 - Single-instance enforcement (Unix socket)
 - Referentials: developers, publishers, genres (multilingual), classifications
+- Preservation: DAT import (No-Intro/Redump), integrity verification, preservation packs, audit log
+- Game covers (box art) display with offline caching
+- Virtual pagination, advanced filters, favorites, tags, collections, statistics
 - Collections, statistics dashboard, settings
 
 ## Tech stack
@@ -54,6 +57,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
 - [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md)
+- [docs/PRESERVATION_PLAN.md](docs/PRESERVATION_PLAN.md)
 - [docs/SOURCE_CONNECTORS.md](docs/SOURCE_CONNECTORS.md)
 
 ## License
