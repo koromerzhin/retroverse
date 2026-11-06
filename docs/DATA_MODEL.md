@@ -1,6 +1,6 @@
 # Data model
 
-SQLite is the primary store. Schema version tracked in `schema_version` (current: v22).
+SQLite is the primary store. Schema version tracked in `schema_version` (current: v23).
 
 ## Core entities
 
@@ -25,6 +25,9 @@ SQLite is the primary store. Schema version tracked in `schema_version` (current
 - `classification_systems` — classification organisms (PEGI, ESRB, CERO, ...).
 - `classifications` — classification values (system_id, value, ss_id).
 - `game_developers`, `game_publishers`, `game_genres`, `game_classifications` — N-N links.
+- `audit_log` — audit trail (timestamp, action, target, details, provenance).
+- `dat_files`, `dat_entries` — imported DAT files and their entries.
+- `game_preservation` — preservation status per game (verified/unknown/bad_dump).
 
 ## Distinction
 

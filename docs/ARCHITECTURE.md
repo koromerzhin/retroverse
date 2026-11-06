@@ -25,9 +25,10 @@ RETROVERSE follows a modular architecture with a Rust core engine independent of
 - `hashing.rs` — dedicated hashing module (streaming, traits, orchestration)
 - `scanner.rs` — recursive folder scanning + game creation (incremental)
 - `metadata.rs` — ScreenScraper provider (hash-first lookup)
+- `dat.rs` — DAT parser (ClrMamePro + XML No-Intro/Redump)
 - `tray.rs` — system tray (ksni, KDE-compatible)
 - `commands/` — Tauri command handlers exposed to frontend
-  - `app`, `backup` (hashes), `entities` (developers/publishers/genres/classifications sync), `genres`, `classifications`, `library`, `metadata`, `platforms`, `scans`, `sources`, `remote`, `notifications`, `settings`, `backup`
+  - `app`, `backup` (hashes), `entities`, `genres`, `classifications`, `library`, `metadata`, `platforms`, `scans`, `sources`, `remote`, `notifications`, `settings`, `preservation`
 
 ## Frontend (src)
 

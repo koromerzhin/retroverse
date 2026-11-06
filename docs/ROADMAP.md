@@ -28,11 +28,9 @@
 ## v0.6 — Companion
 - EmuDeck detection, emulator/frontend integrations, sessions, stats
 
-## v1.0 — Universal Library
-- Stabilization, docs, tests, multiplatform, packaging, release
-## v1.0 — Collection Companion (current)
+## v1.0 — Collection Companion (current) ✅
 - Tauri 2 desktop app, Rust backend, React/TypeScript frontend
-- SQLite database with migrations up to v21
+- SQLite database with migrations up to v23
 - Platform profiles, local + remote (SSH/SFTP) sources
 - Recursive scanning with incremental (mtime/size) skipping
 - Game identification (ScummVM compatibility mapping)
