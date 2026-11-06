@@ -73,6 +73,7 @@ export const api = {
   getPreservationStatus: (gameId: string) => invoke<string>("get_preservation_status", { gameId }),
   listPreservationStatuses: () => invoke<[string, string][]>("list_preservation_statuses"),
   preservationSummary: () => invoke<[string, number][]>("preservation_summary"),
+  exportPreservationPack: (destPath: string) => invoke<number>("export_preservation_pack", { destPath }),
   syncClassifications: () => invoke<number>("sync_classifications"),
   addDeveloper: (name: string, ssId?: string) => invoke<any>("add_developer", { name, ssId }),
   updateDeveloper: (id: string, name: string, ssId?: string) => invoke<void>("update_developer", { id, name, ssId }),

@@ -151,3 +151,78 @@ pub fn preservation_summary(state: State<AppState>) -> Result<Vec<(String, i64)>
     }
     Ok(out)
 }
+
+#[tauri::command]
+pub fn export_preservation_pack(state: State<AppState>, dest_path: String) -> Result<usize> {
+    use std::io::Write;
+    let conn = state.db.lock().unwrap();
+    // Gather games with their files and metadata.
+    let mut stmt =
+        conn.prepare("SELECT id, title, platform_id, metadata_json FROM games ORDER BY title")?;
+    let games: Vec<(String, String, Option<String>, Option<String>)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let file = std::fs::File::create(&dest_path).map_err(RetroError::Io)?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    let mut manifest_games = Vec::new();
+    let mut count = 0usize;
+    for (gid, title, platform_id, metadata_json) in &games {
+        // Gather files
+        let mut fstmt = conn.prepare(
+            "SELECT path, filename, extension, size, hash, crc32, md5, sha1, sha512, archive_hash FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id WHERE l.game_id = ?1",
+        )?;
+        let files: Vec<serde_json::Value> = fstmt
+            .query_map([gid.clone()], |r| {
+                Ok(serde_json::json!({
+                    "path": r.get::<_, String>(0)?,
+                    "filename": r.get::<_, String>(1)?,
+                    "extension": r.get::<_, String>(2)?,
+                    "size": r.get::<_, i64>(3)?,
+                    "hash": r.get::<_, Option<String>>(4)?,
+                    "crc32": r.get::<_, Option<String>>(5)?,
+                    "md5": r.get::<_, Option<String>>(6)?,
+                    "sha1": r.get::<_, Option<String>>(7)?,
+                    "sha512": r.get::<_, Option<String>>(8)?,
+                    "archive_hash": r.get::<_, Option<String>>(9)?,
+                }))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Write per-game metadata file.
+        let game_json = serde_json::json!({
+            "id": gid,
+            "title": title,
+            "platform_id": platform_id,
+            "metadata": metadata_json.as_ref().and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
+            "files": files,
+        });
+        let entry_path = format!("games/{}.json", gid);
+        zip.start_file(&entry_path, options)
+            .map_err(|e| RetroError::Other(e.to_string()))?;
+        zip.write_all(game_json.to_string().as_bytes())
+            .map_err(RetroError::Io)?;
+
+        manifest_games.push(serde_json::json!({"id": gid, "title": title, "platform_id": platform_id, "file": entry_path}));
+        count += 1;
+    }
+
+    // Write manifest.
+    let manifest = serde_json::json!({
+        "version": 1,
+        "generated_at": chrono::Utc::now().to_rfc3339(),
+        "game_count": count,
+        "games": manifest_games,
+    });
+    zip.start_file("manifest.json", options)
+        .map_err(|e| RetroError::Other(e.to_string()))?;
+    zip.write_all(manifest.to_string().as_bytes())
+        .map_err(RetroError::Io)?;
+    zip.finish().map_err(|e| RetroError::Other(e.to_string()))?;
+    Ok(count)
+}
