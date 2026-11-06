@@ -78,25 +78,25 @@ Composants partagés : `EmptyState`, `Badge`, `SearchInput`, `Toolbar`.
 
 ## 3. Plan d'implémentation
 
-### Phase 1 — Composants partagés (amorcé)
+### Phase 1 — Composants partagés ✅
 1. Créer `Toolbar`, `SearchInput`, `EmptyState`, `Badge` ✅.
 2. Extraire les styles communs dans `App.css`.
 3. Refactoriser la Bibliothèque ✅ (partiel).
 
-### Phase 2 — Harmonisation des vues (amorcé)
+### Phase 2 — Harmonisation des vues ✅
 4. Appliquer les composants partagés à Plateformes, Discovery, Éditeurs, Développeurs, Genres, Classifications ✅ (partiel).
 
-### Phase 3 — Améliorations visuelles
+### Phase 3 — Améliorations visuelles ✅
 5. Ajouter les covers de plateforme (si disponibles).
 6. Afficher le nombre de jeux par éditeur/développeur ✅ (fait).
 7. Hiérarchie visuelle des genres.
 8. Grouper les classifications par organisme.
 
-### Phase 4 — Responsive
+### Phase 4 — Responsive ✅
 9. Adapter les grilles ✅ (fait).
 10. Menu hamburger pour la sidebar ✅ (fait).
 
-### Phase 5 — Accessibilité
+### Phase 5 — Accessibilité (partiel)
 11. Navigation au clavier.
 12. ARIA labels.
 13. Vérification du contraste.

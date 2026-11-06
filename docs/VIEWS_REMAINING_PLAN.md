@@ -81,27 +81,27 @@ Améliorations :
 
 ## 3. Plan d'implémentation
 
-### Phase 1 — Découverte
+### Phase 1 — Découverte ✅
 1. Ajouter la recherche et les filtres.
 2. Harmoniser l'affichage avec les composants partagés.
 3. Ajouter les actions rapides.
 
-### Phase 2 — Sources
+### Phase 2 — Sources ✅
 4. Ajouter le statut de disponibilité.
 5. Afficher le dernier scan et les statistiques.
 6. Ajouter le drag & drop.
 
-### Phase 3 — Accueil
+### Phase 3 — Accueil ✅
 7. Ajouter les widgets configurables.
 8. Afficher l'activité récente.
 9. Ajouter les raccourcis rapides.
 
-### Phase 4 — Détail du jeu
+### Phase 4 — Détail du jeu ✅
 10. Ajouter le badge de préservation.
 11. Ajouter l'onglet "Fichiers liés".
 12. Ajouter les actions rapides.
 
-### Phase 5 — Companion
+### Phase 5 — Companion ✅
 13. Harmoniser le style.
 14. Ajouter les actions.
 
