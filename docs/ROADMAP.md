@@ -29,7 +29,7 @@
 - EmuDeck detection, emulator/frontend integrations, sessions, stats
 
 - Tauri 2 desktop app, Rust backend, React/TypeScript frontend
-- SQLite database with migrations up to v23
+- SQLite database with migrations up to v24
 - Platform profiles, local + remote (SSH/SFTP) sources
 - Recursive scanning with incremental (mtime/size) skipping
 - Game identification (ScummVM compatibility mapping)

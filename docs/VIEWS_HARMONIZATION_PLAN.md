@@ -109,22 +109,22 @@ Harmoniser avec les autres vues :
 
 ## 4. Plan d'implémentation
 
-### Phase 1 — Composants partagés
+### Phase 1 — Composants partagés ✅
 1. Créer `src/components/Toolbar.tsx`, `SearchInput.tsx`, `EmptyState.tsx`, `Badge.tsx`.
 2. Extraire les styles communs dans `App.css`.
 3. Refactoriser la Bibliothèque pour utiliser les nouveaux composants.
 
-### Phase 2 — Harmonisation des vues
+### Phase 2 — Harmonisation des vues ✅
 4. Appliquer les composants partagés à Plateformes.
 5. Appliquer à Discovery.
 6. Appliquer à Éditeurs, Développeurs, Genres, Classifications.
 
-### Phase 3 — Améliorations visuelles
+### Phase 3 — Améliorations visuelles ✅
 7. Ajouter les covers de plateforme.
 8. Afficher le nombre de jeux par éditeur/développeur.
 9. Hiérarchie visuelle des genres.
 
-### Phase 4 — Responsive
+### Phase 4 — Responsive ✅
 10. Adapter les grilles.
 11. Menu hamburger pour la sidebar.
 
