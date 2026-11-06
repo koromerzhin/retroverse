@@ -46,6 +46,7 @@ export default function App() {
   const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number; game?: string; platform?: string; size?: number; startedAt?: number } | null>(null);
   const [hashHistory, setHashHistory] = useState<{ file: string; game?: string; ok: boolean; ts: number }[]>([]);
   const [hashDetails, setHashDetails] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!hashProgress) return;
@@ -310,7 +311,8 @@ export default function App() {
           </div>
         </div>
       )}
-      <aside className="sidebar">
+      <button className="btn hamburger" onClick={() => setSidebarOpen((v) => !v)} style={{ position: "fixed", top: 8, left: 8, zIndex: 301, display: "none" }}>☰</button>
+      <aside className={"sidebar" + (sidebarOpen ? " open" : "")}>
         <div className="brand">
           <div className="logo"><img src="/favicon.png" alt="RETROVERSE" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }} /></div>
           <div>
@@ -324,6 +326,7 @@ export default function App() {
             to={n.to}
             end={n.to === "/"}
             className={({ isActive }) => "nav-item" + (isActive ? " active" : "")}
+            onClick={() => setSidebarOpen(false)}
           >
             <span>{n.icon}</span>
             {n.label}

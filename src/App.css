@@ -237,3 +237,13 @@ body {
   .app { grid-template-columns: 1fr; }
   .sidebar { display: none; }
 }
+
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .sidebar.open { display: flex; position: fixed; z-index: 300; width: 240px; height: 100vh; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important; }
+  .row { flex-wrap: wrap; }
+}
