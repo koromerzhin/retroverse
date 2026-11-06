@@ -105,10 +105,27 @@ pub async fn enrich_game(
                 .unwrap_or(0)
                 > 0;
             if !exists {
+                // Cache the cover image locally for offline use.
+                let cached_path = (|| -> Option<String> {
+                    let base = dirs::data_dir()?
+                        .join("retroverse")
+                        .join("cache")
+                        .join("covers");
+                    let _ = std::fs::create_dir_all(&base);
+                    let dest = base.join(format!("{}.png", game_id));
+                    // Download via ureq
+                    let resp = ureq::get(cov).call().ok()?;
+                    let mut r = resp;
+                    let mut bytes = Vec::new();
+                    use std::io::Read;
+                    r.body_mut().as_reader().read_to_end(&mut bytes).ok()?;
+                    std::fs::write(&dest, &bytes).ok()?;
+                    Some(dest.to_string_lossy().to_string())
+                })();
                 let id = crate::models::new_id();
                 conn.execute(
-                    "INSERT INTO media_assets (id,game_id,kind,url,cached_at) VALUES (?1,?2,?3,?4,?5)",
-                    params![id, game_id, "cover", cov, now],
+                    "INSERT INTO media_assets (id,game_id,kind,url,path,cached_at) VALUES (?1,?2,?3,?4,?5,?6)",
+                    params![id, game_id, "cover", cov, cached_path, now],
                 )?;
             }
         }
@@ -291,18 +308,23 @@ pub fn get_game_metadata(
         }));
     }
     // media: deduplicate by kind
-    let mut mstmt =
-        conn.prepare("SELECT kind,url FROM media_assets WHERE game_id=?1 ORDER BY cached_at DESC")?;
+    let mut mstmt = conn.prepare(
+        "SELECT kind,url,path FROM media_assets WHERE game_id=?1 ORDER BY cached_at DESC",
+    )?;
     let mrows = mstmt.query_map([game_id.clone()], |r| {
-        Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, Option<String>>(1)?,
+            r.get::<_, Option<String>>(2)?,
+        ))
     })?;
     let mut seen_kinds: std::collections::HashSet<String> = std::collections::HashSet::new();
     for r in mrows {
-        let (kind, url) = r?;
+        let (kind, url, path) = r?;
         if !seen_kinds.insert(kind.clone()) {
             continue;
         }
-        out.push(serde_json::json!({"kind": kind, "url": url}));
+        out.push(serde_json::json!({"kind": kind, "url": url, "path": path}));
     }
     Ok(out)
 }

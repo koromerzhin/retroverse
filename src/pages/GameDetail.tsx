@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { formatBytes } from "../lib/format";
 import { useI18n } from "../i18n";
 import type { LibraryEntry, GameSource } from "../types";
@@ -395,11 +396,13 @@ export default function GameDetail() {
       {tab === "media" && (
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Médias</h3>
-        {details?.cover_url || details?.medias ? (
+        {details?.cover_url || (metadata || []).some((m: any) => m.kind === "cover") ? (
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {details?.cover_url && (
-              <img src={details.cover_url} alt="cover" style={{ maxWidth: 240, borderRadius: 8 }} />
-            )}
+            {(() => {
+              const ma = (metadata || []).find((m: any) => m.kind === "cover");
+              const src = ma?.path ? convertFileSrc(ma.path) : details?.cover_url;
+              return src ? <img src={src} alt="cover" style={{ maxWidth: 240, borderRadius: 8 }} /> : null;
+            })()}
             {(details?.medias || []).filter((m: any) => m?.url).slice(0, 6).map((m: any, i: number) => (
               <img key={i} src={m.url} alt={m.type || "media"} style={{ maxWidth: 160, borderRadius: 8 }} />
             ))}
