@@ -443,6 +443,7 @@ export default function Library() {
           </table>
         </div>
         )}
+        <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{formatNumber(total)} jeu(x)</p>
         {totalPages > 1 && (
           <div className="row" style={{ marginTop: 20, justifyContent: "center", gap: 8 }}>
             <button className="btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>←</button>
