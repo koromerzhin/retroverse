@@ -111,6 +111,7 @@ export default function Sources() {
       }
       qc.invalidateQueries({ queryKey: ["sources"] });
       qc.invalidateQueries({ queryKey: ["active-source"] });
+      qc.refetchQueries({ queryKey: ["sources"] });
       setDialogOpen(false);
     } catch (e: any) {
       setError(String(e));
@@ -125,6 +126,7 @@ export default function Sources() {
       await api.removeSource(id);
       qc.invalidateQueries({ queryKey: ["sources"] });
       qc.invalidateQueries({ queryKey: ["active-source"] });
+      qc.refetchQueries({ queryKey: ["sources"] });
     } catch (e: any) {
       alert(String(e));
     }
@@ -135,6 +137,7 @@ export default function Sources() {
       await api.setActiveSource(id);
       qc.invalidateQueries({ queryKey: ["sources"] });
       qc.invalidateQueries({ queryKey: ["active-source"] });
+      qc.refetchQueries({ queryKey: ["sources"] });
     } catch (e: any) {
       alert(String(e));
     }
