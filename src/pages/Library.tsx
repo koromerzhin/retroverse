@@ -16,10 +16,14 @@ export default function Library() {
   const platform = searchParams.get("platform") || undefined;
   const developer = searchParams.get("developer") || undefined;
   const publisher = searchParams.get("publisher") || undefined;
+  const genre = searchParams.get("genre") || undefined;
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
   const [calculatingAll, setCalculatingAll] = useState(false);
   const [onlyMissingHash, setOnlyMissingHash] = useState(false);
+  const [onlyNoMeta, setOnlyNoMeta] = useState(false);
+  const [onlyRecent, setOnlyRecent] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [hashingGame, setHashingGame] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<"title" | "platform" | "developer" | "publisher" | "files">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -43,6 +47,7 @@ export default function Library() {
   const { data: sources } = useQuery<any[]>({ queryKey: ["sources"], queryFn: () => api.listSources() });
   const { data: presStatuses } = useQuery<any[]>({ queryKey: ["preservation-statuses"], queryFn: () => api.listPreservationStatuses() });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
+  const { data: genres } = useQuery<string[]>({ queryKey: ["genres"], queryFn: () => api.listGenres() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
   const { data: platformCountsData } = useQuery<any>({
     queryKey: ["platform-game-counts"],
@@ -61,7 +66,17 @@ export default function Library() {
 
   const games = result?.items ?? [];
   const total = result?.total ?? 0;
-  const sortedGames = [...games].filter((e) => !onlyMissingHash || needsHash(e)).sort((a, b) => {
+  const sortedGames = [...games].filter((e) => {
+    if (onlyMissingHash && !needsHash(e)) return false;
+    if (onlyNoMeta && e.game.metadata_json) return false;
+    if (genre) {
+      let g: any = null;
+      try { g = e.game.metadata_json ? JSON.parse(e.game.metadata_json) : null; } catch {}
+      const gen = (g?.genres || []).map((x: any) => (x.noms || []).map((n: any) => n.text).join("/")).join(", ") || (g?._genres || []).join(", ");
+      if (!gen.toLowerCase().includes(genre.toLowerCase())) return false;
+    }
+    return true;
+  }).sort((a, b) => {
     let cmp = 0;
     switch (sortKey) {
       case "title": cmp = a.game.title.localeCompare(b.game.title); break;
@@ -70,7 +85,12 @@ export default function Library() {
       case "publisher": cmp = (a.publisher ?? "").localeCompare(b.publisher ?? ""); break;
       case "files": cmp = a.file_count - b.file_count; break;
     }
-    return sortDir === "asc" ? cmp : -cmp;
+    if (onlyRecent) {
+    const da = new Date(a.game.created_at).getTime();
+    const db = new Date(b.game.created_at).getTime();
+    return db - da;
+  }
+  return sortDir === "asc" ? cmp : -cmp;
   });
 
   const platformCounts: Record<string, number> = platformCountsData || {};
@@ -196,6 +216,9 @@ export default function Library() {
           {(publishers || []).map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <button className="btn" onClick={() => refetch()}>{t("common.refresh")}</button>
+        <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => setShowFilters((v) => !v)}>
+          {showFilters ? "Masquer filtres" : "Filtres avancés"}
+        </button>
         <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => {
           const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
           const url = URL.createObjectURL(blob);
@@ -217,6 +240,34 @@ export default function Library() {
           <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.library.view", "list"); }} title="Liste">Liste</button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="card" style={{ marginBottom: 12, padding: 12 }}>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <select className="select" style={{ maxWidth: 200 }} value={genre ?? ""} onChange={(e) => {
+              const v = e.target.value;
+              const params = new URLSearchParams(searchParams);
+              if (v) params.set("genre", v); else params.delete("genre");
+              navigate(`/library?${params.toString()}`);
+            }}>
+              <option value="">Tous genres</option>
+              {(genres || []).map((g: string) => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)" }}>
+              <input type="checkbox" checked={onlyMissingHash} onChange={(e) => setOnlyMissingHash(e.target.checked)} />
+              Empreintes manquantes
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)" }}>
+              <input type="checkbox" checked={onlyNoMeta} onChange={(e) => setOnlyNoMeta(e.target.checked)} />
+              Sans métadonnées
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)" }}>
+              <input type="checkbox" checked={onlyRecent} onChange={(e) => setOnlyRecent(e.target.checked)} />
+              Récemment ajoutés
+            </label>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
