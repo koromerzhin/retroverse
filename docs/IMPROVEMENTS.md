@@ -7,7 +7,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 1. **Streaming large ISOs** (started): extend streaming to all paths (remote, archives) and add a configurable buffer.
 2. **Controlled concurrency**: queue (semaphore) to limit simultaneous hash computations on large files.
 3. **Result caching**: skip recomputing hashes when the file is unchanged (mtime/size).
-4. **Virtual pagination** in the Library for very large collections.
+4. **Virtual pagination** in the Library for very large collections ✅ (virtualized list view).
 
 ## UX and interface
 
