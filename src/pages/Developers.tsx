@@ -7,7 +7,7 @@ export default function Developers() {
   const { data } = useQuery({ queryKey: ["developers-full"], queryFn: () => api.listDevelopersFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [cols, setCols] = useState<Record<string, boolean>>(() => { try { const c = JSON.parse(localStorage.getItem("retroverse.developers.cols") || "{}"); return Object.keys(c).length ? c : { name: true, games: true, ss: true }; } catch { return { name: true, games: true, ss: true }; } });
+  const [cols, setCols] = useState<Record<string, boolean>>(() => { try { const c = JSON.parse(localStorage.getItem("retroverse.developers.cols") || "{}"); return Object.keys(c).length ? c : { name: true, games: true }; } catch { return { name: true, games: true }; } });
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.developers.view") as "cards" | "list") || "list");
 
   useEffect(() => { localStorage.setItem("retroverse.developers.cols", JSON.stringify(cols)); }, [cols]);
@@ -42,7 +42,7 @@ export default function Developers() {
             <div className="card" key={d.id} style={{ padding: 12 }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.name}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{d.game_count ?? 0} jeu(x)</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>SS: {d.ss_id ?? "—"}</div>
+
             </div>
           ))}
         </div>
@@ -55,7 +55,6 @@ export default function Developers() {
               <tr key={d.id}>
                 {cols.name && <td>{d.name}</td>}
                 {cols.games && <td>{d.game_count ?? 0}</td>}
-                {cols.ss && <td>{d.ss_id ?? "—"}</td>}
               </tr>
             ))}
           </tbody>

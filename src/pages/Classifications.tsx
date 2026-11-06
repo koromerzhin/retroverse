@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { SearchInput } from "../components";
+import { SearchInput, EmptyState } from "../components";
 import { useI18n } from "../i18n";
 
 export default function Classifications() {
@@ -49,7 +49,9 @@ export default function Classifications() {
             {syncing ? <><span className="spinner" /> Synchronisation...</> : t("classifications.sync")}
           </button>
         </div>
-        {view === "cards" ? (
+        {filtered.length === 0 ? (
+          <EmptyState icon="🏷️" message="Aucune classification." />
+        ) : view === "cards" ? (
         <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
           {filtered.map((c: any) => (
             <div className="card" key={c.id} style={{ padding: 12 }}>
