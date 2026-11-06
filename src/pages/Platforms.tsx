@@ -356,6 +356,7 @@ export default function Platforms() {
       </table>
       </>
       )}
+        <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{sortedPlatforms.length} plateforme(s)</p>
     </>
   );
 }
