@@ -39,7 +39,7 @@ export default function Classifications() {
         <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <input className="input" placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
-          <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={syncing} onClick={sync}>
+          <button className="btn primary" disabled={syncing} onClick={sync}>
             {syncing ? <><span className="spinner" /> Synchronisation...</> : t("classifications.sync")}
           </button>
         </div>

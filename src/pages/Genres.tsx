@@ -27,7 +27,7 @@ export default function Genres() {
     <>
       <h1 className="page-title">Genres</h1>
       <div className="card" style={{ marginTop: 16 }}>
-        <div className="row" style={{ gap: 8, marginBottom: 12 }}>
+        <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <input className="input" placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
           <button className="btn primary" disabled={syncing} onClick={async () => {
