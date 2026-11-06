@@ -103,6 +103,35 @@ export default function Sources() {
     }
   }
 
+  function editParseUrl(v: string) {
+    if (!v.toLowerCase().startsWith("sftp://")) return;
+    let rest = v.slice(7);
+    let user = "";
+    if (rest.includes("@")) {
+      const idx = rest.indexOf("@");
+      user = rest.slice(0, idx);
+      rest = rest.slice(idx + 1);
+    }
+    let host = rest;
+    let port = "";
+    let path = "";
+    const slashIdx = rest.indexOf("/");
+    if (slashIdx >= 0) {
+      path = rest.slice(slashIdx);
+      host = rest.slice(0, slashIdx);
+    }
+    if (host.includes(":")) {
+      const ci = host.indexOf(":");
+      port = host.slice(ci + 1);
+      host = host.slice(0, ci);
+    }
+    if (user) setEditUser(user);
+    if (host) setEditHost(host);
+    if (port) setEditPort(port);
+    if (path) setEditRPath(path);
+    if (host && !editName) setEditName(host);
+  }
+
   async function saveSource() {
     setSaving(true); setError(null);
     try {
@@ -354,6 +383,10 @@ export default function Sources() {
                 <div style={{ marginTop: 8 }}>
                   <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Nom</label>
                   <input className="input" value={editing ? editName : rName} onChange={(e) => editing ? setEditName(e.target.value) : setRName(e.target.value)} />
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>URL SFTP (optionnel)</label>
+                  <input className="input" placeholder="sftp://user@host:port/chemin" onChange={(e) => editParseUrl(e.target.value)} />
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Hôte (IP ou nom)</label>
