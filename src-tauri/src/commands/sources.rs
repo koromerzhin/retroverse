@@ -441,6 +441,7 @@ pub async fn convert_source(
     key_path: Option<String>,
     remote_path: Option<String>,
 ) -> Result<GameSource> {
+    tracing::info!("convert_source: id={} new_kind={}", id, new_kind);
     // Validate before transaction.
     if new_kind == "local" {
         let p = local_path.clone().unwrap_or_default();
