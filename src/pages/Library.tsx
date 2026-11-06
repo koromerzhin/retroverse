@@ -18,11 +18,16 @@ export default function Library() {
   const publisher = searchParams.get("publisher") || undefined;
   const genre = searchParams.get("genre") || undefined;
   const [page, setPage] = useState(1);
-  const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list") || "cards");
+  const [view, setView] = useState<"cards" | "list" | "compact">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list" | "compact") || "list");
   const [calculatingAll, setCalculatingAll] = useState(false);
   const [onlyMissingHash, setOnlyMissingHash] = useState(false);
   const [onlyNoMeta, setOnlyNoMeta] = useState(false);
   const [onlyRecent, setOnlyRecent] = useState(false);
+  const [cols, setCols] = useState<Record<string, boolean>>(() => {
+    try { const c = JSON.parse(localStorage.getItem("retroverse.library.cols") || "{}"); return Object.keys(c).length ? c : { title: true, platform: true, developer: true, publisher: true, files: true, hashes: true, pres: true }; } catch { return { title: true, platform: true, developer: true, publisher: true, files: true, hashes: true, pres: true }; }
+  });
+  const [group, setGroup] = useState<string>("none");
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batching, setBatching] = useState(false);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
@@ -118,6 +123,7 @@ export default function Library() {
     }
   };
 
+  useEffect(() => { localStorage.setItem("retroverse.library.cols", JSON.stringify(cols)); }, [cols]);
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -155,6 +161,16 @@ export default function Library() {
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const grouped: [string, LibraryEntry[]][] = (() => {
+    if (group === "none") return [["", sortedGames]];
+    const map = new Map<string, LibraryEntry[]>();
+    for (const e of sortedGames) {
+      const key = group === "platform" ? (e.platform?.name ?? "Inconnu") : (e.developer ?? "—");
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return Array.from(map.entries());
+  })();
 
   // Virtual scrolling for the list view.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -276,9 +292,15 @@ export default function Library() {
         </button>
 
         <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
-        <div className="row" style={{ marginLeft: "auto", gap: 4 }}>
+        <div className="row" style={{ marginLeft: "auto", gap: 4, flexWrap: "wrap" }}>
+          <select className="select" style={{ maxWidth: 160 }} value={group} onChange={(e) => setGroup(e.target.value)}>
+            <option value="none">Sans groupement</option>
+            <option value="platform">Par plateforme</option>
+            <option value="developer">Par développeur</option>
+          </select>
           <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.library.view", "cards"); }} title="Cartes">Cards</button>
           <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.library.view", "list"); }} title="Liste">Liste</button>
+          <button className={`btn ${view === "compact" ? "primary" : ""}`} onClick={() => { setView("compact"); localStorage.setItem("retroverse.library.view", "compact"); }} title="Compact">Compact</button>
         </div>
       </div>
 
@@ -327,6 +349,17 @@ export default function Library() {
         </div>
       )}
 
+      {view !== "cards" && (
+        <div className="row" style={{ gap: 8, marginBottom: 8, flexWrap: "wrap", fontSize: 12, color: "var(--text-dim)" }}>
+          {Object.keys(cols).map((c) => (
+            <label key={c} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input type="checkbox" checked={cols[c]} onChange={(e) => setCols({ ...cols, [c]: e.target.checked })} />
+              {c}
+            </label>
+          ))}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
       ) : total === 0 ? (
@@ -368,34 +401,44 @@ export default function Library() {
             <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}>
               <tr>
                 <th><input type="checkbox" onChange={(e) => e.target.checked ? selectAll() : clearSelection()} /></th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>Titre {sortKey === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("platform")}>Plateforme {sortKey === "platform" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("developer")}>Développeur {sortKey === "developer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("publisher")}>Éditeur {sortKey === "publisher" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-                <th>Empreintes</th>
-              <th>Préserv.</th>
+                {cols.title && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>Titre {sortKey === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+                {cols.platform && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("platform")}>Plateforme {sortKey === "platform" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+                {cols.developer && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("developer")}>Développeur {sortKey === "developer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+                {cols.publisher && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("publisher")}>Éditeur {sortKey === "publisher" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+                {cols.files && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+                {cols.hashes && <th>Empreintes</th>}
+                {cols.pres && <th>Préserv.</th>}
               </tr>
             </thead>
             <tbody>
               <tr style={{ height: offsetY }}><td colSpan={6} style={{ padding: 0, border: "none" }}></td></tr>
-              {visibleRows.map((e) => (
+              {(group === "none" ? [["_all", visibleRows] as [string, LibraryEntry[]]] : grouped).flatMap(([gkey, items]) => {
+                const rows = (group === "none" ? items : items).map((e) => (
                 <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer", height: ROW_HEIGHT }}>
                 <td onClick={(ev) => ev.stopPropagation()}><input type="checkbox" checked={selected.has(e.game.id)} onChange={() => toggleSelect(e.game.id)} /></td>
-                  <td>{e.game.title}</td>
-                  <td>{e.platform?.name ?? "Inconnu"}</td>
-                  <td>{e.developer ?? "—"}</td>
-                  <td>{e.publisher ?? "—"}</td>
-                  <td>{e.file_count}</td>
-                  <td onClick={(ev) => ev.stopPropagation()}>
+                  {cols.title && <td>{e.game.title}</td>}
+                  {cols.platform && <td>{e.platform?.name ?? "Inconnu"}</td>}
+                  {cols.developer && <td>{e.developer ?? "—"}</td>}
+                  {cols.publisher && <td>{e.publisher ?? "—"}</td>}
+                  {cols.files && <td>{e.file_count}</td>}
+                  {cols.hashes && <td onClick={(ev) => ev.stopPropagation()}>
                     {needsHash(e) ? (
                       <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} disabled={hashingGame === e.game.id} onClick={() => hashGame(e.game.id)}>
                         {hashingGame === e.game.id ? "…" : "Calculer"}
                       </button>
                     ) : "✓"}
-                  </td>
+                  </td>}
+                  {cols.pres && <td>{presBadge(presStatus(e.game.id))}</td>}
                 </tr>
-              ))}
+                ));
+                if (group !== "none") {
+                  return [
+                    <tr key={"grp-" + gkey} style={{ background: "var(--bg-3)" }}><td colSpan={Object.values(cols).filter(Boolean).length + 1} style={{ fontWeight: 600, fontSize: 12 }}>{gkey} ({items.length})</td></tr>,
+                    ...rows,
+                  ];
+                }
+                return rows;
+              })}
               <tr style={{ height: Math.max(0, totalHeight - offsetY - visibleRows.length * ROW_HEIGHT) }}><td colSpan={6} style={{ padding: 0, border: "none" }}></td></tr>
             </tbody>
           </table>
