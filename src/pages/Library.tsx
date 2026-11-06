@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -91,6 +91,18 @@ export default function Library() {
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Virtual scrolling for the list view.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const ROW_HEIGHT = 40;
+  const VIEWPORT_HEIGHT = 400;
+  const visibleCount = Math.ceil(VIEWPORT_HEIGHT / ROW_HEIGHT) + 6;
+  const startIndex = Math.floor(scrollTop / ROW_HEIGHT);
+  const endIndex = Math.min(sortedGames.length, startIndex + visibleCount);
+  const visibleRows = sortedGames.slice(startIndex, endIndex);
+  const offsetY = startIndex * ROW_HEIGHT;
+  const totalHeight = sortedGames.length * ROW_HEIGHT;
 
   async function handleCalculateAll() {
     if (calculatingAll) return;
@@ -235,36 +247,40 @@ export default function Library() {
           })}
         </div>
         ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>Titre {sortKey === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("platform")}>Plateforme {sortKey === "platform" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("developer")}>Développeur {sortKey === "developer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("publisher")}>Éditeur {sortKey === "publisher" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th>Empreintes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedGames.map((e) => (
-              <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer" }}>
-                <td>{e.game.title}</td>
-                <td>{e.platform?.name ?? "Inconnu"}</td>
-                <td>{e.developer ?? "—"}</td>
-                <td>{e.publisher ?? "—"}</td>
-                <td>{e.file_count}</td>
-                <td onClick={(ev) => ev.stopPropagation()}>
-                  {needsHash(e) ? (
-                    <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} disabled={hashingGame === e.game.id} onClick={() => hashGame(e.game.id)}>
-                      {hashingGame === e.game.id ? "…" : "Calculer"}
-                    </button>
-                  ) : "✓"}
-                </td>
+        <div ref={scrollRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)} style={{ maxHeight: VIEWPORT_HEIGHT, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
+          <table className="table" style={{ width: "100%" }}>
+            <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}>
+              <tr>
+                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>Titre {sortKey === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("platform")}>Plateforme {sortKey === "platform" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("developer")}>Développeur {sortKey === "developer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("publisher")}>Éditeur {sortKey === "publisher" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+                <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+                <th>Empreintes</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              <tr style={{ height: offsetY }}><td colSpan={6} style={{ padding: 0, border: "none" }}></td></tr>
+              {visibleRows.map((e) => (
+                <tr key={e.game.id} onClick={() => navigate(`/game/${e.game.id}`)} style={{ cursor: "pointer", height: ROW_HEIGHT }}>
+                  <td>{e.game.title}</td>
+                  <td>{e.platform?.name ?? "Inconnu"}</td>
+                  <td>{e.developer ?? "—"}</td>
+                  <td>{e.publisher ?? "—"}</td>
+                  <td>{e.file_count}</td>
+                  <td onClick={(ev) => ev.stopPropagation()}>
+                    {needsHash(e) ? (
+                      <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} disabled={hashingGame === e.game.id} onClick={() => hashGame(e.game.id)}>
+                        {hashingGame === e.game.id ? "…" : "Calculer"}
+                      </button>
+                    ) : "✓"}
+                  </td>
+                </tr>
+              ))}
+              <tr style={{ height: Math.max(0, totalHeight - offsetY - visibleRows.length * ROW_HEIGHT) }}><td colSpan={6} style={{ padding: 0, border: "none" }}></td></tr>
+            </tbody>
+          </table>
+        </div>
         )}
         {totalPages > 1 && (
           <div className="row" style={{ marginTop: 20, justifyContent: "center", gap: 8 }}>
