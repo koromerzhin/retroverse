@@ -642,3 +642,19 @@ pub fn hash_file_all(
         Some(format!("{:x}", sha512h.finalize())),
     )
 }
+
+/// Extract the filesystem path from a possibly sftp:// URL.
+/// e.g. "sftp://user@host:port/run/media/.../file.zip" -> "/run/media/.../file.zip"
+/// If not a URL, returns the input unchanged.
+pub fn remote_path_from_url(path: &str) -> &str {
+    if let Some(rest) = path
+        .strip_prefix("sftp://")
+        .or_else(|| path.strip_prefix("ssh://"))
+    {
+        // skip user@host:port
+        if let Some(slash) = rest.find('/') {
+            return &rest[slash..];
+        }
+    }
+    path
+}

@@ -501,11 +501,11 @@ pub async fn convert_source(
     let tx = conn.unchecked_transaction().map_err(RetroError::Db)?;
 
     // Get old kind and connection_id.
-    let (_old_kind, old_conn_id): (String, Option<String>) = tx
+    let (_old_kind, old_conn_id, old_root): (String, Option<String>, String) = tx
         .query_row(
-            "SELECT kind, connection_id FROM game_sources WHERE id=?1",
+            "SELECT kind, connection_id, path FROM game_sources WHERE id=?1",
             [&id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .map_err(RetroError::Db)?;
 
@@ -521,6 +521,8 @@ pub async fn convert_source(
             "UPDATE game_sources SET name=?1, kind='local', path=?2, connection_id=NULL, remote_path=NULL, available=1, last_error=NULL WHERE id=?3",
             params![name, path, id],
         ).map_err(RetroError::Db)?;
+        // Migrate game_files paths: old root -> new local root.
+        migrate_game_files_paths(&tx, &id, &old_root, &path)?;
     } else {
         let host = host.unwrap_or_default();
         let port = port.unwrap_or(22);
@@ -543,6 +545,19 @@ pub async fn convert_source(
             "UPDATE game_sources SET name=?1, kind='remote', path=?2, connection_id=?3, remote_path=?2, available=1, last_error=NULL WHERE id=?4",
             params![name, remote_path, conn_id, id],
         ).map_err(RetroError::Db)?;
+        // Migrate game_files paths: old root -> new sftp URL root.
+        let new_root = format!(
+            "sftp://{}@{}:{}{}",
+            username,
+            host,
+            port,
+            if remote_path.starts_with('/') {
+                remote_path.clone()
+            } else {
+                format!("/{}", remote_path)
+            }
+        );
+        migrate_game_files_paths(&tx, &id, &old_root, &new_root)?;
     }
 
     tx.commit().map_err(RetroError::Db)?;
@@ -571,4 +586,40 @@ pub async fn convert_source(
         },
     )?;
     Ok(src)
+}
+
+fn migrate_game_files_paths(
+    tx: &rusqlite::Transaction,
+    source_id: &str,
+    old_root: &str,
+    new_root: &str,
+) -> Result<()> {
+    // Normalize roots with trailing slash.
+    let old_root = old_root.trim_end_matches('/');
+    let new_root = new_root.trim_end_matches('/');
+    let mut stmt = tx.prepare("SELECT id, path FROM game_files WHERE source_id=?1")?;
+    let rows: Vec<(String, String)> = stmt
+        .query_map([source_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for (fid, path) in rows {
+        // Extract relative path from old root (handle sftp:// URLs).
+        let old_fs = crate::identify::remote_path_from_url(old_root);
+        let path_fs = crate::identify::remote_path_from_url(&path);
+        let rel = if let Some(r) = path_fs.strip_prefix(old_fs) {
+            r.trim_start_matches('/')
+        } else {
+            // Not under old root; skip.
+            continue;
+        };
+        let new_path = if rel.is_empty() {
+            new_root.to_string()
+        } else {
+            format!("{}/{}", new_root, rel)
+        };
+        tx.execute(
+            "UPDATE game_files SET path=?1 WHERE id=?2",
+            params![new_path, fid],
+        )?;
+    }
+    Ok(())
 }
