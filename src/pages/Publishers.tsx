@@ -47,8 +47,9 @@ export default function Publishers() {
           ))}
         </div>
         ) : (
-        <table className="table">
-          <thead><tr><th>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Jeux</th><th>ID SS</th></tr></thead>
+        <div style={{ maxHeight: 400, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
+        <table className="table" style={{ width: "100%" }}>
+          <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}><tr><th>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Jeux</th><th>ID SS</th></tr></thead>
           <tbody>
             {filtered.map((p: any) => (
               <tr key={p.id}>
@@ -59,6 +60,7 @@ export default function Publishers() {
             ))}
           </tbody>
         </table>
+        </div>
         )}
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{filtered.length} éditeur(s)</p>
       </div>
