@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod config;
+pub mod dat;
 pub mod db;
 pub mod error;
 pub mod hashing;
@@ -74,6 +75,9 @@ pub fn run() {
             commands::list_genres_full,
             commands::list_classifications_full,
             commands::list_game_classifications,
+            commands::import_dat,
+            commands::verify_library,
+            commands::get_preservation_status,
             commands::sync_classifications,
             commands::delete_publisher,
             commands::update_publisher,

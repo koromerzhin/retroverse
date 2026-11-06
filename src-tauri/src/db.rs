@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 22;
+pub const SCHEMA_VERSION: i32 = 23;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -137,6 +137,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 22 {
         apply_v22(conn)?;
+    }
+    if current < 23 {
+        apply_v23(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1067,5 +1070,50 @@ fn apply_v22(conn: &Connection) -> Result<()> {
     }
     // Backfill: existing hashed files get their current mtime/size as hashed values.
     let _ = conn.execute("UPDATE game_files SET hashed_mtime = COALESCE(hashed_mtime, modified_at), hashed_size = COALESCE(hashed_size, size) WHERE hash IS NOT NULL", []);
+    Ok(())
+}
+
+fn apply_v23(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT NOT NULL,
+            action TEXT NOT NULL,
+            target_type TEXT,
+            target_id TEXT,
+            details TEXT,
+            provenance TEXT
+        );
+        CREATE TABLE IF NOT EXISTS dat_files (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            system TEXT,
+            version TEXT,
+            imported_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS dat_entries (
+            id TEXT PRIMARY KEY,
+            dat_id TEXT NOT NULL REFERENCES dat_files(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            size INTEGER,
+            crc32 TEXT,
+            md5 TEXT,
+            sha1 TEXT,
+            sha256 TEXT
+        );
+        CREATE TABLE IF NOT EXISTS game_preservation (
+            game_id TEXT PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'unknown',
+            dat_entry_id TEXT REFERENCES dat_entries(id),
+            verified_at TEXT,
+            notes TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_dat_entries_dat ON dat_entries(dat_id);
+        CREATE INDEX IF NOT EXISTS idx_dat_entries_sha1 ON dat_entries(sha1);
+        CREATE INDEX IF NOT EXISTS idx_dat_entries_md5 ON dat_entries(md5);
+        CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
+        "#,
+    )?;
     Ok(())
 }
