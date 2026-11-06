@@ -187,10 +187,10 @@ export default function Library() {
           const a = document.createElement("a");
           a.href = url; a.download = "retroverse-library.json"; a.click();
           URL.revokeObjectURL(url);
-        }}>Exporter JSON</button>
+        }}>{t("library.exportJson")}</button>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)" }}>
           <input type="checkbox" checked={onlyMissingHash} onChange={(e) => setOnlyMissingHash(e.target.checked)} />
-          Empreintes manquantes uniquement
+          {t("library.missingHashOnly")}
         </label>
         <button className="btn primary" disabled={calculatingAll} onClick={handleCalculateAll}>
           {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
