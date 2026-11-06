@@ -9,6 +9,7 @@ export default function Preservation() {
   const { t } = useI18n();
   const { data: jobs } = useQuery({ queryKey: ["transfer-jobs"], queryFn: () => api.listTransferJobs() });
   const { data: presSummary } = useQuery({ queryKey: ["preservation-summary"], queryFn: () => api.preservationSummary() });
+  const { data: auditLog } = useQuery({ queryKey: ["audit-log"], queryFn: () => api.listAuditLog(20) });
   const [hashing, setHashing] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
@@ -125,6 +126,33 @@ export default function Preservation() {
         <div className="row">
           <button className="btn primary" onClick={handleExport}>Exporter une sauvegarde</button>
           <button className="btn" onClick={handleImport}>Importer une sauvegarde</button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Export DAT</h3>
+        <button className="btn" onClick={async () => {
+          const { save } = await import("@tauri-apps/plugin-dialog");
+          const dest = await save({ defaultPath: "retroverse-export.dat" });
+          if (!dest) return;
+          try {
+            const n = await api.exportDat(dest);
+            api.showNotification("RETROVERSE", `DAT exporté : ${n} jeu(x).`).catch(() => {});
+          } catch (e: any) {
+            api.showNotification("RETROVERSE", String(e)).catch(() => {});
+          }
+        }}>Exporter un DAT</button>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Journal d'audit</h3>
+        <div style={{ maxHeight: 240, overflow: "auto", fontSize: 12, color: "var(--text-muted)", fontFamily: "monospace" }}>
+          {(auditLog || []).map((a: any) => (
+            <div key={a.id} style={{ marginBottom: 4 }}>
+              {a.timestamp} — {a.action}{a.target_id ? ` (${a.target_id})` : ""}{a.details ? ` : ${a.details}` : ""}
+            </div>
+          ))}
+          {(!auditLog || auditLog.length === 0) && <p>Aucune entrée.</p>}
         </div>
       </div>
 
