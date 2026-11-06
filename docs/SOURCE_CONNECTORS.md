@@ -1,16 +1,18 @@
 # Source connectors
 
-All connectors implement a common interface (planned for v0.2).
+All connectors implement a common interface.
 
 ## LocalSource
 - Path validation, directory traversal via walkdir.
 - Metadata: size, mtime, extension.
 
-## Planned connectors
-- SSH/SFTP (russh or equivalent) — Steam Deck priority.
-- SMB, NFS, NAS.
+## RemoteSource (SSH/SFTP)
+- Implemented via russh + russh-sftp.
+- Steam Deck priority.
+- Remote browsing, scan, incremental sync.
+- Optional local copy with resume + integrity.
 
-## Interface (target)
+## Interface
 - `list(path) -> Vec<Entry>`
 - `stat(path) -> Metadata`
 - `read_range(path, offset, len) -> bytes`
@@ -18,6 +20,6 @@ All connectors implement a common interface (planned for v0.2).
 
 ## Security
 - No plaintext passwords; SSH keys preferred.
-- Host key verification.
+- Host key verification (TOFU).
 - Path traversal protection.
 - Non-destructive defaults.
