@@ -28,11 +28,11 @@ pub async fn compute_hashes_inner(
     let rows: Vec<(String, String)> = {
         let conn = state.db.lock().unwrap();
         if let Some(sid) = &source_id {
-            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL))")?;
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL) OR hashed_mtime IS NULL OR hashed_mtime != modified_at OR hashed_size != size)")?;
             stmt.query_map([sid.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         } else {
-            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL)")?;
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL) OR hashed_mtime IS NULL OR hashed_mtime != modified_at OR hashed_size != size")?;
             stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         }
@@ -101,7 +101,7 @@ pub async fn compute_hashes_inner(
         if sha256.is_some() {
             let conn = state.db.lock().unwrap();
             let _ = conn.execute(
-                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11,hashed_mtime=modified_at,hashed_size=size WHERE id=?12",
                 params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, id],
             );
             done += 1;
@@ -505,7 +505,7 @@ pub async fn compute_hashes_for_game_inner(
     let files: Vec<FileInfo> = {
         let conn = state.db.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT gf.id, gf.path, gf.source_id, gs.kind, gs.connection_id FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id JOIN game_sources gs ON gs.id = gf.source_id WHERE l.game_id = ?1 AND (gf.hash IS NULL OR gf.crc32 IS NULL OR gf.md5 IS NULL OR gf.sha1 IS NULL OR gf.sha512 IS NULL OR ((gf.extension='zip' OR gf.extension='7z') AND gf.archive_hash IS NULL))",
+            "SELECT gf.id, gf.path, gf.source_id, gs.kind, gs.connection_id FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id JOIN game_sources gs ON gs.id = gf.source_id WHERE l.game_id = ?1 AND (gf.hash IS NULL OR gf.crc32 IS NULL OR gf.md5 IS NULL OR gf.sha1 IS NULL OR gf.sha512 IS NULL OR ((gf.extension='zip' OR gf.extension='7z') AND gf.archive_hash IS NULL) OR gf.hashed_mtime IS NULL OR gf.hashed_mtime != gf.modified_at OR gf.hashed_size != gf.size)",
         )?;
         let rows = stmt.query_map([game_id.clone()], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
@@ -625,7 +625,7 @@ pub async fn compute_hashes_for_game_inner(
         if sha256.is_some() {
             let conn = state.db.lock().unwrap();
             conn.execute(
-                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11,hashed_mtime=modified_at,hashed_size=size WHERE id=?12",
                 params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, fid],
             )?;
             done += 1;
@@ -775,7 +775,7 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
     if sha256.is_some() {
         let conn = state.db.lock().unwrap();
         let _ = conn.execute(
-            "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
+            "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11,hashed_mtime=modified_at,hashed_size=size WHERE id=?12",
             rusqlite::params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, file_id],
         );
         Ok(1)
@@ -799,7 +799,7 @@ pub async fn compute_hashes_for_platform(
     let ids: Vec<String> = {
         let conn = state.db.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id FROM game_files WHERE platform_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL))",
+            "SELECT id FROM game_files WHERE platform_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL) OR hashed_mtime IS NULL OR hashed_mtime != modified_at OR hashed_size != size)",
         )?;
         stmt.query_map([platform_id.clone()], |r| r.get(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?
@@ -848,7 +848,7 @@ pub fn unhashed_counts_by_platform(
 ) -> Result<std::collections::HashMap<String, i64>> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT platform_id, COUNT(*) FROM game_files WHERE platform_id IS NOT NULL AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL)) GROUP BY platform_id",
+        "SELECT platform_id, COUNT(*) FROM game_files WHERE platform_id IS NOT NULL AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL) OR hashed_mtime IS NULL OR hashed_mtime != modified_at OR hashed_size != size) GROUP BY platform_id",
     )?;
     let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
     let mut map = std::collections::HashMap::new();
