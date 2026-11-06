@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -49,6 +49,8 @@ export default function Platforms() {
   const [hideEmpty, setHideEmpty] = useState(true);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.platforms.view") as "cards" | "list") || "cards");
   const [search, setSearch] = useState("");
+  const [cols, setCols] = useState<Record<string, boolean>>(() => { try { const c = JSON.parse(localStorage.getItem("retroverse.platforms.cols") || "{}"); return Object.keys(c).length ? c : { name: true, manufacturer: true, year: true, games: true, files: true, actions: true }; } catch { return { name: true, manufacturer: true, year: true, games: true, files: true, actions: true }; } });
+  useEffect(() => { localStorage.setItem("retroverse.platforms.cols", JSON.stringify(cols)); }, [cols]);
 
   async function handleOpenFolder(p: Platform) {
     if (!sources) return;
@@ -312,37 +314,47 @@ export default function Platforms() {
         ))}
       </div>
       ) : (
+      <>
+      <div className="row" style={{ gap: 8, marginBottom: 8, flexWrap: "wrap", fontSize: 12, color: "var(--text-dim)" }}>
+        {Object.keys(cols).map((c) => (
+          <label key={c} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <input type="checkbox" checked={cols[c]} onChange={(e) => setCols({ ...cols, [c]: e.target.checked })} />
+            {c}
+          </label>
+        ))}
+      </div>
       <table className="table">
         <thead>
           <tr>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("name")}>Nom {sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("manufacturer")}>Fabricant {sortKey === "manufacturer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("year")}>Année {sortKey === "year" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("count")}>Jeux {sortKey === "count" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
-              <th>Actions</th>
+              {cols.name && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("name")}>Nom {sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+              {cols.manufacturer && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("manufacturer")}>Fabricant {sortKey === "manufacturer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+              {cols.year && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("year")}>Année {sortKey === "year" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+              {cols.games && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("count")}>Jeux {sortKey === "count" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+              {cols.files && <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>}
+              {cols.actions && <th>Actions</th>}
           </tr>
         </thead>
         <tbody>
           {sortedPlatforms.map((p) => (
             <tr key={p.id}>
-              <td style={{ fontWeight: 600 }}>{p.name}</td>
-              <td>{p.manufacturer ?? "—"}</td>
-              <td>{p.release_year ?? "—"}</td>
-              <td>{formatNumber(counts[p.id] ?? 0)}</td>
-              <td>{formatNumber(fileCounts[p.id] ?? 0)}</td>
-              <td>
+              {cols.name && <td style={{ fontWeight: 600 }}>{p.name}</td>}
+              {cols.manufacturer && <td>{p.manufacturer ?? "—"}</td>}
+              {cols.year && <td>{p.release_year ?? "—"}</td>}
+              {cols.games && <td>{formatNumber(counts[p.id] ?? 0)}</td>}
+              {cols.files && <td>{formatNumber(fileCounts[p.id] ?? 0)}</td>}
+              {cols.actions ? <td>
                 <div className="row" style={{ gap: 6 }}>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={(counts[p.id] ?? 0) === 0} onClick={() => navigate(`/library?platform=${p.id}`)}>{t("platforms.viewLibrary")}</button>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => handleOpenFolder(p)}>Ouvrir le dossier</button>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={scanning === p.id} onClick={() => handleScanPlatform(p)}>{scanning === p.id ? t("platforms.scanning") : t("platforms.scan")}</button>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={hashingPlatform === p.id || p.id === "scummvm" || (unhashedCounts?.[p.id] ?? 0) === 0} onClick={() => handleHashPlatform(p)}>{hashingPlatform === p.id ? "…" : "Calculer les empreintes"}</button>
                 </div>
-              </td>
+              </td> : null}
             </tr>
           ))}
         </tbody>
       </table>
+      </>
       )}
     </>
   );
