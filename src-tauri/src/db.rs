@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 23;
+pub const SCHEMA_VERSION: i32 = 24;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -140,6 +140,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 23 {
         apply_v23(conn)?;
+    }
+    if current < 24 {
+        apply_v24(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1115,5 +1118,22 @@ fn apply_v23(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
         "#,
     )?;
+    Ok(())
+}
+
+fn apply_v24(conn: &Connection) -> Result<()> {
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(dat_entries)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    if !cols.contains(&"bad".to_string()) {
+        let _ = conn.execute(
+            "ALTER TABLE dat_entries ADD COLUMN bad INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+    }
     Ok(())
 }

@@ -74,6 +74,7 @@ export const api = {
   listPreservationStatuses: () => invoke<[string, string][]>("list_preservation_statuses"),
   preservationSummary: () => invoke<[string, number][]>("preservation_summary"),
   exportPreservationPack: (destPath: string) => invoke<number>("export_preservation_pack", { destPath }),
+  importPreservationPack: (path: string) => invoke<number>("import_preservation_pack", { path }),
   listAuditLog: (limit?: number) => invoke<any[]>("list_audit_log", { limit }),
   logAudit: (action: string, targetType?: string, targetId?: string, details?: string, provenance?: string) => invoke<void>("log_audit", { action, targetType, targetId, details, provenance }),
   exportDat: (destPath: string) => invoke<number>("export_dat", { destPath }),
