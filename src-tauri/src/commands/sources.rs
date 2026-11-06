@@ -39,6 +39,14 @@ pub fn list_sources(state: State<AppState>) -> Result<Vec<GameSource>> {
 pub fn add_source(state: State<AppState>, name: String, path: String) -> Result<GameSource> {
     // validate path
     let p = std::path::Path::new(&path);
+    // Reject paths containing traversal components for safety.
+    if p.components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err(RetroError::Invalid(
+            "path must not contain '..' components".into(),
+        ));
+    }
     if !p.exists() {
         return Err(RetroError::Invalid(format!(
             "path does not exist: {}",
