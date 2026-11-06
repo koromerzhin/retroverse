@@ -114,6 +114,8 @@ pub fn run() {
             commands::compute_hashes_for_game,
             commands::compute_hashes_for_all_games,
             commands::cancel_hash,
+            commands::list_db_backups,
+            commands::restore_db_backup,
             commands::export_backup,
             commands::import_backup,
             commands::list_transfer_jobs,
