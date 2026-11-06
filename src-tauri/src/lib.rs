@@ -73,6 +73,7 @@ pub fn run() {
             commands::set_active_source,
             commands::get_active_source,
             commands::test_source,
+            commands::convert_source,
             commands::get_remote_connection,
             commands::sync_entities_from_metadata,
             commands::delete_genre,
