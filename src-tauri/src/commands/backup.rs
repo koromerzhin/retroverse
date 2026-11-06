@@ -1,5 +1,6 @@
 use crate::error::{Result, RetroError};
 use crate::state::AppState;
+
 use rusqlite::params;
 use serde_json::json;
 
@@ -13,21 +14,45 @@ pub async fn compute_hashes_inner(
 ) -> Result<usize> {
     use tauri::Emitter;
     state
-        .cancel_scan
+        .cancel_hash
         .store(false, std::sync::atomic::Ordering::SeqCst);
-    let cancel = state.cancel_scan.clone();
+    let cancel = state.cancel_hash.clone();
 
     let rows: Vec<(String, String)> = {
         let conn = state.db.lock().unwrap();
         if let Some(sid) = &source_id {
-            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL))")?;
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE source_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL) OR hashed_mtime IS NULL OR hashed_mtime != modified_at OR hashed_size != size)")?;
             stmt.query_map([sid.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         } else {
-            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL)")?;
+            let mut stmt = conn.prepare("SELECT id,path FROM game_files WHERE hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL) OR hashed_mtime IS NULL OR hashed_mtime != modified_at OR hashed_size != size")?;
             stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         }
+    };
+
+    // Map file_id -> (game_title, platform_name) for progress reporting.
+    let file_game_map: std::collections::HashMap<String, (String, Option<String>, i64)> = {
+        let conn = state.db.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT gf.id, g.title, p.name FROM game_files gf LEFT JOIN game_file_links l ON l.file_id = gf.id LEFT JOIN games g ON g.id = l.game_id LEFT JOIN platforms p ON p.id = g.platform_id",
+        ).unwrap();
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                    r.get::<_, i64>(3).unwrap_or(0),
+                ))
+            })
+            .unwrap();
+        let mut m = std::collections::HashMap::new();
+        for r in rows.filter_map(|r| r.ok()) {
+            let (fid, title, plat, size) = r;
+            m.insert(fid, (title.unwrap_or_else(|| "—".to_string()), plat, size));
+        }
+        m
     };
 
     let total = rows.len();
@@ -35,11 +60,19 @@ pub async fn compute_hashes_inner(
     if let Some(a) = &app {
         let _ = a.emit(
             "hash-progress",
-            serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}),
+            serde_json::json!({"scanned": 0, "total": total, "status": "scanning", "game": null, "platform": null, "file": null}),
         );
     }
 
-    for (idx, (id, path)) in rows.into_iter().enumerate() {
+    for (id, path) in rows.into_iter() {
+        let (game_title, platform_name, file_size) = file_game_map
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| ("—".to_string(), None, 0));
+        let started_at = chrono::Utc::now().timestamp_millis();
+        if let Some(a) = &app {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "reading", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at}));
+        }
         if cancel.load(std::sync::atomic::Ordering::SeqCst) {
             if let Some(a) = &app {
                 let _ = a.emit(
@@ -54,28 +87,23 @@ pub async fn compute_hashes_inner(
         let lower = path.to_lowercase();
         let is_archive = lower.ends_with(".zip") || lower.ends_with(".7z");
         let (arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512) = if is_archive {
-            if let Ok(data) = std::fs::read(&path) {
-                let (s, c, m, h, _, sh512) =
-                    crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &[]);
-                (s, c, m, h, sh512)
-            } else {
-                (None, None, None, None, None)
-            }
+            crate::identify::hash_file_all(&path)
         } else {
             (None, None, None, None, None)
         };
         if sha256.is_some() {
             let conn = state.db.lock().unwrap();
-            conn.execute(
-                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
+            let _ = conn.execute(
+                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11,hashed_mtime=modified_at,hashed_size=size WHERE id=?12",
                 params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, id],
-            )?;
+            );
             done += 1;
         }
-        if (idx % 5 == 0 || idx + 1 == total)
-            && let Some(a) = &app
-        {
-            let _ = a.emit("hash-progress", serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning", "file": path}));
+        if sha256.is_some() {
+            done += 1;
+        }
+        if let Some(a) = &app {
+            let _ = a.emit("hash-progress", serde_json::json!({"scanned": done, "total": total, "status": "file_done", "game": game_title, "platform": platform_name, "file": path, "size": file_size, "started_at": started_at, "ok": sha256.is_some()}));
         }
     }
     if let Some(a) = &app {
@@ -459,124 +487,13 @@ pub fn import_backup(state: State<AppState>, src_path: String) -> Result<usize> 
     Ok(imported)
 }
 
-pub async fn compute_hashes_for_game_inner(state: &AppState, game_id: String) -> Result<usize> {
-    // gather files + source info
-    type FileInfo = (String, String, String, Option<String>, Option<String>);
-    let files: Vec<FileInfo> = {
-        let conn = state.db.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT gf.id, gf.path, gf.source_id, gs.kind, gs.connection_id FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id JOIN game_sources gs ON gs.id = gf.source_id WHERE l.game_id = ?1",
-        )?;
-        let rows = stmt.query_map([game_id.clone()], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
-        })?;
-        rows.collect::<rusqlite::Result<Vec<_>>>()?
-    };
-
-    let mut done = 0usize;
-    for (fid, path, _source_id, kind, connection_id) in files {
-        let allowed: Vec<String> = Vec::new();
-        let mut arch_hashes: (
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ) = (None, None, None, None, None);
-        let result = if kind.as_deref() == Some("remote") {
-            // download file via SFTP
-            let (host, port, username, key_path) = {
-                let conn = state.db.lock().unwrap();
-                let cid = connection_id.ok_or_else(|| RetroError::Invalid("not remote".into()))?;
-                conn.query_row(
-                    "SELECT host,port,username,key_path FROM remote_connections WHERE id=?1",
-                    [cid],
-                    |r| {
-                        Ok((
-                            r.get::<_, String>(0)?,
-                            r.get::<_, i64>(1)? as u16,
-                            r.get::<_, String>(2)?,
-                            r.get::<_, String>(3)?,
-                        ))
-                    },
-                )?
-            };
-            let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
-            // read file into memory
-            let mut f = sess
-                .sftp
-                .open(&path)
-                .await
-                .map_err(|e| RetroError::Other(e.to_string()))?;
-            use tokio::io::AsyncReadExt;
-            let mut buf = Vec::new();
-            f.read_to_end(&mut buf)
-                .await
-                .map_err(|e| RetroError::Other(e.to_string()))?;
-            let _ = sess
-                .session
-                .disconnect(russh::Disconnect::ByApplication, "", "")
-                .await;
-            let filename = std::path::Path::new(&path)
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or(&path);
-            // handle 7z: need a temp file
-            let lower = path.to_lowercase();
-            let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-            let r = if lower.ends_with(".7z") {
-                // write to temp file
-                let tmp = std::env::temp_dir().join(format!("retroverse_{}.7z", fid));
-                std::fs::write(&tmp, &buf).map_err(RetroError::Io)?;
-                let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
-                let _ = std::fs::remove_file(&tmp);
-                r
-            } else {
-                crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
-            };
-            if is_archive {
-                let (as_, ac, am, ah, _, ash512) =
-                    crate::identify::compute_hashes_from_bytes(&buf, "archive.bin", &[]);
-                arch_hashes = (as_, ac, am, ah, ash512);
-            }
-            r
-        } else {
-            crate::identify::compute_hashes(&path, &allowed)
-        };
-
-        let (sha256, crc32, md5, sha1, zip_inner, sha512) = result;
-        let lower = path.to_lowercase();
-        let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-        let (arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512) = if is_archive {
-            if kind.as_deref() == Some("remote") {
-                arch_hashes
-            } else {
-                if let Ok(data) = std::fs::read(&path) {
-                    let (s, c, m, h, _, sh512) =
-                        crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &[]);
-                    (s, c, m, h, sh512)
-                } else {
-                    (None, None, None, None, None)
-                }
-            }
-        } else {
-            (None, None, None, None, None)
-        };
-        if sha256.is_some() {
-            let conn = state.db.lock().unwrap();
-            conn.execute(
-                "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
-                params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, fid],
-            )?;
-            done += 1;
-        }
-    }
-    Ok(done)
-}
-
 #[tauri::command]
-pub async fn compute_hashes_for_game(state: State<'_, AppState>, game_id: String) -> Result<usize> {
-    compute_hashes_for_game_inner(&state, game_id).await
+pub async fn compute_hashes_for_game(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    game_id: String,
+) -> Result<usize> {
+    crate::hashing::compute_hashes_for_game_inner(&state, Some(app), game_id).await
 }
 
 #[tauri::command]
@@ -602,122 +519,7 @@ pub fn list_transfer_jobs(state: State<AppState>) -> Result<Vec<serde_json::Valu
 
 #[tauri::command]
 pub async fn compute_hashes_for_file(state: State<'_, AppState>, file_id: String) -> Result<usize> {
-    compute_hash_for_file_inner(&state, file_id).await
-}
-
-pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> Result<usize> {
-    use crate::remote;
-    use russh::Disconnect;
-
-    let (path, kind, connection_id): (String, Option<String>, Option<String>) = {
-        let conn = state.db.lock().unwrap();
-        conn.query_row(
-            "SELECT gf.path, gs.kind, gs.connection_id FROM game_files gf JOIN game_sources gs ON gs.id = gf.source_id WHERE gf.id = ?1",
-            [file_id.clone()],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )?
-    };
-
-    let kind = kind.unwrap_or_else(|| "local".to_string());
-    let allowed: Vec<String> = Vec::new();
-
-    let (
-        sha256,
-        crc32,
-        md5,
-        sha1,
-        zip_inner,
-        sha512,
-        arch_sha,
-        arch_crc,
-        arch_md5,
-        arch_sha1,
-        arch_sha512,
-    ) = if kind == "remote" {
-        let (host, port, username, key_path) = {
-            let conn = state.db.lock().unwrap();
-            let cid = connection_id.ok_or_else(|| RetroError::Invalid("not remote".into()))?;
-            conn.query_row(
-                "SELECT host,port,username,key_path FROM remote_connections WHERE id=?1",
-                [cid],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, i64>(1)? as u16,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, String>(3)?,
-                    ))
-                },
-            )?
-        };
-        let sess = remote::connect(&host, port, &username, &key_path).await?;
-        let mut f = sess
-            .sftp
-            .open(&path)
-            .await
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        use tokio::io::AsyncReadExt;
-        let mut buf = Vec::new();
-        f.read_to_end(&mut buf)
-            .await
-            .map_err(|e| RetroError::Other(e.to_string()))?;
-        let _ = sess
-            .session
-            .disconnect(Disconnect::ByApplication, "", "")
-            .await;
-        let filename = std::path::Path::new(&path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(&path);
-        let lower = path.to_lowercase();
-        let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-        let content = if lower.ends_with(".7z") {
-            let tmp = std::env::temp_dir().join(format!("retroverse_{}.7z", file_id));
-            std::fs::write(&tmp, &buf).map_err(RetroError::Io)?;
-            let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
-            let _ = std::fs::remove_file(&tmp);
-            r
-        } else {
-            crate::identify::compute_hashes_from_bytes(&buf, filename, &allowed)
-        };
-        let (s, c, m, h, zi, sh512) = content;
-        let (as_, ac, am, ah, ash512) = if is_archive {
-            let (a, b, cc, d, _, e) =
-                crate::identify::compute_hashes_from_bytes(&buf, "archive.bin", &allowed);
-            (a, b, cc, d, e)
-        } else {
-            (None, None, None, None, None)
-        };
-        (s, c, m, h, zi, sh512, as_, ac, am, ah, ash512)
-    } else {
-        let content = crate::identify::compute_hashes(&path, &allowed);
-        let (s, c, m, h, zi, sh512) = content;
-        let lower = path.to_lowercase();
-        let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
-        let (as_, ac, am, ah, ash512) = if is_archive {
-            if let Ok(data) = std::fs::read(&path) {
-                let (a, b, cc, d, _, e) =
-                    crate::identify::compute_hashes_from_bytes(&data, "archive.bin", &allowed);
-                (a, b, cc, d, e)
-            } else {
-                (None, None, None, None, None)
-            }
-        } else {
-            (None, None, None, None, None)
-        };
-        (s, c, m, h, zi, sh512, as_, ac, am, ah, ash512)
-    };
-
-    if sha256.is_some() {
-        let conn = state.db.lock().unwrap();
-        conn.execute(
-            "UPDATE game_files SET hash=?1,crc32=?2,md5=?3,sha1=?4,zip_inner=?5,sha512=?6,archive_hash=?7,archive_crc32=?8,archive_md5=?9,archive_sha1=?10,archive_sha512=?11 WHERE id=?12",
-            rusqlite::params![sha256, crc32, md5, sha1, zip_inner, sha512, arch_sha, arch_crc, arch_md5, arch_sha1, arch_sha512, file_id],
-        )?;
-        Ok(1)
-    } else {
-        Ok(0)
-    }
+    crate::hashing::compute_hash_for_file_inner(&state, file_id).await
 }
 
 #[tauri::command]
@@ -726,55 +528,16 @@ pub async fn compute_hashes_for_platform(
     app: tauri::AppHandle,
     platform_id: String,
 ) -> Result<usize> {
-    use tauri::Emitter;
-    state.cancel_scan.store(false, std::sync::atomic::Ordering::SeqCst);
-    let cancel = state.cancel_scan.clone();
-
-    let ids: Vec<String> = {
-        let conn = state.db.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id FROM game_files WHERE platform_id=?1 AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL))",
-        )?;
-        stmt.query_map([platform_id.clone()], |r| r.get(0))?
-            .collect::<rusqlite::Result<Vec<_>>>()?
-    };
-
-    let total = ids.len();
-    let mut done = 0usize;
-    let _ = app.emit(
-        "hash-progress",
-        serde_json::json!({"scanned": 0, "total": total, "status": "scanning"}),
-    );
-
-    for (idx, id) in ids.into_iter().enumerate() {
-        if cancel.load(std::sync::atomic::Ordering::SeqCst) {
-            let _ = app.emit(
-                "hash-progress",
-                serde_json::json!({"scanned": done, "total": total, "status": "cancelled"}),
-            );
-            return Ok(done);
-        }
-        let n = compute_hash_for_file_inner(&state, id).await?;
-        done += n;
-        if idx % 5 == 0 || idx + 1 == total {
-            let _ = app.emit(
-                "hash-progress",
-                serde_json::json!({"scanned": idx + 1, "total": total, "status": "scanning"}),
-            );
-        }
-    }
-    let _ = app.emit(
-        "hash-progress",
-        serde_json::json!({"scanned": total, "total": total, "status": "done", "done": done}),
-    );
-    Ok(done)
+    crate::hashing::compute_hashes_for_platform(state, app, platform_id).await
 }
 
 #[tauri::command]
-pub fn unhashed_counts_by_platform(state: State<'_, AppState>) -> Result<std::collections::HashMap<String, i64>> {
+pub fn unhashed_counts_by_platform(
+    state: State<'_, AppState>,
+) -> Result<std::collections::HashMap<String, i64>> {
     let conn = state.db.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT platform_id, COUNT(*) FROM game_files WHERE platform_id IS NOT NULL AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL)) GROUP BY platform_id",
+        "SELECT platform_id, COUNT(*) FROM game_files WHERE platform_id IS NOT NULL AND (hash IS NULL OR crc32 IS NULL OR md5 IS NULL OR sha1 IS NULL OR sha512 IS NULL OR ((extension='zip' OR extension='7z') AND archive_hash IS NULL) OR hashed_mtime IS NULL OR hashed_mtime != modified_at OR hashed_size != size) GROUP BY platform_id",
     )?;
     let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
     let mut map = std::collections::HashMap::new();
@@ -783,4 +546,40 @@ pub fn unhashed_counts_by_platform(state: State<'_, AppState>) -> Result<std::co
         map.insert(k, v);
     }
     Ok(map)
+}
+
+#[tauri::command]
+pub async fn compute_hashes_for_all_games(state: State<'_, AppState>) -> Result<usize> {
+    crate::hashing::compute_hashes_for_all_games(state).await
+}
+
+#[tauri::command]
+pub fn cancel_hash(state: State<AppState>) -> Result<()> {
+    crate::hashing::cancel_hash(state)
+}
+
+#[tauri::command]
+pub fn list_db_backups() -> Result<Vec<String>> {
+    let path = crate::db::db_path();
+    let parent = path
+        .parent()
+        .ok_or_else(|| RetroError::Invalid("no parent".into()))?;
+    let mut out = Vec::new();
+    for e in std::fs::read_dir(parent).map_err(RetroError::Io)? {
+        let e = e.map_err(RetroError::Io)?;
+        let name = e.file_name().to_string_lossy().to_string();
+        if name.starts_with("retroverse.db.bak.") {
+            out.push(e.path().to_string_lossy().to_string());
+        }
+    }
+    out.sort();
+    out.reverse();
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn restore_db_backup(backup_path: String) -> Result<()> {
+    let path = crate::db::db_path();
+    std::fs::copy(&backup_path, &path).map_err(RetroError::Io)?;
+    Ok(())
 }

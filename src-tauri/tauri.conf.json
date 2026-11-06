@@ -18,12 +18,16 @@
         "height": 800,
         "minWidth": 960,
         "minHeight": 600,
-        "visible": true,
+        "visible": false,
         "center": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**", "$RESOURCE/**", "**"]
+      }
     }
   },
   "bundle": {

@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.1 — Foundation (current)
+## v1.0 — Collection Companion (current) ✅
 - Repo + Git Flow + GitHub
 - Tauri app, Rust backend, React frontend
 - SQLite + migrations
@@ -28,5 +28,16 @@
 ## v0.6 — Companion
 - EmuDeck detection, emulator/frontend integrations, sessions, stats
 
-## v1.0 — Universal Library
-- Stabilization, docs, tests, multiplatform, packaging, release
+- Tauri 2 desktop app, Rust backend, React/TypeScript frontend
+- SQLite database with migrations up to v24
+- Platform profiles, local + remote (SSH/SFTP) sources
+- Recursive scanning with incremental (mtime/size) skipping
+- Game identification (ScummVM compatibility mapping)
+- Library view with search, filters (platform/developer/publisher), sorting
+- Platform cards/list with game/file counts and hash status
+- Detailed game view with editable metadata
+- ScreenScraper integration (hash-first, raw JSON, referential sync)
+- Hash computation (content + archive) on demand
+- Native OS notifications, system tray, splashscreen, single-instance
+- Referentials: developers, publishers, genres (multilingual), classifications
+- Collections, statistics, settings

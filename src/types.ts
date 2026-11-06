@@ -51,6 +51,7 @@ export interface Game {
   platform_id: string | null;
   created_at: string;
   updated_at: string;
+  metadata_json: string | null;
 }
 
 export interface LibraryEntry {
@@ -58,6 +59,8 @@ export interface LibraryEntry {
   platform: Platform | null;
   files: GameFile[];
   file_count: number;
+  developer: string | null;
+  publisher: string | null;
 }
 
 export interface ScanResult {

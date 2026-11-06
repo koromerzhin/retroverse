@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { SearchInput } from "../components";
 import { formatNumber } from "../lib/format";
 import { useI18n } from "../i18n";
 import type { Platform, GameSource } from "../types";
@@ -19,10 +20,16 @@ export default function Platforms() {
     queryFn: () => api.platformGameCounts(),
     staleTime: 60_000,
   });
+  const { data: fileCountsData } = useQuery({
+    queryKey: ["platform-file-counts"],
+    queryFn: () => api.platformFileCounts(),
+    staleTime: 60_000,
+  });
   const { data: unhashedCounts } = useQuery<Record<string, number>>({
     queryKey: ["unhashed-counts"],
     queryFn: () => api.unhashedCountsByPlatform(),
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   const { data: sources } = useQuery<GameSource[]>({
     queryKey: ["sources"],
@@ -32,10 +39,16 @@ export default function Platforms() {
   const [scanning, setScanning] = useState<string | null>(null);
   const [scanningAll, setScanningAll] = useState(false);
   const [hashingPlatform, setHashingPlatform] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"name" | "count">("name");
+  const [calculatingAll, setCalculatingAll] = useState(false);
+  const [sortKey, setSortKey] = useState<"name" | "manufacturer" | "year" | "count" | "files">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (key: "name" | "manufacturer" | "year" | "count" | "files") => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
   const [hideEmpty, setHideEmpty] = useState(true);
   const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.platforms.view") as "cards" | "list") || "cards");
+  const [search, setSearch] = useState("");
 
   async function handleOpenFolder(p: Platform) {
     if (!sources) return;
@@ -71,23 +84,31 @@ export default function Platforms() {
   }
 
   const counts: Record<string, number> = countsData || {};
+  const fileCounts: Record<string, number> = fileCountsData || {};
 
+  const q = search.trim().toLowerCase();
   const sortedPlatforms = [...(platforms || [])]
     .filter((p) => !hideEmpty || (counts[p.id] ?? 0) > 0)
+    .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.manufacturer ?? "").toLowerCase().includes(q) || p.slug.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
     .sort((a, b) => {
-      if (sortBy === "count") {
-        return (counts[b.id] ?? 0) - (counts[a.id] ?? 0) || a.name.localeCompare(b.name);
+      let cmp = 0;
+      switch (sortKey) {
+        case "name": cmp = a.name.localeCompare(b.name); break;
+        case "manufacturer": cmp = (a.manufacturer ?? "").localeCompare(b.manufacturer ?? ""); break;
+        case "year": cmp = (a.release_year ?? 0) - (b.release_year ?? 0); break;
+        case "count": cmp = (counts[a.id] ?? 0) - (counts[b.id] ?? 0); break;
+        case "files": cmp = (fileCounts[a.id] ?? 0) - (fileCounts[b.id] ?? 0); break;
       }
-      return a.name.localeCompare(b.name);
+      return sortDir === "asc" ? cmp : -cmp;
     });
 
   async function handleScanPlatform(p: Platform) {
     if (!sources || sources.length === 0) {
-      setMsg("Aucune source configurée.");
+      api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {});
       return;
     }
     setScanning(p.id);
-    setMsg(`Scan ${p.name} en cours…`);
+    (window as any).__retroverseScanningPlatform = true;
     let totalFiles = 0;
     let totalGames = 0;
     let errors: string[] = [];
@@ -103,13 +124,14 @@ export default function Platforms() {
       }
     }
     if (errors.length > 0) {
-      setMsg(`Scan ${p.name} : ${errors.join(" | ")}`);
+      api.showNotification("RETROVERSE", `Scan ${p.name} : ${errors.join(" | ")}`).catch(() => {});
     } else if (totalFiles === 0) {
-      setMsg(`Scan ${p.name} : aucun fichier trouvé.`);
+      api.showNotification("RETROVERSE", `Scan ${p.name} : aucun fichier trouvé.`).catch(() => {});
     } else {
-      setMsg(`Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`);
+      api.showNotification("RETROVERSE", `Scan ${p.name} terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`).catch(() => {});
     }
     setScanning(null);
+    (window as any).__retroverseScanningPlatform = false;
     qc.invalidateQueries({ queryKey: ["games"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
   }
@@ -119,10 +141,10 @@ export default function Platforms() {
     setHashingPlatform(p.id);
     try {
       const n = await api.computeHashesForPlatform(p.id);
-      setMsg(`Empreintes calculées : ${formatNumber(n)} fichier(s) pour ${p.name}.`);
+      api.showNotification("RETROVERSE", `Empreintes calculées : ${formatNumber(n)} fichier(s) pour ${p.name}.`).catch(() => {});
       qc.invalidateQueries({ queryKey: ["unhashed-counts"] });
     } catch (e: any) {
-      setMsg(`Erreur : ${e}`);
+      api.showNotification("RETROVERSE", `Erreur : ${e}`).catch(() => {});
     } finally {
       setHashingPlatform(null);
     }
@@ -130,22 +152,82 @@ export default function Platforms() {
 
   async function handleScanAll() {
     if (!platforms || platforms.length === 0) {
-      setMsg("Aucune plateforme.");
+      api.showNotification("RETROVERSE", "Aucune plateforme.").catch(() => {});
       return;
     }
     setScanningAll(true);
+    (window as any).__retroverseScanAll = true;
+    let totalFiles = 0;
+    let totalGames = 0;
+    let errors: string[] = [];
     for (const p of platforms) {
-      if ((counts[p.id] ?? 0) === 0 && hideEmpty) {
-        // skip empty platforms if hidden, but still allow scanning
+      if (!sources || sources.length === 0) {
+        api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {});
+        continue;
       }
-      setMsg(`Scan en cours : ${p.name}…`);
-      await handleScanPlatform(p);
+      for (const s of sources) {
+        try {
+          const res = s.kind === "remote"
+            ? await api.scanRemoteSource(s.id, undefined, p.id)
+            : await api.scanSource(s.id, undefined, p.id);
+          totalFiles += res.files_found ?? 0;
+          totalGames += res.games_created ?? 0;
+        } catch (e: any) {
+          errors.push(`${s.name}/${p.name}: ${e}`);
+        }
+      }
     }
-    setMsg("Scan complet terminé.");
+    if (errors.length > 0) {
+      api.showNotification("RETROVERSE", `Scan complet terminé avec erreurs : ${errors.join(" | ")}`).catch(() => {});
+    } else if (totalFiles === 0) {
+      api.showNotification("RETROVERSE", "Scan complet terminé : aucun fichier trouvé.").catch(() => {});
+    } else {
+      api.showNotification("RETROVERSE", `Scan complet terminé : ${formatNumber(totalFiles)} fichier(s), ${formatNumber(totalGames)} nouveau(x) jeu(x).`).catch(() => {});
+    }
     setScanningAll(false);
+    (window as any).__retroverseScanAll = false;
     qc.invalidateQueries({ queryKey: ["games"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
     qc.invalidateQueries({ queryKey: ["platforms"] });
+  }
+
+  async function handleCalculateAll() {
+    if (calculatingAll) return;
+    setCalculatingAll(true);
+    let errors: string[] = [];
+    if (platforms && sources && sources.length > 0) {
+      for (const p of platforms) {
+        for (const s of sources) {
+          try {
+            if (s.kind === "remote") await api.scanRemoteSource(s.id, undefined, p.id);
+            else await api.scanSource(s.id, undefined, p.id);
+          } catch (e: any) {
+            errors.push(`${s.name}/${p.name}: ${e}`);
+          }
+        }
+      }
+    }
+    if (platforms) {
+      for (const p of platforms) {
+        try {
+          await api.computeHashesForPlatform(p.id);
+        } catch (e: any) {
+          errors.push(`${p.name}: ${e}`);
+        }
+      }
+    }
+    qc.invalidateQueries({ queryKey: ["games"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+    qc.invalidateQueries({ queryKey: ["platforms"] });
+    qc.invalidateQueries({ queryKey: ["unhashed-counts"] });
+    qc.invalidateQueries({ queryKey: ["platform-game-counts"] });
+    qc.invalidateQueries({ queryKey: ["platform-file-counts"] });
+    if (errors.length > 0) {
+      api.showNotification("RETROVERSE", `Calcul terminé avec erreurs : ${errors.join(" | ")}`).catch(() => {});
+    } else {
+      api.showNotification("RETROVERSE", "Calcul terminé.").catch(() => {});
+    }
+    setCalculatingAll(false);
   }
 
   return (
@@ -153,20 +235,26 @@ export default function Platforms() {
       <h1 className="page-title">{t("platforms.title")}</h1>
       <p className="page-sub">{t("platforms.subtitle")}</p>
 
-      {msg && <p style={{ color: "var(--text-dim)", marginBottom: 12, fontSize: 13 }}>{msg}</p>}
-
       <div className="row" style={{ marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <SearchInput value={search} onChange={setSearch} placeholder="Rechercher une plateforme…" maxWidth={260} />
         <span style={{ fontSize: 13, color: "var(--text-dim)" }}>{t("platforms.sortBy")}</span>
-        <select className="select" style={{ maxWidth: 180 }} value={sortBy} onChange={(e) => setSortBy(e.target.value as "name" | "count")}>
+        <select className="select" style={{ maxWidth: 180 }} value={sortKey} onChange={(e) => setSortKey(e.target.value as "name" | "manufacturer" | "year" | "count")}>
           <option value="name">{t("platforms.sort.name")}</option>
+          <option value="manufacturer">Fabricant</option>
+          <option value="year">Année</option>
           <option value="count">{t("platforms.sort.count")}</option>
+          <option value="files">Fichiers</option>
         </select>
+        <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))} title="Ordre">{sortDir === "asc" ? "▲" : "▼"}</button>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-dim)", marginLeft: 12 }}>
           <input type="checkbox" checked={hideEmpty} onChange={(e) => setHideEmpty(e.target.checked)} />
           Masquer les plateformes sans jeux
         </label>
         <button className="btn primary" onClick={handleScanAll} disabled={scanningAll} style={{ marginLeft: "auto" }}>
           {scanningAll ? <><span className="spinner" /> {t("platforms.scanning")}</> : t("platforms.scanAll")}
+        </button>
+        <button className="btn primary" onClick={handleCalculateAll} disabled={calculatingAll}>
+          {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
         </button>
         <div className="row" style={{ gap: 4 }}>
           <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.platforms.view", "cards"); }} title="Cartes">Cards</button>
@@ -183,8 +271,9 @@ export default function Platforms() {
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
               {p.manufacturer ?? "—"} {p.release_year ? `· ${p.release_year}` : ""}
             </div>
-            <div style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
               <span className="badge">{formatNumber(counts[p.id] ?? 0)} {t("platforms.games")}</span>
+              <span className="badge">{formatNumber(fileCounts[p.id] ?? 0)} fichiers</span>
             </div>
             <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
               <button
@@ -213,7 +302,7 @@ export default function Platforms() {
               <button
                 className="btn"
                 style={{ fontSize: 11, padding: "4px 8px", width: "100%", justifyContent: "center", textAlign: "center" }}
-                disabled={hashingPlatform === p.id || (unhashedCounts?.[p.id] ?? 0) === 0}
+                disabled={hashingPlatform === p.id || p.id === "scummvm" || (unhashedCounts?.[p.id] ?? 0) === 0}
                 onClick={(e) => { e.stopPropagation(); handleHashPlatform(p); }}
               >
                 {hashingPlatform === p.id ? "…" : "Calculer les empreintes"}
@@ -226,11 +315,12 @@ export default function Platforms() {
       <table className="table">
         <thead>
           <tr>
-            <th>Nom</th>
-            <th>Fabricant</th>
-            <th>Année</th>
-            <th>Jeux</th>
-            <th>Actions</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("name")}>Nom {sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("manufacturer")}>Fabricant {sortKey === "manufacturer" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("year")}>Année {sortKey === "year" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("count")}>Jeux {sortKey === "count" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("files")}>Fichiers {sortKey === "files" ? (sortDir === "asc" ? "▲" : "▼") : ""}</th>
+              <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -240,11 +330,13 @@ export default function Platforms() {
               <td>{p.manufacturer ?? "—"}</td>
               <td>{p.release_year ?? "—"}</td>
               <td>{formatNumber(counts[p.id] ?? 0)}</td>
+              <td>{formatNumber(fileCounts[p.id] ?? 0)}</td>
               <td>
                 <div className="row" style={{ gap: 6 }}>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={(counts[p.id] ?? 0) === 0} onClick={() => navigate(`/library?platform=${p.id}`)}>{t("platforms.viewLibrary")}</button>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => handleOpenFolder(p)}>Ouvrir le dossier</button>
                   <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={scanning === p.id} onClick={() => handleScanPlatform(p)}>{scanning === p.id ? t("platforms.scanning") : t("platforms.scan")}</button>
+                  <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={hashingPlatform === p.id || p.id === "scummvm" || (unhashedCounts?.[p.id] ?? 0) === 0} onClick={() => handleHashPlatform(p)}>{hashingPlatform === p.id ? "…" : "Calculer les empreintes"}</button>
                 </div>
               </td>
             </tr>

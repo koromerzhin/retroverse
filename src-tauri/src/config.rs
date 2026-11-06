@@ -5,12 +5,16 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProviderConfig {
+    #[serde(default)]
     pub screenscraper_devid: String,
+    #[serde(default)]
     pub screenscraper_devpassword: String,
+    #[serde(default)]
     pub screenscraper_softname: String,
+    #[serde(default)]
     pub screenscraper_ssid: String,
+    #[serde(default)]
     pub screenscraper_sspassword: String,
-    pub tgdb_apikey: String,
 }
 
 fn config_path() -> PathBuf {

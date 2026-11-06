@@ -11,6 +11,8 @@ pub struct LibraryEntry {
     pub platform: Option<Platform>,
     pub files: Vec<crate::models::GameFile>,
     pub file_count: usize,
+    pub developer: Option<String>,
+    pub publisher: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -24,6 +26,8 @@ pub fn list_games(
     state: State<AppState>,
     platform: Option<String>,
     search: Option<String>,
+    developer: Option<String>,
+    publisher: Option<String>,
     limit: Option<usize>,
     offset: Option<usize>,
 ) -> Result<PagedGames> {
@@ -47,6 +51,18 @@ pub fn list_games(
             q.to_lowercase().replace('\'', "''").replace('%', "\\%")
         ));
     }
+    if let Some(dev) = &developer {
+        where_clauses.push(format!(
+            "EXISTS (SELECT 1 FROM metadata_records m WHERE m.game_id = g.id AND m.field = 'developer' AND m.value = '{}')",
+            dev.replace('\'', "''")
+        ));
+    }
+    if let Some(publ) = &publisher {
+        where_clauses.push(format!(
+            "EXISTS (SELECT 1 FROM metadata_records m WHERE m.game_id = g.id AND m.field = 'publisher' AND m.value = '{}')",
+            publ.replace('\'', "''")
+        ));
+    }
     let where_sql = if where_clauses.is_empty() {
         String::new()
     } else {
@@ -58,7 +74,7 @@ pub fn list_games(
     let total = total as usize;
 
     let sql = format!(
-        "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at FROM games g{} ORDER BY g.title COLLATE NOCASE ASC LIMIT {} OFFSET {}",
+        "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at,g.metadata_json FROM games g{} ORDER BY g.title COLLATE NOCASE ASC LIMIT {} OFFSET {}",
         where_sql, limit, offset
     );
 
@@ -72,6 +88,7 @@ pub fn list_games(
             platform_id: r.get(2)?,
             created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
             updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            metadata_json: r.get(5)?,
         })
     })?;
 
@@ -116,11 +133,27 @@ pub fn list_games(
             .platform_id
             .as_ref()
             .and_then(|pid| pmap.get(pid).cloned());
+        let (developer, publisher): (Option<String>, Option<String>) = (
+            conn.query_row(
+                "SELECT value FROM metadata_records WHERE game_id=?1 AND field='developer' LIMIT 1",
+                [game.id.clone()],
+                |r| r.get(0),
+            )
+            .ok(),
+            conn.query_row(
+                "SELECT value FROM metadata_records WHERE game_id=?1 AND field='publisher' LIMIT 1",
+                [game.id.clone()],
+                |r| r.get(0),
+            )
+            .ok(),
+        );
         entries.push(LibraryEntry {
             game,
             platform,
             file_count: files.len(),
             files,
+            developer,
+            publisher,
         });
     }
     Ok(PagedGames {
@@ -137,7 +170,7 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
         platforms.into_iter().map(|p| (p.id.clone(), p)).collect();
 
     let game: Game = conn.query_row(
-        "SELECT id,title,platform_id,created_at,updated_at FROM games WHERE id=?1",
+        "SELECT id,title,platform_id,created_at,updated_at,metadata_json FROM games WHERE id=?1",
         [id.clone()],
         |r| {
             let created: String = r.get(3)?;
@@ -148,6 +181,7 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
                 platform_id: r.get(2)?,
                 created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
                 updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                metadata_json: r.get(5).ok(),
             })
         },
     )?;
@@ -190,11 +224,27 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
         .platform_id
         .as_ref()
         .and_then(|pid| pmap.get(pid).cloned());
+    let (developer, publisher): (Option<String>, Option<String>) = (
+        conn.query_row(
+            "SELECT value FROM metadata_records WHERE game_id=?1 AND field='developer' LIMIT 1",
+            [game.id.clone()],
+            |r| r.get(0),
+        )
+        .ok(),
+        conn.query_row(
+            "SELECT value FROM metadata_records WHERE game_id=?1 AND field='publisher' LIMIT 1",
+            [game.id.clone()],
+            |r| r.get(0),
+        )
+        .ok(),
+    );
     Ok(LibraryEntry {
         game,
         platform,
         file_count: files.len(),
         files,
+        developer,
+        publisher,
     })
 }
 
@@ -226,6 +276,24 @@ pub fn link_file_to_game(state: State<AppState>, file_id: String, game_id: Strin
         params![file_id, game_id],
     )?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn platform_file_counts(state: State<AppState>) -> Result<serde_json::Value> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt =
+        conn.prepare("SELECT platform_id, COUNT(*) FROM game_files GROUP BY platform_id")?;
+    let rows = stmt.query_map([], |r| {
+        Ok((r.get::<_, Option<String>>(0)?, r.get::<_, i64>(1)?))
+    })?;
+    let mut map = serde_json::Map::new();
+    for r in rows {
+        let (pid, c) = r?;
+        if let Some(p) = pid {
+            map.insert(p, serde_json::json!(c));
+        }
+    }
+    Ok(serde_json::Value::Object(map))
 }
 
 #[tauri::command]
@@ -292,32 +360,35 @@ pub fn search_games_fts(
                     platform_id: r.get(2)?,
                     created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
                     updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                    metadata_json: r.get(5).ok(),
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?
     } else {
         let mut stmt = conn.prepare(
-            "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at FROM games g \
+            "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at,g.metadata_json FROM games g \
              JOIN games_fts f ON f.rowid = g.rowid \
              WHERE games_fts MATCH ?1 ORDER BY rank",
         )?;
-        stmt
-            .query_map([format!("{}*", safe_query)], |r| {
-                let created: String = r.get(3)?;
-                let updated: String = r.get(4)?;
-                Ok(Game {
-                    id: r.get(0)?,
-                    title: r.get(1)?,
-                    platform_id: r.get(2)?,
-                    created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
-                    updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?
+        stmt.query_map([format!("{}*", safe_query)], |r| {
+            let created: String = r.get(3)?;
+            let updated: String = r.get(4)?;
+            Ok(Game {
+                id: r.get(0)?,
+                title: r.get(1)?,
+                platform_id: r.get(2)?,
+                created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                metadata_json: r.get(5).ok(),
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?
     };
 
     let rows: Vec<Game> = if let Some(pf) = &platform {
-        rows.into_iter().filter(|g| g.platform_id.as_deref() == Some(pf.as_str())).collect()
+        rows.into_iter()
+            .filter(|g| g.platform_id.as_deref() == Some(pf.as_str()))
+            .collect()
     } else {
         rows
     };
@@ -366,11 +437,27 @@ pub fn search_games_fts(
             .platform_id
             .as_ref()
             .and_then(|pid| pmap.get(pid).cloned());
+        let (developer, publisher): (Option<String>, Option<String>) = (
+            conn.query_row(
+                "SELECT value FROM metadata_records WHERE game_id=?1 AND field='developer' LIMIT 1",
+                [game.id.clone()],
+                |r| r.get(0),
+            )
+            .ok(),
+            conn.query_row(
+                "SELECT value FROM metadata_records WHERE game_id=?1 AND field='publisher' LIMIT 1",
+                [game.id.clone()],
+                |r| r.get(0),
+            )
+            .ok(),
+        );
         entries.push(LibraryEntry {
             game,
             platform,
             file_count: files.len(),
             files,
+            developer,
+            publisher,
         });
     }
     Ok(PagedGames {

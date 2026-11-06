@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
 import { useI18n } from "../i18n";
+import { EmptyState } from "../components";
 import type { GameSource } from "../types";
 
 export default function Sources() {
@@ -163,10 +164,7 @@ export default function Sources() {
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
       ) : (sources?.length ?? 0) === 0 ? (
-        <div className="empty">
-          <div className="icon">📁</div>
-          <p>Aucune source configurée.</p>
-        </div>
+        <EmptyState icon="📁" message="Aucune source configurée." />
       ) : (
         <table className="table">
           <thead>
@@ -181,7 +179,7 @@ export default function Sources() {
           <tbody>
             {sources!.map((s) => (
               <tr key={s.id}>
-                <td>{s.name}</td>
+                <td><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: s.available ? "var(--success)" : "var(--danger)", marginRight: 6 }} />{s.name}</td>
                 <td><span className="badge">{s.kind === "remote" ? "Distant" : "Local"}</span></td>
                 <td style={{ fontFamily: "monospace", fontSize: 12 }}>{s.kind === "remote" ? `${s.remote_path}` : s.path}</td>
                 <td>{s.last_scan_at ? new Date(s.last_scan_at).toLocaleString() : "—"}</td>

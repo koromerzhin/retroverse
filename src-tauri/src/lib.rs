@@ -1,7 +1,9 @@
 pub mod commands;
 pub mod config;
+pub mod dat;
 pub mod db;
 pub mod error;
+pub mod hashing;
 pub mod identify;
 pub mod metadata;
 pub mod models;
@@ -14,7 +16,27 @@ use state::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 const SPLASH_HTML: &str = include_str!("../../public/splash.html");
 
+#[cfg(unix)]
+fn single_instance_socket_path() -> std::path::PathBuf {
+    let base = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    base.join("retroverse").join("single-instance.sock")
+}
+
 pub fn run() {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::net::UnixStream;
+        let sock_path = single_instance_socket_path();
+        // If an instance is already running, notify it and exit.
+        if let Ok(mut stream) = UnixStream::connect(&sock_path) {
+            let _ = stream.write_all(b"activate\n");
+            return;
+        }
+        // Remove stale socket file if present.
+        let _ = std::fs::remove_file(&sock_path);
+    }
+
     // File-based logging (readable by external apps). Logs go to <data_dir>/retroverse/logs/
     let log_dir = crate::db::db_path()
         .parent()
@@ -46,7 +68,43 @@ pub fn run() {
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::list_sources,
+            commands::sync_entities_from_metadata,
+            commands::delete_genre,
+            commands::update_genre,
+            commands::add_genre,
+            commands::list_genres_full,
+            commands::list_classifications_full,
+            commands::list_game_classifications,
+            commands::import_dat,
+            commands::verify_library,
+            commands::get_preservation_status,
+            commands::list_preservation_statuses,
+            commands::toggle_favorite,
+            commands::list_favorites,
+            commands::create_tag,
+            commands::list_tags,
+            commands::assign_tag,
+            commands::remove_tag,
+            commands::list_game_tags,
+            commands::preservation_summary,
+            commands::export_preservation_pack,
+            commands::import_preservation_pack,
+            commands::list_audit_log,
+            commands::log_audit,
+            commands::export_dat,
+            commands::sync_classifications,
+            commands::delete_publisher,
+            commands::update_publisher,
+            commands::add_publisher,
+            commands::list_publishers_full,
+            commands::sync_publishers,
+            commands::sync_developers,
+            commands::delete_developer,
+            commands::update_developer,
+            commands::add_developer,
+            commands::list_developers_full,
             commands::app_ready,
+            commands::quit_app,
             commands::show_notification,
             commands::add_source,
             commands::remove_source,
@@ -72,15 +130,26 @@ pub fn run() {
             commands::compute_hashes_for_platform,
             commands::unhashed_counts_by_platform,
             commands::compute_hashes_for_game,
+            commands::compute_hashes_for_all_games,
+            commands::cancel_hash,
+            commands::list_db_backups,
+            commands::restore_db_backup,
             commands::export_backup,
             commands::import_backup,
             commands::list_transfer_jobs,
             commands::list_metadata_providers,
             commands::enrich_game,
             commands::get_game_metadata,
+            commands::list_genres,
+            commands::sync_genres,
+            commands::list_developers,
+            commands::list_publishers,
+            commands::set_game_metadata,
+            commands::save_game_info,
             commands::get_game,
             commands::search_games_fts,
             commands::platform_game_counts,
+            commands::platform_file_counts,
             commands::find_duplicates,
             commands::list_collections,
             commands::create_collection,
@@ -117,7 +186,38 @@ pub fn run() {
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
 
-            // Keep the main window hidden during startup; it is revealed by app_ready.
+            // Sync genres from ScreenScraper in background.
+            let state = app.state::<crate::state::AppState>().inner().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = crate::commands::genres::sync_genres_inner(&state).await;
+                let _ = crate::commands::entities::sync_entities_from_metadata_inner(&state);
+            });
+
+            // Single-instance listener (Unix): restore window when another instance pings.
+            #[cfg(unix)]
+            {
+                use std::os::unix::net::UnixListener;
+                let sock_path = single_instance_socket_path();
+                if let Ok(listener) = UnixListener::bind(&sock_path) {
+                    let app_handle = app.handle().clone();
+                    std::thread::spawn(move || {
+                        for mut s in listener.incoming().flatten() {
+                            use std::io::Read;
+                            let mut buf = [0u8; 64];
+                            let _ = s.read(&mut buf);
+                            if let Some(w) = app_handle.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Force the main webview to load, then hide it so only the splashscreen is visible.
+            let _ = main_window.show();
+            let _ = main_window.set_position(tauri::PhysicalPosition::new(-10000, -10000));
             let _ = main_window.hide();
 
             // Independent splashscreen window with embedded HTML (data URL, no file/URL resolution).
@@ -139,6 +239,16 @@ pub fn run() {
             .visible(true)
             .build()?;
 
+            // Backend-driven transition: keep splash visible 15s, then show main and close splash.
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                if let Some(main) = app_handle.get_webview_window("main") {
+                    let _ = main.show();
+                }
+                // Splash stays until frontend signals readiness via app_ready.
+            });
+
             tracing::info!(
                 "setup: main present={}, splash present={}",
                 app.get_webview_window("main").is_some(),
@@ -149,4 +259,9 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    #[cfg(unix)]
+    {
+        let _ = std::fs::remove_file(single_instance_socket_path());
+    }
 }

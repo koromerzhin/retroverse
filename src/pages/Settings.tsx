@@ -16,27 +16,31 @@ export default function Settings() {
     queryKey: ["appInfo"],
     queryFn: () => api.appInfo(),
   });
-  const [msg, setMsg] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"clear" | "reset" | null>(null);
 
   async function handleReset() {
-    if (!confirm("Vider toute la base de données ? Cette action est irréversible.")) return;
-    try {
-      await api.resetDatabase();
-      setMsg("Base de données vidée.");
-      qc.invalidateQueries();
-    } catch (e: any) {
-      setMsg(String(e));
-    }
+    setConfirmAction("reset");
   }
 
   async function handleClearLibrary() {
-    if (!confirm("Vider la bibliothèque (jeux, fichiers, métadonnées) ? Les sources sont conservées.")) return;
+    setConfirmAction("clear");
+  }
+
+  async function confirmActionRun() {
+    const action = confirmAction;
+    setConfirmAction(null);
+    if (!action) return;
     try {
-      await api.clearLibrary();
-      setMsg("Bibliothèque vidée.");
+      if (action === "reset") {
+        await api.resetDatabase();
+          api.showNotification("RETROVERSE", "Base de données vidée.").catch(() => {});
+      } else {
+        await api.clearLibrary();
+          api.showNotification("RETROVERSE", "Bibliothèque vidée.").catch(() => {});
+      }
       qc.invalidateQueries();
     } catch (e: any) {
-      setMsg(String(e));
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     }
   }
 
@@ -63,8 +67,24 @@ export default function Settings() {
         </p>
         <button className="btn danger" onClick={handleClearLibrary}>{t("settings.clearLibrary")}</button>
         <button className="btn danger" onClick={handleReset} style={{ marginLeft: 8 }}>{t("settings.clearDb")}</button>
-        {msg && <p style={{ color: "var(--text-dim)", marginTop: 8, fontSize: 13 }}>{msg}</p>}
       </div>
+
+      {confirmAction && (
+        <div className="modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Confirmation</h3>
+            <p style={{ color: "var(--text-dim)", fontSize: 13 }}>
+              {confirmAction === "reset"
+                ? "Vider toute la base de données ? Cette action est irréversible."
+                : "Vider la bibliothèque (jeux, fichiers, métadonnées) ? Les sources sont conservées."}
+            </p>
+            <div className="row" style={{ marginTop: 16, justifyContent: "flex-end", gap: 8 }}>
+              <button className="btn" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="btn danger" onClick={confirmActionRun}>Confirmer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Thème</h3>
@@ -87,7 +107,7 @@ export default function Settings() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Fournisseurs de métadonnées</h3>
-        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Configurez les clés API pour ScreenScraper et TheGamesDB.</p>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Configurez les clés API pour ScreenScraper.</p>
         {pc && (
           <>
             <div style={{ marginTop: 8 }}>
@@ -106,17 +126,13 @@ export default function Settings() {
               <label style={{ fontSize: 12, color: "var(--text-muted)" }}>ScreenScraper user password</label>
               <input className="input" type="password" value={pc.screenscraper_sspassword || ""} onChange={(e) => setPc({ ...pc, screenscraper_sspassword: e.target.value })} />
             </div>
-            <div style={{ marginTop: 8 }}>
-              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>TheGamesDB API key</label>
-              <input className="input" value={pc.tgdb_apikey || ""} onChange={(e) => setPc({ ...pc, tgdb_apikey: e.target.value })} />
-            </div>
             <button className="btn primary" style={{ marginTop: 12 }} onClick={async () => {
               try {
                 await api.setProviderConfig(pc);
                 qc.invalidateQueries({ queryKey: ["providerConfig"] });
-                setMsg("Configuration enregistrée.");
+                api.showNotification("RETROVERSE", "Configuration enregistrée.").catch(() => {});
               } catch (e: any) {
-                setMsg(String(e));
+                api.showNotification("RETROVERSE", String(e)).catch(() => {});
               }
             }}>Enregistrer</button>
           </>

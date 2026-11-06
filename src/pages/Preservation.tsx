@@ -8,18 +8,19 @@ export default function Preservation() {
   const qc = useQueryClient();
   const { t } = useI18n();
   const { data: jobs } = useQuery({ queryKey: ["transfer-jobs"], queryFn: () => api.listTransferJobs() });
-  const [msg, setMsg] = useState<string | null>(null);
+  const { data: presSummary } = useQuery({ queryKey: ["preservation-summary"], queryFn: () => api.preservationSummary() });
+  const { data: auditLog } = useQuery({ queryKey: ["audit-log"], queryFn: () => api.listAuditLog(20) });
   const [hashing, setHashing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   async function handleComputeHashes() {
     setHashing(true);
-    setMsg(null);
     try {
       const n = await api.computeHashes();
-      setMsg(`Empreintes calculées pour ${n} fichier(s).`);
+      api.showNotification("RETROVERSE", `Empreintes calculées pour ${n} fichier(s).`).catch(() => {});
       qc.invalidateQueries({ queryKey: ["game"] });
     } catch (e: any) {
-      setMsg(String(e));
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     } finally {
       setHashing(false);
     }
@@ -31,9 +32,9 @@ export default function Preservation() {
     if (!dest) return;
     try {
       const p = await api.exportBackup(dest);
-      setMsg(`Sauvegarde exportée : ${p}`);
+      api.showNotification("RETROVERSE", `Sauvegarde exportée : ${p}`).catch(() => {});
     } catch (e: any) {
-      setMsg(String(e));
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
     }
   }
 
@@ -43,10 +44,36 @@ export default function Preservation() {
     if (typeof src !== "string") return;
     try {
       const n = await api.importBackup(src);
-      setMsg(`Import terminé : ${n} élément(s) ajouté(s).`);
+      api.showNotification("RETROVERSE", `Import terminé : ${n} élément(s) ajouté(s).`).catch(() => {});
       qc.invalidateQueries();
     } catch (e: any) {
-      setMsg(String(e));
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    }
+  }
+
+  async function handleImportDat() {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const src = await open({ multiple: false, filters: [{ name: "DAT", extensions: ["dat", "xml"] }] });
+    if (typeof src !== "string") return;
+    try {
+      const n = await api.importDat(src);
+      api.showNotification("RETROVERSE", `DAT importé : ${n} entrée(s).`).catch(() => {});
+      qc.invalidateQueries();
+    } catch (e: any) {
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    }
+  }
+
+  async function handleVerifyLibrary() {
+    setVerifying(true);
+    try {
+      const n = await api.verifyLibrary();
+      api.showNotification("RETROVERSE", `Vérification terminée : ${n} jeu(x) vérifié(s).`).catch(() => {});
+      qc.invalidateQueries();
+    } catch (e: any) {
+      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -56,6 +83,13 @@ export default function Preservation() {
       <p className="page-sub">{t("preservation.subtitle")}</p>
 
       <div className="card">
+        <h3 style={{ marginTop: 0 }}>Tableau de bord de préservation</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>
+          {(presSummary || []).map((p: any) => `${p[0]}: ${p[1]}`).join(" · ") || "Aucune vérification effectuée."}
+        </p>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Intégrité</h3>
         <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Calcule les empreintes SHA-256 des fichiers locaux.</p>
         <button className="btn primary" onClick={handleComputeHashes} disabled={hashing}>
@@ -64,12 +98,76 @@ export default function Preservation() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Vérification d'intégrité (DAT)</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>Importez un fichier DAT (No-Intro/Redump) puis vérifiez la bibliothèque.</p>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn" onClick={handleImportDat}>Importer un DAT</button>
+          <button className="btn primary" onClick={handleVerifyLibrary} disabled={verifying}>
+            {verifying ? <><span className="spinner" /> Vérification...</> : "Vérifier la bibliothèque"}
+          </button>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <button className="btn" onClick={async () => {
+            const { save } = await import("@tauri-apps/plugin-dialog");
+            const dest = await save({ defaultPath: "retroverse-preservation.zip" });
+            if (!dest) return;
+            try {
+              const n = await api.exportPreservationPack(dest);
+              api.showNotification("RETROVERSE", `Pack exporté : ${n} jeu(x).`).catch(() => {});
+            } catch (e: any) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            }
+          }}>Exporter un pack de préservation</button>
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <button className="btn" onClick={async () => {
+            const { open } = await import("@tauri-apps/plugin-dialog");
+            const src = await open({ multiple: false, filters: [{ name: "ZIP", extensions: ["zip"] }] });
+            if (typeof src !== "string") return;
+            try {
+              const n = await api.importPreservationPack(src);
+              api.showNotification("RETROVERSE", `Pack importé : ${n} jeu(x).`).catch(() => {});
+              qc.invalidateQueries();
+            } catch (e: any) {
+              api.showNotification("RETROVERSE", String(e)).catch(() => {});
+            }
+          }}>Importer un pack de préservation</button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Sauvegarde / Restauration</h3>
         <div className="row">
           <button className="btn primary" onClick={handleExport}>Exporter une sauvegarde</button>
           <button className="btn" onClick={handleImport}>Importer une sauvegarde</button>
         </div>
-        {msg && <p style={{ color: "var(--text-dim)", marginTop: 10, fontSize: 13 }}>{msg}</p>}
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Export DAT</h3>
+        <button className="btn" onClick={async () => {
+          const { save } = await import("@tauri-apps/plugin-dialog");
+          const dest = await save({ defaultPath: "retroverse-export.dat" });
+          if (!dest) return;
+          try {
+            const n = await api.exportDat(dest);
+            api.showNotification("RETROVERSE", `DAT exporté : ${n} jeu(x).`).catch(() => {});
+          } catch (e: any) {
+            api.showNotification("RETROVERSE", String(e)).catch(() => {});
+          }
+        }}>Exporter un DAT</button>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Journal d'audit</h3>
+        <div style={{ maxHeight: 240, overflow: "auto", fontSize: 12, color: "var(--text-muted)", fontFamily: "monospace" }}>
+          {(auditLog || []).map((a: any) => (
+            <div key={a.id} style={{ marginBottom: 4 }}>
+              {a.timestamp} — {a.action}{a.target_id ? ` (${a.target_id})` : ""}{a.details ? ` : ${a.details}` : ""}
+            </div>
+          ))}
+          {(!auditLog || auditLog.length === 0) && <p>Aucune entrée.</p>}
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>

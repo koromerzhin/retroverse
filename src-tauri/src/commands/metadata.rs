@@ -28,10 +28,20 @@ pub async fn enrich_game(
         )?
     };
 
+    // Gather file hashes for this game (if available) to improve ScreenScraper matching.
+    let hashes: Option<(Option<String>, Option<String>, Option<String>)> = {
+        let conn = state.db.lock().unwrap();
+        conn.query_row(
+            "SELECT crc32, md5, sha1 FROM game_files gf JOIN game_file_links l ON l.file_id = gf.id WHERE l.game_id = ?1 LIMIT 1",
+            [game_id.clone()],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        ).ok()
+    };
+
     let prov = metadata::provider_by_name_with_config(&provider, &crate::config::load())
         .ok_or_else(|| RetroError::Invalid("unknown provider".into()))?;
 
-    let res = prov.fetch(&title, platform.as_deref())?;
+    let res = prov.fetch(&title, platform.as_deref(), hashes)?;
 
     // store metadata records with provenance
     {
@@ -68,6 +78,23 @@ pub async fn enrich_game(
                 )?;
             }
         }
+        if let Some(pubv) = &res.publisher {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='publisher'",
+                    [game_id.clone()],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if !exists {
+                let id = crate::models::new_id();
+                conn.execute(
+                    "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                    params![id, game_id, provider, "publisher", pubv, provider, now],
+                )?;
+            }
+        }
         if let Some(cov) = &res.cover_url {
             let exists: bool = conn
                 .query_row(
@@ -78,10 +105,27 @@ pub async fn enrich_game(
                 .unwrap_or(0)
                 > 0;
             if !exists {
+                // Cache the cover image locally for offline use.
+                let cached_path = (|| -> Option<String> {
+                    let base = dirs::data_dir()?
+                        .join("retroverse")
+                        .join("cache")
+                        .join("covers");
+                    let _ = std::fs::create_dir_all(&base);
+                    let dest = base.join(format!("{}.png", game_id));
+                    // Download via ureq
+                    let resp = ureq::get(cov).call().ok()?;
+                    let mut r = resp;
+                    let mut bytes = Vec::new();
+                    use std::io::Read;
+                    r.body_mut().as_reader().read_to_end(&mut bytes).ok()?;
+                    std::fs::write(&dest, &bytes).ok()?;
+                    Some(dest.to_string_lossy().to_string())
+                })();
                 let id = crate::models::new_id();
                 conn.execute(
-                    "INSERT INTO media_assets (id,game_id,kind,url,cached_at) VALUES (?1,?2,?3,?4,?5)",
-                    params![id, game_id, "cover", cov, now],
+                    "INSERT INTO media_assets (id,game_id,kind,url,path,cached_at) VALUES (?1,?2,?3,?4,?5,?6)",
+                    params![id, game_id, "cover", cov, cached_path, now],
                 )?;
             }
         }
@@ -105,6 +149,118 @@ pub async fn enrich_game(
                 )?;
             }
         }
+        // store the full ScreenScraper game object as JSON
+        {
+            let details = res.raw.clone().unwrap_or_else(|| {
+                serde_json::json!({
+                    "ss_id": res.ss_id,
+                    "notgame": res.notgame,
+                    "systeme": res.systeme,
+                    "editeur": res.publisher,
+                    "developpeur": res.developer,
+                    "joueurs": res.players,
+                    "note": res.rating,
+                    "topstaff": res.topstaff,
+                    "rotation": res.rotation,
+                    "synopsis": res.description,
+                    "dates": res.release_dates,
+                    "classifications": res.classifications,
+                    "genres": res.genres,
+                    "alt_titles": res.alt_titles,
+                    "modes": res.modes,
+                    "themes": res.themes,
+                    "styles": res.styles,
+                    "familles": res.familles,
+                })
+            });
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='details'",
+                    [game_id.clone()],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if !exists {
+                let id = crate::models::new_id();
+                conn.execute(
+                    "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                    params![id, game_id, provider, "details", details.to_string(), provider, now],
+                )?;
+            }
+        }
+
+        // also store details in game.metadata_json (prefer full raw ScreenScraper object)
+        {
+            let details = res.raw.clone().unwrap_or_else(|| {
+                serde_json::json!({
+                    "publisher": res.publisher,
+                    "developer": res.developer,
+                    "genres": res.genres,
+                    "players": res.players,
+                    "rating": res.rating,
+                    "release_dates": res.release_dates,
+                    "classifications": res.classifications,
+                    "alt_titles": res.alt_titles,
+                    "modes": res.modes,
+                    "themes": res.themes,
+                    "styles": res.styles,
+                    "ss_id": res.ss_id,
+                    "notgame": res.notgame,
+                    "systeme": res.systeme,
+                    "topstaff": res.topstaff,
+                    "rotation": res.rotation,
+                    "synopsis": res.description,
+                    "familles": res.familles,
+                })
+            });
+            let _ = conn.execute(
+                "UPDATE games SET metadata_json=?1 WHERE id=?2",
+                params![details.to_string(), game_id.clone()],
+            );
+        }
+
+        // Associate classifications with the game via the referential.
+        for (sys_name, value) in &res.classifications {
+            if sys_name.trim().is_empty() || value.trim().is_empty() {
+                continue;
+            }
+            let sys_id: String = match conn.query_row(
+                "SELECT id FROM classification_systems WHERE name=?1",
+                [sys_name.clone()],
+                |r| r.get(0),
+            ) {
+                Ok(id) => id,
+                Err(_) => {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO classification_systems (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                        params![id, sys_name, now, now],
+                    );
+                    id
+                }
+            };
+            let cls_id: String = match conn.query_row(
+                "SELECT id FROM classifications WHERE system_id=?1 AND value=?2",
+                params![sys_id, value],
+                |r| r.get(0),
+            ) {
+                Ok(id) => id,
+                Err(_) => {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO classifications (id,system_id,value,ss_id,description,created_at,updated_at) VALUES (?1,?2,?3,NULL,NULL,?4,?5)",
+                        params![id, sys_id, value, now, now],
+                    );
+                    id
+                }
+            };
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO game_classifications (game_id, classification_id) VALUES (?1,?2)",
+                params![game_id, cls_id],
+            );
+        }
+
         // record job
         let job_id = crate::models::new_id();
         conn.execute(
@@ -152,18 +308,167 @@ pub fn get_game_metadata(
         }));
     }
     // media: deduplicate by kind
-    let mut mstmt =
-        conn.prepare("SELECT kind,url FROM media_assets WHERE game_id=?1 ORDER BY cached_at DESC")?;
+    let mut mstmt = conn.prepare(
+        "SELECT kind,url,path FROM media_assets WHERE game_id=?1 ORDER BY cached_at DESC",
+    )?;
     let mrows = mstmt.query_map([game_id.clone()], |r| {
-        Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, Option<String>>(1)?,
+            r.get::<_, Option<String>>(2)?,
+        ))
     })?;
     let mut seen_kinds: std::collections::HashSet<String> = std::collections::HashSet::new();
     for r in mrows {
-        let (kind, url) = r?;
+        let (kind, url, path) = r?;
         if !seen_kinds.insert(kind.clone()) {
             continue;
         }
-        out.push(serde_json::json!({"kind": kind, "url": url}));
+        out.push(serde_json::json!({"kind": kind, "url": url, "path": path}));
     }
     Ok(out)
+}
+
+#[tauri::command]
+pub fn list_developers(state: State<AppState>) -> Result<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT DISTINCT value FROM metadata_records WHERE field='developer' AND value IS NOT NULL AND value != '' ORDER BY value COLLATE NOCASE")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn list_publishers(state: State<AppState>) -> Result<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT DISTINCT value FROM metadata_records WHERE field='publisher' AND value IS NOT NULL AND value != '' ORDER BY value COLLATE NOCASE")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn set_game_metadata(
+    state: State<AppState>,
+    game_id: String,
+    field: String,
+    value: String,
+) -> Result<()> {
+    let conn = state.db.lock().unwrap();
+    conn.execute(
+        "DELETE FROM metadata_records WHERE game_id=?1 AND field=?2",
+        params![game_id.clone(), field.clone()],
+    )?;
+    if !value.trim().is_empty() {
+        let id = crate::models::new_id();
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            params![id, game_id, "manual", field, value, "manual", now],
+        )?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_game_info(
+    state: State<AppState>,
+    game_id: String,
+    title: String,
+    metadata_json: String,
+) -> Result<()> {
+    let conn = state.db.lock().unwrap();
+    conn.execute(
+        "UPDATE games SET title=?1 WHERE id=?2",
+        params![title, game_id.clone()],
+    )?;
+    conn.execute(
+        "UPDATE games SET metadata_json=?1 WHERE id=?2",
+        params![metadata_json, game_id.clone()],
+    )?;
+    // Upsert publisher/developer into referentials and link to the game.
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
+        let now = chrono::Utc::now().to_rfc3339();
+        // publisher
+        let pub_name = v
+            .get("editeur")
+            .and_then(|e| e.get("text"))
+            .and_then(|t| t.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                v.get("publisher")
+                    .and_then(|p| p.as_str())
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+            });
+        if let Some(name) = pub_name {
+            let pid: Option<String> = conn
+                .query_row(
+                    "SELECT id FROM publishers WHERE name=?1 COLLATE NOCASE",
+                    [name.clone()],
+                    |r| r.get(0),
+                )
+                .ok();
+            let pid = match pid {
+                Some(id) => id,
+                None => {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO publishers (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                        params![id, name, now, now],
+                    );
+                    id
+                }
+            };
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO game_publishers (game_id, publisher_id) VALUES (?1,?2)",
+                params![game_id, pid],
+            );
+        }
+        // developer
+        let dev_name = v
+            .get("developpeur")
+            .and_then(|e| e.get("text"))
+            .and_then(|t| t.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                v.get("developer")
+                    .and_then(|p| p.as_str())
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+            });
+        if let Some(name) = dev_name {
+            let did: Option<String> = conn
+                .query_row(
+                    "SELECT id FROM developers WHERE name=?1 COLLATE NOCASE",
+                    [name.clone()],
+                    |r| r.get(0),
+                )
+                .ok();
+            let did = match did {
+                Some(id) => id,
+                None => {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO developers (id,name,ss_id,created_at,updated_at) VALUES (?1,?2,NULL,?3,?4)",
+                        params![id, name, now, now],
+                    );
+                    id
+                }
+            };
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO game_developers (game_id, developer_id) VALUES (?1,?2)",
+                params![game_id, did],
+            );
+        }
+    }
+    Ok(())
 }
