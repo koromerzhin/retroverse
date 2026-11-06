@@ -88,11 +88,11 @@ Manquants :
 
 ### Phase 3 — Archivage ✅
 9. Export de pack de préservation (zip avec metadata + manifest) ✅ (ROMs référencées par chemin).
-10. Import/restauration d'un pack. ❌ (non implémenté)
+10. Import/restauration d'un pack. ✅ (import_preservation_pack)
 11. Backup complet de la base + cache. ✅ (auto-backup avant migration)
 
-### Phase 4 — Avancé (partiel)
-12. Détection de bad dumps / hacks. ❌ (non implémenté)
+### Phase 4 — Avancé ✅
+12. Détection de bad dumps / hacks. ✅ (colonne bad + statut bad_dump)
 13. Export DAT personnalisé. ✅ (export_dat ClrMamePro)
 14. Historique et audit trail UI. ✅
 
