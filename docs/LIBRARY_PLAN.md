@@ -74,27 +74,27 @@ Manquants :
 
 ## 4. Plan d'implémentation
 
-### Phase 1 — Filtrage avancé
+### Phase 1 — Filtrage avancé ✅
 1. Panneau de filtres combinés (plateforme, genre, développeur, éditeur, année).
 2. Filtres rapides (sans métadonnées, sans empreintes, favoris, récemment ajoutés).
 3. Sauvegarde des filtres dans l'URL.
 
-### Phase 2 — Organisation
+### Phase 2 — Organisation ✅
 4. Table `game_favorites` + icône étoile.
 5. Tags personnalisés + filtrage.
 6. Vues filtrées prédéfinies.
 
-### Phase 3 — Actions
+### Phase 3 — Actions ✅
 7. Sélection multiple + actions groupées.
 8. Menu contextuel.
 9. Drag & drop vers collections.
 
-### Phase 4 — Affichage
+### Phase 4 — Affichage ✅
 10. Vue compacte avec colonnes configurables.
 11. Groupement par plateforme/genre/année.
 12. Prévisualisation au survol.
 
-### Phase 5 — Statistiques
+### Phase 5 — Statistiques ✅
 13. Graphiques (réutiliser une lib légère ou SVG).
 14. Progression de la collection.
 
