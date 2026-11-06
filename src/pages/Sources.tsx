@@ -1,33 +1,35 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, pickDirectory } from "../lib/api";
-import { useI18n } from "../i18n";
 import type { GameSource } from "../types";
+
+type SourceType = "local" | "remote";
 
 export default function Sources() {
   const qc = useQueryClient();
-  const { t } = useI18n();
   const { data: sources, isLoading } = useQuery<GameSource[]>({
     queryKey: ["sources"],
     queryFn: () => api.listSources(),
   });
   const { data: active } = useQuery<GameSource | null>({ queryKey: ["active-source"], queryFn: () => api.getActiveSource() });
 
-  // local
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogType, setDialogType] = useState<SourceType | null>(null);
+  const [editing, setEditing] = useState<GameSource | null>(null);
+
+  // Local form
   const [localName, setLocalName] = useState("");
   const [localPath, setLocalPath] = useState("");
 
-  // remote
+  // Remote form
   const [rName, setRName] = useState("");
-  const [rUrl, setRUrl] = useState("");
   const [rHost, setRHost] = useState("");
   const [rPort, setRPort] = useState("22");
   const [rUser, setRUser] = useState("deck");
   const [rKey, setRKey] = useState("/home/koromerzhin/.ssh/id_ed25519");
-  const [rPath, setRPath] = useState("/run/media/deck/WDC1/Emulation/");
+  const [rPath, setRPath] = useState("");
 
-  // edit state
-  const [editing, setEditing] = useState<GameSource | null>(null);
+  // Edit form
   const [editName, setEditName] = useState("");
   const [editPath, setEditPath] = useState("");
   const [editHost, setEditHost] = useState("");
@@ -36,113 +38,34 @@ export default function Sources() {
   const [editKey, setEditKey] = useState("");
   const [editRPath, setEditRPath] = useState("");
 
-  const [testMsg, setTestMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function parseUrl(v: string) {
-    setRUrl(v);
-    if (!v.toLowerCase().startsWith("sftp://")) return;
-    let rest = v.slice(7);
-    let user = "";
-    if (rest.includes("@")) {
-      const idx = rest.indexOf("@");
-      user = rest.slice(0, idx);
-      rest = rest.slice(idx + 1);
-    }
-    let host = rest;
-    let port = "";
-    let path = "";
-    const slashIdx = rest.indexOf("/");
-    if (slashIdx >= 0) {
-      path = rest.slice(slashIdx);
-      host = rest.slice(0, slashIdx);
-    }
-    if (host.includes(":")) {
-      const ci = host.indexOf(":");
-      port = host.slice(ci + 1);
-      host = host.slice(0, ci);
-    }
-    if (user) setRUser(user);
-    if (host) setRHost(host);
-    if (port) setRPort(port);
-    if (path) setRPath(path);
-    if (host && !rName) setRName(host);
+  function resetForms() {
+    setLocalName(""); setLocalPath("");
+    setRName(""); setRHost(""); setRPort("22"); setRUser("deck"); setRKey("/home/koromerzhin/.ssh/id_ed25519"); setRPath("");
+    setEditName(""); setEditPath(""); setEditHost(""); setEditPort("22"); setEditUser(""); setEditKey(""); setEditRPath("");
+    setError(null);
   }
 
-  const addLocal = useMutation({
-    mutationFn: () => api.addSource(localName.trim() || "Nouvelle source", localPath),
-    onSuccess: () => {
-      setLocalName(""); setLocalPath("");
-      qc.invalidateQueries({ queryKey: ["sources"] });
-      qc.invalidateQueries({ queryKey: ["active-source"] });
-    },
-    onError: (e: any) => setError(String(e)),
-  });
-
-  const addRemote = useMutation({
-    mutationFn: () =>
-      api.addRemoteSource(rName.trim() || "Source distante", rHost.trim(), Number(rPort) || 22, rUser.trim(), rKey.trim(), rPath.trim()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["sources"] });
-      qc.invalidateQueries({ queryKey: ["active-source"] });
-      setError(null);
-    },
-    onError: (e: any) => setError(String(e)),
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (id: string) => api.removeSource(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["sources"] });
-      qc.invalidateQueries({ queryKey: ["active-source"] });
-    },
-  });
-
-  const activateMutation = useMutation({
-    mutationFn: (id: string) => api.setActiveSource(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["sources"] });
-      qc.invalidateQueries({ queryKey: ["active-source"] });
-      api.showNotification("RETROVERSE", "Source activée.").catch(() => {});
-    },
-    onError: (e: any) => api.showNotification("RETROVERSE", String(e)).catch(() => {}),
-  });
-
-  async function handlePickLocal() {
-    const dir = await pickDirectory();
-    if (dir) {
-      setLocalPath(dir);
-      if (!localName) setLocalName(dir.split("/").pop() || "Source");
-    }
-  }
-  async function handlePickKey() {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const res = await open({ multiple: false });
-    if (typeof res === "string") setRKey(res);
-  }
-  async function handleTest() {
-    setError(null); setTestMsg(null);
-    // test with form values (not saved) — use a temp approach: save then test? Simpler: test saved source only.
-    setTestMsg("Test disponible après ajout de la source.");
-  }
-  async function handleTestSource(id: string) {
-    try {
-      const msg = await api.testSource(id);
-      api.showNotification("RETROVERSE", msg).catch(() => {});
-    } catch (e: any) {
-      api.showNotification("RETROVERSE", String(e)).catch(() => {});
-    }
+  function openAdd() {
+    setEditing(null);
+    setDialogType(null);
+    resetForms();
+    setDialogOpen(true);
   }
 
-  async function startEdit(s: GameSource) {
-    setEditing(s);
-    setEditName(s.name);
-    if (s.kind === "local") {
-      setEditPath(s.path);
+  async function startEdit(src: GameSource) {
+    setEditing(src);
+    setDialogType(src.kind === "remote" ? "remote" : "local");
+    resetForms();
+    setEditName(src.name);
+    if (src.kind === "local") {
+      setEditPath(src.path);
     } else {
-      setEditRPath(s.remote_path || s.path);
+      setEditRPath(src.remote_path || src.path);
       try {
-        const c = await api.getRemoteConnection(s.id);
+        const c = await api.getRemoteConnection(src.id);
         setEditHost(c.host || "");
         setEditPort(String(c.port || 22));
         setEditUser(c.username || "");
@@ -151,29 +74,87 @@ export default function Sources() {
         setEditHost(""); setEditPort("22"); setEditUser(""); setEditKey("");
       }
     }
+    setDialogOpen(true);
   }
 
-  async function saveEdit() {
-    if (!editing) return;
-    try {
-      if (editing.kind === "local") {
-        await api.updateSource(editing.id, editName || editing.name, editPath || editing.path);
-      } else {
-        // need host/user/key; if empty, fetch from db? fallback: keep existing by re-entering
-        await api.updateRemoteSource(editing.id, editName || editing.name, editHost, Number(editPort) || 22, editUser, editKey, editRPath || editing.path);
-      }
-      qc.invalidateQueries({ queryKey: ["sources"] });
-      setEditing(null);
-      api.showNotification("RETROVERSE", "Source mise à jour.").catch(() => {});
-    } catch (e: any) {
-      api.showNotification("RETROVERSE", String(e)).catch(() => {});
+  async function handlePickLocal(target: "add" | "edit") {
+    const dir = await pickDirectory();
+    if (dir) {
+      if (target === "add") { setLocalPath(dir); if (!localName) setLocalName(dir.split("/").pop() || "Source"); }
+      else { setEditPath(dir); if (!editName) setEditName(dir.split("/").pop() || "Source"); }
     }
   }
 
+  async function handlePickKey(target: "add" | "edit") {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const res = await open({ multiple: false });
+    if (typeof res === "string") {
+      if (target === "add") setRKey(res); else setEditKey(res);
+    }
+  }
+
+  async function saveSource() {
+    setSaving(true); setError(null);
+    try {
+      if (editing) {
+        if (editing.kind === "local") {
+          await api.updateSource(editing.id, editName || editing.name, editPath || editing.path);
+        } else {
+          await api.updateRemoteSource(editing.id, editName || editing.name, editHost, Number(editPort) || 22, editUser, editKey, editRPath || editing.path);
+        }
+      } else {
+        if (dialogType === "local") {
+          await api.addSource(localName.trim() || "Source locale", localPath);
+        } else {
+          await api.addRemoteSource(rName.trim() || "Source distante", rHost.trim(), Number(rPort) || 22, rUser.trim(), rKey.trim(), rPath.trim());
+        }
+      }
+      qc.invalidateQueries({ queryKey: ["sources"] });
+      qc.invalidateQueries({ queryKey: ["active-source"] });
+      setDialogOpen(false);
+    } catch (e: any) {
+      setError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Supprimer cette source ?")) return;
+    try {
+      await api.removeSource(id);
+      qc.invalidateQueries({ queryKey: ["sources"] });
+      qc.invalidateQueries({ queryKey: ["active-source"] });
+    } catch (e: any) {
+      alert(String(e));
+    }
+  }
+
+  async function handleActivate(id: string) {
+    try {
+      await api.setActiveSource(id);
+      qc.invalidateQueries({ queryKey: ["sources"] });
+      qc.invalidateQueries({ queryKey: ["active-source"] });
+    } catch (e: any) {
+      alert(String(e));
+    }
+  }
+
+  async function handleTest(id: string) {
+    try {
+      const msg = await api.testSource(id);
+      alert(msg);
+    } catch (e: any) {
+      alert(String(e));
+    }
+  }
+
+  const isEmpty = !sources || sources.length === 0;
+
   return (
     <>
-      <h1 className="page-title">{t("sources.title")}</h1>
-      <p className="page-sub">{t("sources.subtitle")}</p>
+      <h1 className="page-title">Sources</h1>
+      <p className="page-sub">Gestion des sources de ROMs (locale et distante).</p>
 
       {active && (
         <div className="card" style={{ marginBottom: 16, background: "var(--bg-3)" }}>
@@ -184,145 +165,140 @@ export default function Sources() {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Ajouter une source locale</h3>
-        <div className="row">
-          <input className="input" placeholder="Nom" value={localName} onChange={(e) => setLocalName(e.target.value)} style={{ maxWidth: 220 }} />
-          <input className="input" placeholder="Chemin du dossier" value={localPath} onChange={(e) => setLocalPath(e.target.value)} />
-          <button className="btn" onClick={handlePickLocal}>Parcourir…</button>
-          <button className="btn primary" onClick={() => addLocal.mutate()} disabled={!localPath || addLocal.isPending}>
-            {addLocal.isPending ? <span className="spinner" /> : "Ajouter"}
-          </button>
-        </div>
+      <div style={{ marginBottom: 16 }}>
+        <button className="btn primary" onClick={openAdd}>Ajouter une source</button>
       </div>
-
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Ajouter une source distante (SSH/SFTP)</h3>
-        <div className="row">
-          <input className="input" placeholder="URL sftp://user@host:port/chemin (optionnel)" value={rUrl} onChange={(e) => parseUrl(e.target.value)} />
-        </div>
-        <div className="row" style={{ marginTop: 10 }}>
-          <input className="input" placeholder="Nom" value={rName} onChange={(e) => setRName(e.target.value)} style={{ maxWidth: 200 }} />
-          <input className="input" placeholder="Hôte (IP ou nom)" value={rHost} onChange={(e) => setRHost(e.target.value)} style={{ maxWidth: 200 }} />
-          <input className="input" placeholder="Port" value={rPort} onChange={(e) => setRPort(e.target.value)} style={{ maxWidth: 80 }} />
-          <input className="input" placeholder="Utilisateur" value={rUser} onChange={(e) => setRUser(e.target.value)} style={{ maxWidth: 120 }} />
-        </div>
-        <div className="row" style={{ marginTop: 10 }}>
-          <input className="input" placeholder="Chemin de la clé SSH privée" value={rKey} onChange={(e) => setRKey(e.target.value)} />
-          <button className="btn" onClick={handlePickKey}>Parcourir…</button>
-        </div>
-        <div className="row" style={{ marginTop: 10 }}>
-          <input className="input" placeholder="Chemin distant des ROMs" value={rPath} onChange={(e) => setRPath(e.target.value)} />
-        </div>
-        <div className="row" style={{ marginTop: 12 }}>
-          <button className="btn" onClick={handleTest} disabled={!rHost || !rKey}>Tester la connexion</button>
-          <button className="btn primary" onClick={() => addRemote.mutate()} disabled={!rHost || !rKey || !rPath || addRemote.isPending}>
-            {addRemote.isPending ? <span className="spinner" /> : "Ajouter la source distante"}
-          </button>
-          {testMsg && <span style={{ color: "var(--success)", fontSize: 13 }}>{testMsg}</span>}
-        </div>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
-          Exemple Steam Deck : hôte 192.168.x.x, utilisateur <code>deck</code>, clé <code>~/.ssh/id_ed25519</code>, chemin <code>/home/deck/Emulation/roms/</code>.
-        </p>
-      </div>
-
-      {error && <p style={{ color: "var(--danger)", marginBottom: 12 }}>{error}</p>}
 
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
-      ) : (sources?.length ?? 0) === 0 ? (
+      ) : isEmpty ? (
         <div className="empty">
           <div className="icon">📁</div>
-          <p>Aucune source configurée.</p>
+          <p style={{ fontSize: 14, fontWeight: 600 }}>Aucune source configurée</p>
+          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Une source est nécessaire pour accéder aux ROMs.</p>
+          <button className="btn primary" style={{ marginTop: 12 }} onClick={openAdd}>Ajouter une source</button>
         </div>
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Active</th>
-              <th>Nom</th>
-              <th>Type</th>
-              <th>Chemin</th>
-              <th>Dernier scan</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sources!.map((s) => (
-              <tr key={s.id} style={{ background: s.id === active?.id ? "var(--bg-3)" : undefined }}>
-                <td>
-                  {s.id === active?.id ? (
-                    <span style={{ color: "var(--success)", fontWeight: 700 }}>✓</span>
-                  ) : (
-                    <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => activateMutation.mutate(s.id)}>Activer</button>
-                  )}
-                </td>
-                <td>{s.name}</td>
-                <td><span className="badge">{s.kind === "remote" ? "Distant" : "Local"}</span></td>
-                <td style={{ fontFamily: "monospace", fontSize: 12 }}>{s.kind === "remote" ? `${s.remote_path}` : s.path}</td>
-                <td>{s.last_scan_at ? new Date(s.last_scan_at).toLocaleString() : "—"}</td>
-                <td>
-                  <div className="row" style={{ gap: 6 }}>
-                    <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleTestSource(s.id)}>Tester</button>
-                    <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startEdit(s)}>Modifier</button>
-                    <button
-                      className="btn danger"
-                      style={{ fontSize: 11, padding: "2px 8px" }}
-                      onClick={() => { if (confirm("Supprimer cette source ?")) removeMutation.mutate(s.id); }}
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </td>
+        <div className="card" style={{ padding: 0 }}>
+          <table className="table">
+            <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}>
+              <tr>
+                <th>Active</th>
+                <th>Nom</th>
+                <th>Type</th>
+                <th>Emplacement</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(sources || []).map((s) => (
+                <tr key={s.id} style={{ background: s.id === active?.id ? "var(--bg-3)" : undefined }}>
+                  <td>
+                    {s.id === active?.id ? (
+                      <span style={{ color: "var(--success)", fontWeight: 700 }}>✓</span>
+                    ) : (
+                      <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleActivate(s.id)}>Activer</button>
+                    )}
+                  </td>
+                  <td>{s.name}</td>
+                  <td><span className="badge">{s.kind === "remote" ? "Distant" : "Local"}</span></td>
+                  <td style={{ fontFamily: "monospace", fontSize: 12 }}>{s.kind === "remote" ? s.remote_path : s.path}</td>
+                  <td>
+                    <div className="row" style={{ gap: 6 }}>
+                      <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleTest(s.id)}>Tester</button>
+                      <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startEdit(s)}>Modifier</button>
+                      <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleDelete(s.id)}>Supprimer</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {editing && (
-        <div className="modal-backdrop" onClick={() => setEditing(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Modifier la source</h3>
-            <div style={{ marginTop: 8 }}>
-              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Nom</label>
-              <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} />
-            </div>
-            {editing.kind === "local" ? (
+      {dialogOpen && (
+        <div className="modal-backdrop" onClick={() => setDialogOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <h3 style={{ marginTop: 0 }}>{editing ? "Modifier la source" : "Ajouter une source"}</h3>
+
+            {!editing && dialogType === null && (
+              <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+                <button className="btn" style={{ flex: 1, padding: 16, flexDirection: "column" }} onClick={() => setDialogType("local")}>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>📁</div>
+                  <div style={{ fontWeight: 600 }}>Source locale</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Utiliser un dossier présent sur cet ordinateur</div>
+                </button>
+                <button className="btn" style={{ flex: 1, padding: 16, flexDirection: "column" }} onClick={() => setDialogType("remote")}>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>🌐</div>
+                  <div style={{ fontWeight: 600 }}>Source distante (SSH)</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Accéder à un dossier ROMs sur une machine distante</div>
+                </button>
+              </div>
+            )}
+
+            {!editing && dialogType !== null && (
+              <button className="btn" style={{ marginBottom: 12, fontSize: 12 }} onClick={() => setDialogType(null)}>← Retour</button>
+            )}
+
+            {dialogType === "local" && (
               <>
                 <div style={{ marginTop: 8 }}>
-                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Chemin</label>
-                  <input className="input" value={editPath} onChange={(e) => setEditPath(e.target.value)} />
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ marginTop: 8 }}>
-                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Hôte</label>
-                  <input className="input" value={editHost} onChange={(e) => setEditHost(e.target.value)} />
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Nom</label>
+                  <input className="input" value={editing ? editName : localName} onChange={(e) => editing ? setEditName(e.target.value) : setLocalName(e.target.value)} />
                 </div>
                 <div style={{ marginTop: 8 }}>
-                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Port</label>
-                  <input className="input" value={editPort} onChange={(e) => setEditPort(e.target.value)} />
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Utilisateur</label>
-                  <input className="input" value={editUser} onChange={(e) => setEditUser(e.target.value)} />
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Clé SSH</label>
-                  <input className="input" value={editKey} onChange={(e) => setEditKey(e.target.value)} />
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Chemin distant</label>
-                  <input className="input" value={editRPath} onChange={(e) => setEditRPath(e.target.value)} />
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Chemin du dossier</label>
+                  <div className="row" style={{ gap: 8 }}>
+                    <input className="input" value={editing ? editPath : localPath} onChange={(e) => editing ? setEditPath(e.target.value) : setLocalPath(e.target.value)} />
+                    <button className="btn" onClick={() => handlePickLocal(editing ? "edit" : "add")}>Parcourir…</button>
+                  </div>
                 </div>
               </>
             )}
-            <div className="row" style={{ marginTop: 16, justifyContent: "flex-end", gap: 8 }}>
-              <button className="btn" onClick={() => setEditing(null)}>Annuler</button>
-              <button className="btn primary" onClick={saveEdit}>Enregistrer</button>
-            </div>
+
+            {dialogType === "remote" && (
+              <>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Nom</label>
+                  <input className="input" value={editing ? editName : rName} onChange={(e) => editing ? setEditName(e.target.value) : setRName(e.target.value)} />
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Hôte (IP ou nom)</label>
+                  <input className="input" value={editing ? editHost : rHost} onChange={(e) => editing ? setEditHost(e.target.value) : setRHost(e.target.value)} />
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Port SSH</label>
+                  <input className="input" value={editing ? editPort : rPort} onChange={(e) => editing ? setEditPort(e.target.value) : setRPort(e.target.value)} />
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Utilisateur</label>
+                  <input className="input" value={editing ? editUser : rUser} onChange={(e) => editing ? setEditUser(e.target.value) : setRUser(e.target.value)} />
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Clé SSH privée</label>
+                  <div className="row" style={{ gap: 8 }}>
+                    <input className="input" value={editing ? editKey : rKey} onChange={(e) => editing ? setEditKey(e.target.value) : setRKey(e.target.value)} />
+                    <button className="btn" onClick={() => handlePickKey(editing ? "edit" : "add")}>Parcourir…</button>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Chemin distant des ROMs</label>
+                  <input className="input" value={editing ? editRPath : rPath} onChange={(e) => editing ? setEditRPath(e.target.value) : setRPath(e.target.value)} />
+                </div>
+              </>
+            )}
+
+            {error && <p style={{ color: "var(--danger)", fontSize: 12, marginTop: 8 }}>{error}</p>}
+
+            {(dialogType === "local" || dialogType === "remote" || editing) && (
+              <div className="row" style={{ marginTop: 16, justifyContent: "flex-end", gap: 8 }}>
+                <button className="btn" onClick={() => setDialogOpen(false)}>Annuler</button>
+                <button className="btn primary" onClick={saveSource} disabled={saving}>
+                  {saving ? <span className="spinner" /> : "Enregistrer"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
