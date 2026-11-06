@@ -7,6 +7,7 @@ export default function Developers() {
   const { data } = useQuery({ queryKey: ["developers-full"], queryFn: () => api.listDevelopersFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.developers.view") as "cards" | "list") || "list");
 
   const filtered = (data || [])
     .filter((d: any) => !search || d.name.toLowerCase().includes(search.toLowerCase()))
@@ -19,9 +20,24 @@ export default function Developers() {
         <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <SearchInput value={search} onChange={setSearch} placeholder="Rechercher…" maxWidth={240} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
+          <div className="row" style={{ gap: 4, marginLeft: "auto" }}>
+            <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.developers.view", "cards"); }}>Cards</button>
+            <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.developers.view", "list"); }}>Liste</button>
+          </div>
         </div>
+        {view === "cards" ? (
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+          {filtered.map((d: any) => (
+            <div className="card" key={d.id} style={{ padding: 12 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.name}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{d.game_count ?? 0} jeu(x)</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>SS: {d.ss_id ?? "—"}</div>
+            </div>
+          ))}
+        </div>
+        ) : (
         <table className="table">
-          <thead><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>ID SS</th></tr></thead>
+          <thead><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Jeux</th><th>ID SS</th></tr></thead>
           <tbody>
             {filtered.map((d: any) => (
               <tr key={d.id}>
@@ -32,6 +48,7 @@ export default function Developers() {
             ))}
           </tbody>
         </table>
+        )}
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{filtered.length} développeur(s)</p>
       </div>
     </>

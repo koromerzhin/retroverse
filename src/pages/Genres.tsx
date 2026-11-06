@@ -10,6 +10,7 @@ export default function Genres() {
   const { data } = useQuery({ queryKey: ["genres-full"], queryFn: () => api.listGenresFull() });
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [view, setView] = useState<"cards" | "list">(() => (localStorage.getItem("retroverse.genres.view") as "cards" | "list") || "list");
   const [syncing, setSyncing] = useState(false);
 
   const nameOf = (g: any) => {
@@ -31,6 +32,10 @@ export default function Genres() {
         <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <SearchInput value={search} onChange={setSearch} placeholder="Rechercher…" maxWidth={240} />
           <button className="btn" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>{sortDir === "asc" ? "▲" : "▼"}</button>
+          <div className="row" style={{ gap: 4, marginLeft: "auto" }}>
+            <button className={`btn ${view === "cards" ? "primary" : ""}`} onClick={() => { setView("cards"); localStorage.setItem("retroverse.genres.view", "cards"); }}>Cards</button>
+            <button className={`btn ${view === "list" ? "primary" : ""}`} onClick={() => { setView("list"); localStorage.setItem("retroverse.genres.view", "list"); }}>Liste</button>
+          </div>
           <button className="btn primary" disabled={syncing} onClick={async () => {
             setSyncing(true);
             try {
@@ -46,6 +51,16 @@ export default function Genres() {
             {syncing ? "…" : "Synchroniser les genres (ScreenScraper)"}
           </button>
         </div>
+        {view === "cards" ? (
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+          {filtered.map((g: any) => (
+            <div className="card" key={g.id} style={{ padding: 12 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>{nameOf(g)}</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Parent: {g.parent_id ? (data || []).find((x: any) => x.id === g.parent_id)?.name_en || g.parent_id : "—"}</div>
+            </div>
+          ))}
+        </div>
+        ) : (
         <table className="table">
           <thead><tr><th style={{ cursor: "pointer" }} onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>Nom {sortDir === "asc" ? "▲" : "▼"}</th><th>Parent</th></tr></thead>
           <tbody>
@@ -60,6 +75,7 @@ export default function Genres() {
             })}
           </tbody>
         </table>
+        )}
         <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>{filtered.length} genre(s)</p>
       </div>
     </>
