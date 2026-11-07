@@ -466,6 +466,11 @@ export default function Library() {
                         {hashingGame === e.game.id ? "…" : "Calculer"}
                       </button>
                     ) : "✓"}
+                    {isEligible(e) && (
+                      <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px", marginLeft: 4 }} onClick={() => { api.enrichGame(e.game.id, "screenscraper").then(() => { qc.invalidateQueries({ queryKey: ["games"] }); api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {}); }).catch((err) => api.showNotification("RETROVERSE", String(err)).catch(() => {})); }}>
+                        Rechercher
+                      </button>
+                    )}
                   </td>}
                   {cols.pres && <td>{presBadge(presStatus(e.game.id))}</td>}
                 </tr>
