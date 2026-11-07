@@ -88,13 +88,14 @@ pub async fn compute_hashes_for_game_inner(
                 )?
             };
             let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
+            let remote_path = crate::identify::remote_path_from_url(&path);
             // Stream download to a temp file to avoid loading the whole file into memory.
             let tmp = std::env::temp_dir().join(format!("retroverse_{}", fid));
             {
                 use tokio::io::AsyncReadExt;
                 let mut f = sess
                     .sftp
-                    .open(&path)
+                    .open(remote_path)
                     .await
                     .map_err(|e| RetroError::Other(e.to_string()))?;
                 let mut out = std::fs::File::create(&tmp).map_err(RetroError::Io)?;
@@ -117,7 +118,7 @@ pub async fn compute_hashes_for_game_inner(
                 .disconnect(russh::Disconnect::ByApplication, "", "")
                 .await;
             let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
-            let lower = path.to_lowercase();
+            let lower = remote_path.to_lowercase();
             let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
             if is_archive {
                 arch_hashes = crate::identify::hash_file_all(tmp.to_str().unwrap_or(""));
@@ -235,12 +236,13 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
             )?
         };
         let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
+        let remote_path = crate::identify::remote_path_from_url(&path);
         let tmp = std::env::temp_dir().join(format!("retroverse_{}", file_id));
         {
             use tokio::io::AsyncReadExt;
             let mut f = sess
                 .sftp
-                .open(&path)
+                .open(remote_path)
                 .await
                 .map_err(|e| RetroError::Other(e.to_string()))?;
             let mut out = std::fs::File::create(&tmp).map_err(RetroError::Io)?;
@@ -264,7 +266,7 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
             .await;
         let content = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
         let (s, c, m, h, zi, sh512) = content;
-        let lower = path.to_lowercase();
+        let lower = crate::identify::remote_path_from_url(&path).to_lowercase();
         let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
         let (as_, ac, am, ah, ash512) = if is_archive {
             crate::identify::hash_file_all(tmp.to_str().unwrap_or(""))
@@ -276,7 +278,7 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
     } else {
         let content = crate::identify::compute_hashes(&path, &allowed);
         let (s, c, m, h, zi, sh512) = content;
-        let lower = path.to_lowercase();
+        let lower = crate::identify::remote_path_from_url(&path).to_lowercase();
         let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
         let (as_, ac, am, ah, ash512) = if is_archive {
             crate::identify::hash_file_all(&path)
