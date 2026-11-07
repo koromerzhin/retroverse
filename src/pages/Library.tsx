@@ -21,6 +21,8 @@ export default function Library() {
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"cards" | "list" | "compact">(() => (localStorage.getItem("retroverse.library.view") as "cards" | "list" | "compact") || "list");
   const [calculatingAll, setCalculatingAll] = useState(false);
+  const [enrichingAll, setEnrichingAll] = useState(false);
+  const [enrichProgress, setEnrichProgress] = useState<any>(null);
   const [onlyMissingHash, setOnlyMissingHash] = useState(false);
   const [onlyNoMeta, setOnlyNoMeta] = useState(false);
   const [onlyRecent, setOnlyRecent] = useState(false);
@@ -48,6 +50,13 @@ export default function Library() {
   }, [searchInput]);
 
   useEffect(() => { setPage(1); }, [search, platform, developer, publisher]);
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen<any>("enrich-progress", (ev) => setEnrichProgress(ev.payload)).then((u) => { unlisten = u; });
+    });
+    return () => { if (unlisten) unlisten(); };
+  }, []);
 
   const { data: platforms } = useQuery<Platform[]>({
     queryKey: ["platforms"],
@@ -107,6 +116,7 @@ export default function Library() {
   const platformCounts: Record<string, number> = platformCountsData || {};
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
 
+  const isEligible = (e: LibraryEntry) => (e.files || []).length > 0 && !(e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash));
   const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
   const presStatus = (id: string) => (presStatuses || []).find((p: any) => p[0] === id)?.[1] ?? "unknown";
   const presBadge = (status: string) => status === "verified" ? "✓" : status === "bad_dump" ? "✗" : "·";
@@ -288,6 +298,13 @@ export default function Library() {
         <button className="btn primary" disabled={calculatingAll} onClick={handleCalculateAll}>
           {calculatingAll ? <><span className="spinner" /> Calcul en cours...</> : "Tout calculer"}
         </button>
+        <button className="btn primary" disabled={enrichingAll} onClick={async () => {
+          setEnrichingAll(true);
+          try { await api.enrichAllEligible(); } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
+          finally { setEnrichingAll(false); setEnrichProgress(null); qc.invalidateQueries({ queryKey: ["games"] }); }
+        }}>
+          {enrichingAll ? <><span className="spinner" /> Recherche en cours...</> : "Rechercher pour tous les jeux"}
+        </button>
 
         <span className="badge">{formatNumber(games?.length ?? 0)} jeu(x)</span>
         <div className="row" style={{ marginLeft: "auto", gap: 4, flexWrap: "wrap" }}>
@@ -358,6 +375,21 @@ export default function Library() {
         </div>
       )}
 
+      {enrichProgress && enrichingAll && (
+        <div className="card" style={{ marginBottom: 12, padding: 12 }}>
+          <p style={{ fontSize: 13, color: "var(--text-dim)", margin: 0 }}>
+            Jeux : {enrichProgress.total} · Éligibles : {enrichProgress.eligible} · Ignorés : {enrichProgress.ignored}
+          </p>
+          <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "4px 0" }}>
+            Traités : {enrichProgress.done} / {enrichProgress.eligible} ({enrichProgress.eligible ? Math.round((enrichProgress.done / enrichProgress.eligible) * 100) : 0}%)
+          </p>
+          <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "4px 0" }}>
+            Réussis : {enrichProgress.success} · Sans résultat : {enrichProgress.no_result} · Erreurs : {enrichProgress.errors}
+          </p>
+          {enrichProgress.game && <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0" }}>Jeu actuel : {enrichProgress.game}</p>}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="empty"><div className="spinner" /></div>
       ) : total === 0 ? (
@@ -390,6 +422,11 @@ export default function Library() {
                 {needsHash(e) && (
                   <button className="btn" style={{ fontSize: 11, padding: "2px 8px", marginTop: 6 }} disabled={hashingGame === e.game.id} onClick={(ev) => { ev.stopPropagation(); hashGame(e.game.id); }}>
                     {hashingGame === e.game.id ? "…" : "Calculer les empreintes"}
+                  </button>
+                )}
+                {isEligible(e) && (
+                  <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px", marginTop: 6, marginLeft: 4 }} onClick={(ev) => { ev.stopPropagation(); api.enrichGame(e.game.id, "screenscraper").then(() => { qc.invalidateQueries({ queryKey: ["games"] }); api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {}); }).catch((err) => api.showNotification("RETROVERSE", String(err)).catch(() => {})); }}>
+                    Rechercher
                   </button>
                 )}
               </div>
