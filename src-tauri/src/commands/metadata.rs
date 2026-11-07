@@ -12,12 +12,13 @@ pub fn list_metadata_providers() -> Vec<String> {
         .collect()
 }
 
-#[tauri::command]
-pub async fn enrich_game(
-    state: State<'_, AppState>,
+pub async fn enrich_game_inner(
+    state: &AppState,
     game_id: String,
     provider: String,
 ) -> Result<serde_json::Value> {
+    // state is &AppState now; adjust internal state.db -> state.db
+
     // get game title
     let (title, platform): (String, Option<String>) = {
         let conn = state.db.lock().unwrap();
@@ -471,4 +472,97 @@ pub fn save_game_info(
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn enrich_game(
+    state: State<'_, AppState>,
+    game_id: String,
+    provider: String,
+) -> Result<serde_json::Value> {
+    enrich_game_inner(&state, game_id, provider).await
+}
+
+#[tauri::command]
+pub fn is_game_eligible(state: State<AppState>, game_id: String) -> Result<bool> {
+    let conn = state.db.lock().unwrap();
+    let total: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1",
+        [game_id.clone()],
+        |r| r.get(0),
+    ).unwrap_or(0);
+    if total == 0 {
+        return Ok(false);
+    }
+    let unhashed: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1 AND (gf.hash IS NULL OR gf.crc32 IS NULL OR gf.md5 IS NULL OR gf.sha1 IS NULL OR gf.sha512 IS NULL OR ((gf.extension='zip' OR gf.extension='7z') AND gf.archive_hash IS NULL))",
+        [game_id],
+        |r| r.get(0),
+    ).unwrap_or(0);
+    Ok(unhashed == 0)
+}
+
+#[tauri::command]
+pub async fn enrich_all_eligible(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<usize> {
+    use tauri::Emitter;
+    let game_ids: Vec<String> = {
+        let conn = state.db.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT id FROM games")?;
+        let rows = stmt.query_map([], |r| r.get(0))?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+    // Determine eligibility.
+    let mut eligible: Vec<String> = Vec::new();
+    let mut ignored = 0usize;
+    for gid in &game_ids {
+        let conn = state.db.lock().unwrap();
+        let total: i64 = conn.query_row("SELECT COUNT(*) FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1", [gid.clone()], |r| r.get(0)).unwrap_or(0);
+        let unhashed: i64 = conn.query_row("SELECT COUNT(*) FROM game_files gf JOIN game_file_links l ON l.file_id=gf.id WHERE l.game_id=?1 AND (gf.hash IS NULL OR gf.crc32 IS NULL OR gf.md5 IS NULL OR gf.sha1 IS NULL OR gf.sha512 IS NULL OR ((gf.extension='zip' OR gf.extension='7z') AND gf.archive_hash IS NULL))", [gid.clone()], |r| r.get(0)).unwrap_or(0);
+        if total > 0 && unhashed == 0 {
+            eligible.push(gid.clone());
+        } else {
+            ignored += 1;
+        }
+    }
+    let total_eligible = eligible.len();
+    let total_games = game_ids.len();
+    let _ = app.emit("enrich-progress", serde_json::json!({"total": total_games, "eligible": total_eligible, "ignored": ignored, "done": 0, "success": 0, "no_result": 0, "errors": 0, "status": "scanning", "game": null}));
+    let mut done = 0usize;
+    let mut success = 0usize;
+    let mut no_result = 0usize;
+    let mut errors = 0usize;
+    for gid in &eligible {
+        // get title
+        let title: String = {
+            let conn = state.db.lock().unwrap();
+            conn.query_row("SELECT title FROM games WHERE id=?1", [gid.clone()], |r| {
+                r.get(0)
+            })
+            .unwrap_or_else(|_| gid.clone())
+        };
+        let _ = app.emit("enrich-progress", serde_json::json!({"total": total_games, "eligible": total_eligible, "ignored": ignored, "done": done, "success": success, "no_result": no_result, "errors": errors, "status": "searching", "game": title}));
+        match enrich_game_inner(&state, gid.clone(), "screenscraper".to_string()).await {
+            Ok(v) => {
+                let has_desc = v
+                    .get("has_description")
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false);
+                if has_desc {
+                    success += 1;
+                } else {
+                    no_result += 1;
+                }
+            }
+            Err(_) => {
+                errors += 1;
+            }
+        }
+        done += 1;
+        let _ = app.emit("enrich-progress", serde_json::json!({"total": total_games, "eligible": total_eligible, "ignored": ignored, "done": done, "success": success, "no_result": no_result, "errors": errors, "status": "searching", "game": title}));
+    }
+    let _ = app.emit("enrich-progress", serde_json::json!({"total": total_games, "eligible": total_eligible, "ignored": ignored, "done": done, "success": success, "no_result": no_result, "errors": errors, "status": "done", "game": null}));
+    Ok(done)
 }
