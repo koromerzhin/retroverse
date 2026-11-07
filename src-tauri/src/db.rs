@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 26;
+pub const SCHEMA_VERSION: i32 = 27;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -149,6 +149,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 26 {
         apply_v26(conn)?;
+    }
+    if current < 27 {
+        apply_v27(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1190,6 +1193,193 @@ fn apply_v26(conn: &Connection) -> Result<()> {
         .unwrap_or(0);
     if count == 0 {
         let _ = conn.execute("UPDATE game_sources SET active=1 WHERE id=(SELECT id FROM game_sources ORDER BY created_at LIMIT 1)", []);
+    }
+    Ok(())
+}
+
+#[allow(clippy::type_complexity)]
+fn apply_v27(conn: &Connection) -> Result<()> {
+    // Reconcile local paths with the configured SFTP source.
+    // For each remote source, convert any local-path game_files to sftp:// URLs
+    // and deduplicate entries that resolve to the same sftp path.
+
+    // Collect remote sources with connection info.
+    let mut src_stmt = conn.prepare(
+        "SELECT gs.id, gs.path, gs.remote_path, rc.host, rc.port, rc.username FROM game_sources gs LEFT JOIN remote_connections rc ON rc.id = gs.connection_id WHERE gs.kind='remote'",
+    )?;
+    let sources: Vec<(
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<i64>,
+        Option<String>,
+    )> = src_stmt
+        .query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+            ))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    for (src_id, src_path, remote_path, host, port, user) in &sources {
+        let host = match host {
+            Some(h) => h.clone(),
+            None => continue,
+        };
+        let port = port.unwrap_or(22);
+        let user = match user {
+            Some(u) => u.clone(),
+            None => continue,
+        };
+        let remote_root = remote_path.clone().unwrap_or_else(|| src_path.clone());
+        let remote_root = remote_root.trim_end_matches('/').to_string();
+        let sftp_prefix = format!("sftp://{}@{}:{}", user, host, port);
+
+        // Collect all game_files for this source.
+        let mut fstmt = conn.prepare("SELECT id, path FROM game_files WHERE source_id=?1")?;
+        let files: Vec<(String, String)> = fstmt
+            .query_map([src_id.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Group by computed sftp path.
+        let mut groups: std::collections::BTreeMap<String, Vec<String>> =
+            std::collections::BTreeMap::new();
+        for (fid, path) in &files {
+            let rel = if let Some(rest) = path.strip_prefix(&remote_root) {
+                rest.trim_start_matches('/')
+            } else if path.starts_with("sftp://") {
+                // already sftp; extract relative from the sftp url's path
+                let p = crate::identify::remote_path_from_url(path);
+                if let Some(rest) = p.strip_prefix(&remote_root) {
+                    rest.trim_start_matches('/')
+                } else {
+                    continue;
+                }
+            } else {
+                continue;
+            };
+            let sftp_path = if rel.is_empty() {
+                format!("{}/{}", sftp_prefix, remote_root.trim_start_matches('/'))
+            } else {
+                format!(
+                    "{}/{}/{}",
+                    sftp_prefix,
+                    remote_root.trim_start_matches('/'),
+                    rel
+                )
+            };
+            // normalize double slashes
+            let sftp_path = sftp_path.replace("//", "/");
+            // fix sftp:// prefix
+            let sftp_path = sftp_path.replacen("sftp:/", "sftp://", 1);
+            groups.entry(sftp_path).or_default().push(fid.clone());
+        }
+
+        // For each group, keep one file (prefer already-sftp original if present), update others' links, delete duplicates.
+        for (sftp_path, ids) in &groups {
+            // Determine canonical file id: prefer an existing game_file whose path == sftp_path.
+            let canonical: Option<String> = conn
+                .query_row(
+                    "SELECT id FROM game_files WHERE source_id=?1 AND path=?2",
+                    params![src_id, sftp_path],
+                    |r| r.get(0),
+                )
+                .ok();
+            let canonical_id = if let Some(cid) = canonical {
+                cid
+            } else {
+                // Use the first id; update its path to sftp_path.
+                let first = ids[0].clone();
+                conn.execute(
+                    "UPDATE game_files SET path=?1 WHERE id=?2",
+                    params![sftp_path, first],
+                )?;
+                first
+            };
+            // For each other id, move links to canonical and delete.
+            for id in ids {
+                if *id == canonical_id {
+                    continue;
+                }
+                // move game_file_links
+                let _ = conn.execute("INSERT OR IGNORE INTO game_file_links (file_id, game_id, confidence, manual) SELECT ?1, game_id, confidence, manual FROM game_file_links WHERE file_id=?2", params![canonical_id, id]);
+                // delete old links
+                conn.execute("DELETE FROM game_file_links WHERE file_id=?1", [id.clone()])?;
+                // delete old file
+                conn.execute("DELETE FROM game_files WHERE id=?1", [id.clone()])?;
+            }
+        }
+
+        // Also convert any remaining local-path files not in groups (no sftp duplicate) to sftp paths.
+        // Re-query files with local paths.
+        let remaining: Vec<(String, String)> = conn
+            .prepare(
+                "SELECT id, path FROM game_files WHERE source_id=?1 AND path NOT LIKE 'sftp://%'",
+            )?
+            .query_map([src_id.clone()], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        for (fid, path) in remaining {
+            let old_fs = crate::identify::remote_path_from_url(&path);
+            let rel = if let Some(rest) = old_fs.strip_prefix(&remote_root) {
+                rest.trim_start_matches('/')
+            } else {
+                continue;
+            };
+            let sftp_path = if rel.is_empty() {
+                format!("{}/{}", sftp_prefix, remote_root.trim_start_matches('/'))
+            } else {
+                format!(
+                    "{}/{}/{}",
+                    sftp_prefix,
+                    remote_root.trim_start_matches('/'),
+                    rel
+                )
+            };
+            let sftp_path = sftp_path
+                .replace("//", "/")
+                .replacen("sftp:/", "sftp://", 1);
+            // Check if already exists
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM game_files WHERE source_id=?1 AND path=?2",
+                    params![src_id, sftp_path],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+            if exists {
+                // move links and delete
+                let canon: Option<String> = conn
+                    .query_row(
+                        "SELECT id FROM game_files WHERE source_id=?1 AND path=?2",
+                        params![src_id, sftp_path],
+                        |r| r.get(0),
+                    )
+                    .ok();
+                if let Some(canon) = canon {
+                    let _ = conn.execute("INSERT OR IGNORE INTO game_file_links (file_id, game_id, confidence, manual) SELECT ?1, game_id, confidence, manual FROM game_file_links WHERE file_id=?2", params![canon, fid]);
+                    conn.execute(
+                        "DELETE FROM game_file_links WHERE file_id=?1",
+                        [fid.clone()],
+                    )?;
+                    conn.execute("DELETE FROM game_files WHERE id=?1", [fid])?;
+                }
+            } else {
+                conn.execute(
+                    "UPDATE game_files SET path=?1 WHERE id=?2",
+                    params![sftp_path, fid],
+                )?;
+            }
+        }
     }
     Ok(())
 }
