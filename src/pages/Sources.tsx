@@ -208,7 +208,7 @@ export default function Sources() {
       )}
 
       <div style={{ marginBottom: 16 }}>
-        <button className="btn primary" onClick={openAdd}>Ajouter une source</button>
+        <button className="btn primary" onClick={openAdd} disabled={(sources?.length ?? 0) > 0}>Ajouter une source</button>
       </div>
 
       {isLoading ? (
