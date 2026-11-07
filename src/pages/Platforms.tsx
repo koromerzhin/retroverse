@@ -35,6 +35,7 @@ export default function Platforms() {
     queryKey: ["sources"],
     queryFn: () => api.listSources(),
   });
+  const { data: activeSource } = useQuery<any>({ queryKey: ["active-source"], queryFn: () => api.getActiveSource() });
 
   const [scanning, setScanning] = useState<string | null>(null);
   const [scanningAll, setScanningAll] = useState(false);
@@ -157,26 +158,25 @@ export default function Platforms() {
       api.showNotification("RETROVERSE", "Aucune plateforme.").catch(() => {});
       return;
     }
+    if (!activeSource) {
+      api.showNotification("RETROVERSE", "Aucune source active. Configurez une source dans la vue Sources.").catch(() => {});
+      return;
+    }
     setScanningAll(true);
     (window as any).__retroverseScanAll = true;
     let totalFiles = 0;
     let totalGames = 0;
     let errors: string[] = [];
     for (const p of platforms) {
-      if (!sources || sources.length === 0) {
-        api.showNotification("RETROVERSE", "Aucune source configurée.").catch(() => {});
-        continue;
-      }
-      for (const s of sources) {
-        try {
-          const res = s.kind === "remote"
-            ? await api.scanRemoteSource(s.id, undefined, p.id)
-            : await api.scanSource(s.id, undefined, p.id);
-          totalFiles += res.files_found ?? 0;
-          totalGames += res.games_created ?? 0;
-        } catch (e: any) {
-          errors.push(`${s.name}/${p.name}: ${e}`);
-        }
+      const s = activeSource;
+      try {
+        const res = s.kind === "remote"
+          ? await api.scanRemoteSource(s.id, undefined, p.id)
+          : await api.scanSource(s.id, undefined, p.id);
+        totalFiles += res.files_found ?? 0;
+        totalGames += res.games_created ?? 0;
+      } catch (e: any) {
+        errors.push(`${s.name}/${p.name}: ${e}`);
       }
     }
     if (errors.length > 0) {

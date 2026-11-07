@@ -13,13 +13,6 @@ export default function Sources() {
   });
   const { data: active } = useQuery<GameSource | null>({ queryKey: ["active-source"], queryFn: () => api.getActiveSource() });
 
-  const [scanning, setScanning] = useState<string | null>(null);
-  const [folderSource, setFolderSource] = useState<string>("");
-  const [folderPath, setFolderPath] = useState<string>("");
-  const [progress, setProgress] = useState<{ scanned: number; total: number; status: string } | null>(null);
-  const [lastResult, setLastResult] = useState<any>(null);
-  const [scanError, setScanError] = useState<string | null>(null);
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<SourceType | null>(null);
   const [editing, setEditing] = useState<GameSource | null>(null);
@@ -198,38 +191,6 @@ export default function Sources() {
     }
   }
 
-  async function handleScanFolder() {
-    if (!folderSource || !folderPath.trim()) return;
-    const src = (sources || []).find((x: any) => x.id === folderSource);
-    if (!src) return;
-    setScanning(src.id);
-    setScanError(null);
-    setProgress({ scanned: 0, total: 0, status: "scanning" });
-    let unlisten: (() => void) | null = null;
-    try {
-      const { listen } = await import("@tauri-apps/api/event");
-      unlisten = await listen<any>("scan-progress", (ev) => {
-        if (ev.payload?.source_id === src.id) {
-          setProgress({ scanned: ev.payload.scanned ?? 0, total: ev.payload.total ?? 0, status: ev.payload.status ?? "scanning" });
-        }
-      });
-      const res = src.kind === "remote"
-        ? await api.scanRemoteFolder(src.id, folderPath.trim())
-        : await api.scanLocalFolder(src.id, folderPath.trim());
-      setLastResult(res);
-      setProgress({ scanned: res.files_found ?? 0, total: res.files_found ?? 0, status: "done" });
-      qc.invalidateQueries({ queryKey: ["games"] });
-      qc.invalidateQueries({ queryKey: ["stats"] });
-      qc.invalidateQueries({ queryKey: ["sources"] });
-      qc.invalidateQueries({ queryKey: ["platforms"] });
-    } catch (e: any) {
-      setScanError(String(e));
-    } finally {
-      if (unlisten) unlisten();
-      setScanning(null);
-    }
-  }
-
   const isEmpty = !sources || sources.length === 0;
 
   return (
@@ -297,36 +258,6 @@ export default function Sources() {
           </table>
         </div>
       )}
-
-      <div className="card" style={{ marginTop: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Scanner un dossier</h3>
-        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-          <select className="select" value={folderSource} onChange={(e) => setFolderSource(e.target.value)} style={{ maxWidth: 220 }}>
-            <option value="">Choisir une source</option>
-            {(sources || []).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <input className="input" placeholder="Chemin du dossier à scanner" value={folderPath} onChange={(e) => setFolderPath(e.target.value)} style={{ maxWidth: 400 }} />
-          <button className="btn primary" onClick={handleScanFolder} disabled={!folderSource || !folderPath.trim() || !!scanning}>
-            {scanning ? <><span className="spinner" /> Scan...</> : "Scanner"}
-          </button>
-        </div>
-        {progress && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-              {progress.status === "done" ? "Terminé" : "Scan en cours…"} {progress.scanned}{progress.total > 0 ? ` / ${progress.total}` : ""} fichier(s)
-            </div>
-            <div style={{ height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden", marginTop: 4, maxWidth: 300 }}>
-              <div style={{ height: "100%", width: progress.total > 0 ? `${Math.min(100, (progress.scanned / progress.total) * 100)}%` : "100%", background: "var(--accent)", transition: "width .2s" }} />
-            </div>
-          </div>
-        )}
-        {lastResult && (
-          <p style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 8 }}>
-            Résultat : {lastResult.files_found} fichier(s), {lastResult.games_created} nouveau(x) jeu(x).
-          </p>
-        )}
-        {scanError && <p style={{ color: "var(--danger)", fontSize: 12, marginTop: 8 }}>{scanError}</p>}
-      </div>
 
       {dialogOpen && (
         <div className="modal-backdrop" onClick={() => setDialogOpen(false)}>

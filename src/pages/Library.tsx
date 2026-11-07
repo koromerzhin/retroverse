@@ -53,7 +53,7 @@ export default function Library() {
     queryKey: ["platforms"],
     queryFn: () => api.listPlatforms(),
   });
-  const { data: sources } = useQuery<any[]>({ queryKey: ["sources"], queryFn: () => api.listSources() });
+  const { data: activeSource } = useQuery<any>({ queryKey: ["active-source"], queryFn: () => api.getActiveSource() });
   const { data: presStatuses } = useQuery<any[]>({ queryKey: ["preservation-statuses"], queryFn: () => api.listPreservationStatuses() });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: genres } = useQuery<string[]>({ queryKey: ["genres"], queryFn: () => api.listGenres() });
@@ -190,16 +190,19 @@ export default function Library() {
     setCalculatingAll(true);
     let errors: string[] = [];
     const plats = platforms || [];
-    const srcs = sources || [];
-    if (plats.length > 0 && srcs.length > 0) {
+    if (!activeSource) {
+      api.showNotification("RETROVERSE", "Aucune source active. Configurez une source dans la vue Sources.").catch(() => {});
+      setCalculatingAll(false);
+      return;
+    }
+    if (plats.length > 0) {
       for (const p of plats) {
-        for (const s of srcs) {
-          try {
-            if (s.kind === "remote") await api.scanRemoteSource(s.id, undefined, p.id);
-            else await api.scanSource(s.id, undefined, p.id);
-          } catch (e: any) {
-            errors.push(`${s.name}/${p.name}: ${e}`);
-          }
+        const s = activeSource;
+        try {
+          if (s.kind === "remote") await api.scanRemoteSource(s.id, undefined, p.id);
+          else await api.scanSource(s.id, undefined, p.id);
+        } catch (e: any) {
+          errors.push(`${s.name}/${p.name}: ${e}`);
         }
       }
     }
