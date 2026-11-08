@@ -575,15 +575,87 @@ mod tests {
     }
 
     #[test]
-    fn ext_of_works() {
+    fn ext_of_basic() {
         assert_eq!(ext_of("foo.BIN"), "bin");
         assert_eq!(ext_of("noext"), "");
     }
 
     #[test]
     fn scummvm_title_known() {
-        // Just ensure no panic
         let _ = scummvm_title("monkey");
+    }
+
+    #[test]
+    fn ext_of_paths() {
+        assert_eq!(ext_of("foo.BIN"), "bin");
+        assert_eq!(ext_of("noext"), "");
+        assert_eq!(ext_of("/path/to/game.zip"), "zip");
+    }
+
+    #[test]
+    fn infer_platform_from_path_works() {
+        let platforms = vec![Platform {
+            id: "nes".into(),
+            name: "NES".into(),
+            slug: "nes".into(),
+            manufacturer: None,
+            generation: None,
+            release_year: None,
+            extensions: vec![],
+        }];
+        assert_eq!(
+            infer_platform_from_path("/roms/nes/game.nes", &platforms),
+            Some("nes".into())
+        );
+        assert_eq!(
+            infer_platform_from_path("/roms/snes/game.sfc", &platforms),
+            None
+        );
+    }
+
+    #[test]
+    fn parse_systems_txt_works() {
+        let content = "# comment
+nes: Nintendo Entertainment System
+snes: Super Nintendo
+";
+        let out = parse_systems_txt(content);
+        assert_eq!(out.len(), 2);
+        assert_eq!(
+            out[0],
+            ("nes".into(), "Nintendo Entertainment System".into())
+        );
+    }
+
+    #[test]
+    fn parse_gamelist_paths_works() {
+        let content = "<gameList><game><path>./game.nes</path></game></gameList>";
+        let set = parse_gamelist_paths(content);
+        assert!(set.contains("game.nes"));
+    }
+
+    #[test]
+    fn remote_path_from_url_works() {
+        assert_eq!(
+            remote_path_from_url("sftp://deck@host:22/run/media/deck/roms/game.zip"),
+            "/run/media/deck/roms/game.zip"
+        );
+        assert_eq!(
+            remote_path_from_url("/local/path/game.zip"),
+            "/local/path/game.zip"
+        );
+        assert_eq!(
+            remote_path_from_url("sftp://host/run/media/x"),
+            "/run/media/x"
+        );
+    }
+
+    #[test]
+    fn clean_title_more() {
+        assert_eq!(
+            clean_title("Super Mario World (USA).sfc"),
+            "Super Mario World"
+        );
     }
 }
 
