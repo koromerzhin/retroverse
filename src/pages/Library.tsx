@@ -64,6 +64,7 @@ export default function Library() {
   });
   const { data: activeSource } = useQuery<any>({ queryKey: ["active-source"], queryFn: () => api.getActiveSource() });
   const { data: presStatuses } = useQuery<any[]>({ queryKey: ["preservation-statuses"], queryFn: () => api.listPreservationStatuses() });
+  const { data: noResultIds } = useQuery<string[]>({ queryKey: ["ss-no-result"], queryFn: () => api.ssNoResultGameIds() });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: genres } = useQuery<string[]>({ queryKey: ["genres"], queryFn: () => api.listGenres() });
   const { data: favorites } = useQuery<string[]>({ queryKey: ["favorites"], queryFn: () => api.listFavorites() });
@@ -85,6 +86,7 @@ export default function Library() {
 
   const games = result?.items ?? [];
   const total = result?.total ?? 0;
+  const hasNoResult = (id: string) => (noResultIds || []).includes(id);
   const isEligible = (e: LibraryEntry) => (e.files || []).length > 0 && !(e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash));
   const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
   const sortedGames = [...games].filter((e) => {
@@ -425,10 +427,13 @@ export default function Library() {
                     {hashingGame === e.game.id ? "…" : "Calculer les empreintes"}
                   </button>
                 )}
-                {isEligible(e) && (
-                  <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px", marginTop: 6, marginLeft: 4 }} onClick={(ev) => { ev.stopPropagation(); api.enrichGame(e.game.id, "screenscraper").then(() => { qc.invalidateQueries({ queryKey: ["games"] }); api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {}); }).catch((err) => api.showNotification("RETROVERSE", String(err)).catch(() => {})); }}>
+                {isEligible(e) && !hasNoResult(e.game.id) && (
+                  <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px", marginTop: 6, marginLeft: 4 }} onClick={(ev) => { ev.stopPropagation(); api.enrichGame(e.game.id, "screenscraper").then(() => { qc.invalidateQueries({ queryKey: ["games"] }); qc.invalidateQueries({ queryKey: ["ss-no-result"] }); api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {}); }).catch((err) => { qc.invalidateQueries({ queryKey: ["ss-no-result"] }); api.showNotification("RETROVERSE", String(err)).catch(() => {}); }); }}>
                     Rechercher
                   </button>
+                )}
+                {hasNoResult(e.game.id) && (
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 4 }}>Aucun résultat</span>
                 )}
               </div>
             </div>
@@ -467,10 +472,13 @@ export default function Library() {
                         {hashingGame === e.game.id ? "…" : "Calculer"}
                       </button>
                     ) : "✓"}
-                    {isEligible(e) && (
-                      <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px", marginLeft: 4 }} onClick={() => { api.enrichGame(e.game.id, "screenscraper").then(() => { qc.invalidateQueries({ queryKey: ["games"] }); api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {}); }).catch((err) => api.showNotification("RETROVERSE", String(err)).catch(() => {})); }}>
+                    {isEligible(e) && !hasNoResult(e.game.id) && (
+                      <button className="btn primary" style={{ fontSize: 11, padding: "2px 8px", marginLeft: 4 }} onClick={() => { api.enrichGame(e.game.id, "screenscraper").then(() => { qc.invalidateQueries({ queryKey: ["games"] }); qc.invalidateQueries({ queryKey: ["ss-no-result"] }); api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {}); }).catch((err) => { qc.invalidateQueries({ queryKey: ["ss-no-result"] }); api.showNotification("RETROVERSE", String(err)).catch(() => {}); }); }}>
                         Rechercher
                       </button>
+                    )}
+                    {hasNoResult(e.game.id) && (
+                      <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 4 }}>Aucun résultat</span>
                     )}
                   </td>}
                   {cols.pres && <td>{presBadge(presStatus(e.game.id))}</td>}

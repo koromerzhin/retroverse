@@ -42,7 +42,29 @@ pub async fn enrich_game_inner(
     let prov = metadata::provider_by_name_with_config(&provider, &crate::config::load())
         .ok_or_else(|| RetroError::Invalid("unknown provider".into()))?;
 
-    let res = prov.fetch(&title, platform.as_deref(), hashes)?;
+    let res = match prov.fetch(&title, platform.as_deref(), hashes) {
+        Ok(r) => r,
+        Err(e) => {
+            // Record that a search was performed with no result, so the UI can disable the button permanently.
+            if matches!(e, RetroError::NotFound(_)) {
+                let conn = state.db.lock().unwrap();
+                let now = chrono::Utc::now().to_rfc3339();
+                let exists: bool = conn.query_row(
+                    "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='ss_no_result'",
+                    [game_id.clone()],
+                    |r| r.get::<_, i64>(0),
+                ).unwrap_or(0) > 0;
+                if !exists {
+                    let id = crate::models::new_id();
+                    let _ = conn.execute(
+                        "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                        params![id, game_id.clone(), provider, "ss_no_result", "1", provider, now],
+                    );
+                }
+            }
+            return Err(e);
+        }
+    };
 
     // store metadata records with provenance
     {
@@ -565,4 +587,17 @@ pub async fn enrich_all_eligible(
     }
     let _ = app.emit("enrich-progress", serde_json::json!({"total": total_games, "eligible": total_eligible, "ignored": ignored, "done": done, "success": success, "no_result": no_result, "errors": errors, "status": "done", "game": null}));
     Ok(done)
+}
+
+#[tauri::command]
+pub fn ss_no_result_game_ids(state: State<AppState>) -> Result<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt =
+        conn.prepare("SELECT DISTINCT game_id FROM metadata_records WHERE field='ss_no_result'")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
 }

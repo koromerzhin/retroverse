@@ -69,6 +69,7 @@ export const api = {
   listMetadataProviders: () => invoke<string[]>("list_metadata_providers"),
   enrichGame: (gameId: string, provider: string) => invoke<any>("enrich_game", { gameId, provider }),
   isGameEligible: (gameId: string) => invoke<boolean>("is_game_eligible", { gameId }),
+  ssNoResultGameIds: () => invoke<string[]>("ss_no_result_game_ids"),
   enrichAllEligible: () => invoke<number>("enrich_all_eligible"),
   getGameMetadata: (gameId: string) => invoke<any[]>("get_game_metadata", { gameId }),
   listGenres: () => invoke<string[]>("list_genres"),
