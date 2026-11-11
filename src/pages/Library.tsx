@@ -74,7 +74,7 @@ export default function Library() {
     staleTime: 60_000,
   });
   const { data: result, isLoading, refetch } = useQuery<{ items: LibraryEntry[]; total: number }>({
-    queryKey: ["games", platform, search, page],
+    queryKey: ["games", platform, search, page, onlyMissingHash],
     queryFn: async () => {
       const r = search.trim()
         ? await api.searchGamesFts(search.trim(), platform, pageSize, (page - 1) * pageSize)
