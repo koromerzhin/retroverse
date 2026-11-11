@@ -302,7 +302,7 @@ export default function Library() {
         <button className="btn primary" disabled={enrichingAll} onClick={async () => {
           setEnrichingAll(true);
           try { await api.enrichAllEligible(); } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
-          finally { setEnrichingAll(false); setEnrichProgress(null); qc.invalidateQueries({ queryKey: ["games"] }); }
+          finally { setEnrichingAll(false); setEnrichProgress(null); qc.invalidateQueries({ queryKey: ["games"] }); qc.invalidateQueries({ queryKey: ["ss-no-result"] }); }
         }}>
           {enrichingAll ? <><span className="spinner" /> Recherche en cours...</> : "Rechercher pour tous les jeux"}
         </button>
