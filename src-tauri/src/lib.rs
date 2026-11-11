@@ -147,6 +147,7 @@ pub fn run() {
             commands::list_metadata_providers,
             commands::enrich_game,
             commands::is_game_eligible,
+            commands::ss_no_result_game_ids,
             commands::enrich_all_eligible,
             commands::get_game_metadata,
             commands::list_genres,
