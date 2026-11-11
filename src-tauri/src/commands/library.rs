@@ -21,6 +21,7 @@ pub struct PagedGames {
     pub total: usize,
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn list_games(
     state: State<AppState>,
@@ -28,6 +29,7 @@ pub fn list_games(
     search: Option<String>,
     developer: Option<String>,
     publisher: Option<String>,
+    missing_hash: Option<bool>,
     limit: Option<usize>,
     offset: Option<usize>,
 ) -> Result<PagedGames> {
@@ -62,6 +64,14 @@ pub fn list_games(
             "EXISTS (SELECT 1 FROM metadata_records m WHERE m.game_id = g.id AND m.field = 'publisher' AND m.value = '{}')",
             publ.replace('\'', "''")
         ));
+    }
+    if missing_hash == Some(true) {
+        where_clauses.push(
+            "EXISTS (SELECT 1 FROM game_files gf2 JOIN game_file_links l2 ON l2.file_id=gf2.id WHERE l2.game_id=g.id AND (gf2.hash IS NULL OR gf2.crc32 IS NULL OR gf2.md5 IS NULL OR gf2.sha1 IS NULL OR gf2.sha512 IS NULL OR ((gf2.extension='zip' OR gf2.extension='7z') AND gf2.archive_hash IS NULL)))".to_string(),
+        );
+        where_clauses.push(
+            "EXISTS (SELECT 1 FROM game_files gf3 JOIN game_file_links l3 ON l3.file_id=gf3.id WHERE l3.game_id=g.id AND gf3.extension != 'scummvm')".to_string(),
+        );
     }
     let where_sql = if where_clauses.is_empty() {
         String::new()
