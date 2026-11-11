@@ -85,6 +85,8 @@ export default function Library() {
 
   const games = result?.items ?? [];
   const total = result?.total ?? 0;
+  const isEligible = (e: LibraryEntry) => (e.files || []).length > 0 && !(e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash));
+  const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
   const sortedGames = [...games].filter((e) => {
     if (onlyMissingHash && !needsHash(e)) return false;
     if (onlyNoMeta && e.game.metadata_json) return false;
@@ -116,8 +118,6 @@ export default function Library() {
   const platformCounts: Record<string, number> = platformCountsData || {};
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
 
-  const isEligible = (e: LibraryEntry) => (e.files || []).length > 0 && !(e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash));
-  const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
   const presStatus = (id: string) => (presStatuses || []).find((p: any) => p[0] === id)?.[1] ?? "unknown";
   const presBadge = (status: string) => status === "verified" ? "✓" : status === "bad_dump" ? "✗" : "·";
 
