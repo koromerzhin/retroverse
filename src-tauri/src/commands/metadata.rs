@@ -292,6 +292,27 @@ pub async fn enrich_game_inner(
         )?;
     }
 
+    // If no useful data was retrieved, record ss_no_result so the UI can disable the button.
+    if res.description.is_none() && res.cover_url.is_none() {
+        let conn = state.db.lock().unwrap();
+        let now2 = chrono::Utc::now().to_rfc3339();
+        let exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM metadata_records WHERE game_id=?1 AND field='ss_no_result'",
+                [game_id.clone()],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+        if !exists {
+            let id = crate::models::new_id();
+            let _ = conn.execute(
+                "INSERT INTO metadata_records (id,game_id,provider,field,value,provenance,fetched_at) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                params![id, game_id.clone(), provider, "ss_no_result", "1", provider, now2],
+            );
+        }
+    }
+
     Ok(serde_json::json!({
         "provider": provider,
         "has_description": res.description.is_some(),
