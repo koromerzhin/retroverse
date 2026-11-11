@@ -394,6 +394,8 @@ export default function Library() {
         <div className="empty"><div className="spinner" /></div>
       ) : total === 0 ? (
         <EmptyState icon="📚" message={t("library.empty")} />
+      ) : sortedGames.length === 0 ? (
+        <EmptyState icon="🔍" message="Aucun jeu ne correspond aux filtres actifs." />
       ) : (
         <>
         {view === "cards" ? (
