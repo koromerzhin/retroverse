@@ -78,7 +78,7 @@ export default function Library() {
     queryFn: async () => {
       const r = search.trim()
         ? await api.searchGamesFts(search.trim(), platform, pageSize, (page - 1) * pageSize)
-        : await api.listGames(platform, undefined, developer, publisher, pageSize, (page - 1) * pageSize);
+        : await api.listGames(platform, undefined, developer, publisher, onlyMissingHash, pageSize, (page - 1) * pageSize);
       return r;
     },
   });
@@ -88,7 +88,6 @@ export default function Library() {
   const isEligible = (e: LibraryEntry) => (e.files || []).length > 0 && !(e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash));
   const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
   const sortedGames = [...games].filter((e) => {
-    if (onlyMissingHash && !needsHash(e)) return false;
     if (onlyNoMeta && e.game.metadata_json) return false;
     if (onlyFavorites && !(favorites || []).includes(e.game.id)) return false;
     if (genre) {

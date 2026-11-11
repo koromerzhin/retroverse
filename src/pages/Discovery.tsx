@@ -10,7 +10,7 @@ export default function Discovery() {
   const { t } = useI18n();
   const { data: duplicates } = useQuery({ queryKey: ["duplicates"], queryFn: () => api.findDuplicates() });
   const { data: collections } = useQuery({ queryKey: ["collections"], queryFn: () => api.listCollections() });
-  const { data: gamesRes } = useQuery({ queryKey: ["games"], queryFn: () => api.listGames(undefined, undefined, undefined, undefined, 100000, 0) });
+  const { data: gamesRes } = useQuery({ queryKey: ["games"], queryFn: () => api.listGames(undefined, undefined, undefined, undefined, undefined, 100000, 0) });
   const games = gamesRes?.items;
 
   const [search, setSearch] = useState("");
