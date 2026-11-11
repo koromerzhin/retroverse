@@ -27,6 +27,7 @@ export default function GameDetail() {
     enabled: !!id,
   });
   const { data: allGenres } = useQuery<any[]>({ queryKey: ["genres-full"], queryFn: () => api.listGenresFull() });
+  const { data: ssNoResult } = useQuery<boolean>({ queryKey: ["ss-no-result-one", id], queryFn: async () => { const ids = await api.ssNoResultGameIds(); return ids.includes(id!); }, enabled: !!id });
   const { data: presStatus } = useQuery<string>({ queryKey: ["preservation-status", id], queryFn: () => api.getPreservationStatus(id!), enabled: !!id });
   const { data: gameClassifications } = useQuery<any[]>({ queryKey: ["game-classifications", id], queryFn: () => api.listGameClassifications(id!), enabled: !!id });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
@@ -256,7 +257,7 @@ export default function GameDetail() {
               {t("game.openFile")}
             </button>
           )}
-          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={searchingSS || data.files.some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))} onClick={async () => {
+          <button className="btn" style={{ fontSize: 11, padding: "4px 8px" }} disabled={searchingSS || !!ssNoResult || data.files.some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash))} onClick={async () => {
             if (!id) return;
             setSearchingSS(true);
             try {
@@ -264,6 +265,8 @@ export default function GameDetail() {
               qc.invalidateQueries({ queryKey: ["game", id] });
               qc.invalidateQueries({ queryKey: ["game-metadata", id] });
               qc.invalidateQueries({ queryKey: ["game-classifications", id] });
+              qc.invalidateQueries({ queryKey: ["ss-no-result-one", id] });
+              qc.invalidateQueries({ queryKey: ["ss-no-result"] });
               api.showNotification("RETROVERSE", "Métadonnées récupérées.").catch(() => {});
             } catch (e) {
               api.showNotification("RETROVERSE", String(e)).catch(() => {});
@@ -271,7 +274,7 @@ export default function GameDetail() {
               setSearchingSS(false);
             }
           }}>
-            {searchingSS ? <><span className="spinner" /> Recherche en cours...</> : "Rechercher sur ScreenScraper"}
+            {searchingSS ? <><span className="spinner" /> Recherche en cours...</> : ssNoResult ? "Aucun résultat ScreenScraper" : "Rechercher sur ScreenScraper"}
           </button>
           <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={savingInfo} onClick={async () => {
             if (!id) return;
