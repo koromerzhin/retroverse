@@ -2,6 +2,7 @@ use crate::error::{Result, RetroError};
 use crate::metadata;
 use crate::state::AppState;
 use rusqlite::params;
+use serde::Serialize;
 use tauri::State;
 
 #[tauri::command]
@@ -237,6 +238,21 @@ pub async fn enrich_game_inner(
                     "familles": res.familles,
                 })
             });
+            // Snapshot previous metadata_json into enrichment_history for revert.
+            let prev: Option<String> = conn
+                .query_row(
+                    "SELECT metadata_json FROM games WHERE id=?1",
+                    [game_id.clone()],
+                    |r| r.get(0),
+                )
+                .ok()
+                .flatten();
+            let hid = crate::models::new_id();
+            let nowh = chrono::Utc::now().to_rfc3339();
+            let _ = conn.execute(
+                "INSERT INTO enrichment_history (id,game_id,provider,previous_metadata_json,created_at,reverted) VALUES (?1,?2,?3,?4,?5,0)",
+                params![hid, game_id.clone(), provider.clone(), prev, nowh],
+            );
             let _ = conn.execute(
                 "UPDATE games SET metadata_json=?1 WHERE id=?2",
                 params![details.to_string(), game_id.clone()],
@@ -621,4 +637,65 @@ pub fn ss_no_result_game_ids(state: State<AppState>) -> Result<Vec<String>> {
         out.push(r?);
     }
     Ok(out)
+}
+
+#[derive(Serialize, Clone)]
+pub struct EnrichmentHistoryEntry {
+    pub id: String,
+    pub game_id: String,
+    pub provider: String,
+    pub created_at: String,
+    pub reverted: bool,
+}
+
+#[tauri::command]
+pub fn list_enrichment_history(
+    state: State<AppState>,
+    game_id: String,
+) -> Result<Vec<EnrichmentHistoryEntry>> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT id, game_id, provider, created_at, reverted FROM enrichment_history WHERE game_id=?1 ORDER BY created_at DESC",
+    )?;
+    let rows = stmt.query_map([game_id], |r| {
+        Ok(EnrichmentHistoryEntry {
+            id: r.get(0)?,
+            game_id: r.get(1)?,
+            provider: r.get(2)?,
+            created_at: r.get(3)?,
+            reverted: r.get::<_, i64>(4)? != 0,
+        })
+    })?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn revert_enrichment(state: State<AppState>, history_id: String) -> Result<()> {
+    let conn = state.db.lock().unwrap();
+    // find entry
+    let (game_id, prev): (String, Option<String>) = conn.query_row(
+        "SELECT game_id, previous_metadata_json FROM enrichment_history WHERE id=?1",
+        [history_id.clone()],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    if let Some(p) = prev {
+        conn.execute(
+            "UPDATE games SET metadata_json=?1 WHERE id=?2",
+            params![p, game_id],
+        )?;
+    } else {
+        conn.execute(
+            "UPDATE games SET metadata_json=NULL WHERE id=?1",
+            params![game_id],
+        )?;
+    }
+    conn.execute(
+        "UPDATE enrichment_history SET reverted=1 WHERE id=?1",
+        params![history_id],
+    )?;
+    Ok(())
 }

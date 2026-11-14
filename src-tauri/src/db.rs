@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 29;
+pub const SCHEMA_VERSION: i32 = 30;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -158,6 +158,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 29 {
         apply_v29(conn)?;
+    }
+    if current < 30 {
+        apply_v30(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1425,5 +1428,22 @@ fn apply_v29(conn: &Connection) -> Result<()> {
     );
     // Rebuild the full-text index from the content table.
     let _ = conn.execute("INSERT INTO games_fts(games_fts) VALUES('rebuild')", []);
+    Ok(())
+}
+
+fn apply_v30(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS enrichment_history (
+            id TEXT PRIMARY KEY,
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            provider TEXT NOT NULL,
+            previous_metadata_json TEXT,
+            created_at TEXT NOT NULL,
+            reverted INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_enrichment_history_game ON enrichment_history(game_id);
+        "#,
+    )?;
     Ok(())
 }
