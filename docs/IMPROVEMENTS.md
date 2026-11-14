@@ -16,7 +16,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 7. **Advanced filters** ✅ (empreintes manquantes, sans métadonnées, récents, favoris, genre).
 8. **Detail view tabs** ✅ ("Médias" ajouté).
 9. **Dark/light mode** ✅ (déjà présent, sélecteur dans Paramètres).
-10. **Fuzzy search** and autocomplete ❌.
+10. **Fuzzy search** and autocomplete ❌ (restant).
 
 ## Metadata and referentials
 
@@ -24,7 +24,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 12. **Multi-genre per game** ✅ (select multiple).
 13. **Automatic referential sync** ✅ (déjà au démarrage).
 14. **Metadata import/export** ✅ (export JSON, export DAT, preservation packs).
-15. **Enrichment history** with revert capability ❌.
+15. **Enrichment history** with revert capability ❌ (restant).
 
 ## Features
 
@@ -48,17 +48,17 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 ## Architecture
 
 29. **Refactoring** ✅ (hashing.rs, dat.rs).
-30. **Database** ✅ (migrations v1-v27, auto-backup, list/restore).
+30. **Database** ✅ (migrations v1-v29, auto-backup, list/restore).
 31. **Configuration** ✅ (Settings page).
 
 ## Nouvelles pistes (2026-11)
 
 ### Performance
-- **Index DB** : ajouter des index sur les clés étrangères (migration).
+- **Index DB** ✅ : 8 index ajoutés (migration v28).
 - **FTS5** ✅ : table `games_fts` rebuildée (migration v29), recherche robuste avec fallback LIKE.
-- **Concurrence contrôlée** : semaphore pour limiter les calculs d'empreintes simultanés.
-- **Mémoïsation** : `useMemo`/`useCallback` dans les composants lourds.
-- **Buffers réutilisables** : réutiliser les buffers au lieu d'en allouer de nouveaux.
+- **Concurrence contrôlée** ✅ : semaphore (2 permits) dans AppState.
+- **Mémoïsation** ✅ : `sortedGames` dans Library.tsx.
+- **Buffers réutilisables** ❌ : restant.
 
 ### Fonctionnalités
 - **Recommandations** basées sur les genres/plateformes possédés.
