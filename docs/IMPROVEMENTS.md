@@ -5,7 +5,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 ## Performance and memory
 
 1. **Streaming large ISOs** ✅ : streaming implémenté pour local, remote et archives (64 Ko chunks).
-2. **Controlled concurrency**: ❌ queue (semaphore) non implémentée.
+2. **Controlled concurrency** ✅ : semaphore (2 permits) dans AppState.
 3. **Result caching** ✅ : skip si fichier inchangé (hashed_mtime/hashed_size).
 4. **Virtual pagination** ✅ (virtualized list view).
 
