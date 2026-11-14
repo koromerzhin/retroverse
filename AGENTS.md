@@ -44,7 +44,6 @@ Git hooks live in `.githooks/` (`core.hooksPath=.githooks`): pre-commit runs fmt
 
 ## Conventions
 
-- Git Flow: `main` (stable), `develop` (integration), `feature/*`, `bugfix/*`. Never commit to `main`. Never merge without explicit user confirmation.
 - SQL migrations: never destroy existing data; always additive; bump `SCHEMA_VERSION`.
 - Hashes computed on demand; archives hash both inner ROM and archive bytes.
 - Native OS notifications only; no in-app toasts.
