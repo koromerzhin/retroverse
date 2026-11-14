@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 28;
+pub const SCHEMA_VERSION: i32 = 29;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -155,6 +155,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 28 {
         apply_v28(conn)?;
+    }
+    if current < 29 {
+        apply_v29(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1400,5 +1403,27 @@ fn apply_v28(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_game_files_modified ON game_files(modified_at);
         "#,
     )?;
+    Ok(())
+}
+
+fn apply_v29(conn: &Connection) -> Result<()> {
+    // Ensure FTS5 virtual table and triggers exist, then rebuild index from games.
+    let _ = conn.execute_batch(
+        r#"
+        CREATE VIRTUAL TABLE IF NOT EXISTS games_fts USING fts5(title, content='games', content_rowid='rowid');
+        CREATE TRIGGER IF NOT EXISTS games_ai AFTER INSERT ON games BEGIN
+            INSERT INTO games_fts(rowid, title) VALUES (new.rowid, new.title);
+        END;
+        CREATE TRIGGER IF NOT EXISTS games_ad AFTER DELETE ON games BEGIN
+            INSERT INTO games_fts(games_fts, rowid, title) VALUES('delete', old.rowid, old.title);
+        END;
+        CREATE TRIGGER IF NOT EXISTS games_au AFTER UPDATE ON games BEGIN
+            INSERT INTO games_fts(games_fts, rowid, title) VALUES('delete', old.rowid, old.title);
+            INSERT INTO games_fts(rowid, title) VALUES (new.rowid, new.title);
+        END;
+        "#,
+    );
+    // Rebuild the full-text index from the content table.
+    let _ = conn.execute("INSERT INTO games_fts(games_fts) VALUES('rebuild')", []);
     Ok(())
 }
