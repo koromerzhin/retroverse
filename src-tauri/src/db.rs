@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 27;
+pub const SCHEMA_VERSION: i32 = 28;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -152,6 +152,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 27 {
         apply_v27(conn)?;
+    }
+    if current < 28 {
+        apply_v28(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1381,5 +1384,21 @@ fn apply_v27(conn: &Connection) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
+
+fn apply_v28(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE INDEX IF NOT EXISTS idx_game_files_platform ON game_files(platform_id);
+        CREATE INDEX IF NOT EXISTS idx_game_files_hash ON game_files(hash);
+        CREATE INDEX IF NOT EXISTS idx_game_files_source ON game_files(source_id);
+        CREATE INDEX IF NOT EXISTS idx_game_file_links_game ON game_file_links(game_id);
+        CREATE INDEX IF NOT EXISTS idx_game_file_links_file ON game_file_links(file_id);
+        CREATE INDEX IF NOT EXISTS idx_metadata_records_game ON metadata_records(game_id);
+        CREATE INDEX IF NOT EXISTS idx_game_preservation_status ON game_preservation(status);
+        CREATE INDEX IF NOT EXISTS idx_game_files_modified ON game_files(modified_at);
+        "#,
+    )?;
     Ok(())
 }
