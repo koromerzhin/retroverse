@@ -32,6 +32,16 @@ Git hooks live in `.githooks/` (`core.hooksPath=.githooks`): pre-commit runs fmt
 - App state: `AppState` (db handle, cancel flags). Single instance via Unix socket under data dir.
 - Splashscreen is an independent Tauri window with embedded HTML (`public/splash.html`); main window hidden until `app_ready`.
 
+## Git workflow (STRICT)
+
+- **Git Flow**: `main` (stable releases), `develop` (integration), `feature/*`, `bugfix/*`, `release/*`, `hotfix/*`.
+- **Never commit directly to `main` or `develop`.**
+- **Every new modification = a new branch** created from `develop` (`feature/...` or `bugfix/...`).
+- **Never merge a branch without explicit user confirmation** ("ok, merge"). Create the branch, push it, and wait.
+- **Never merge `develop` into `main`** without explicit instruction (release step).
+- Preserve uncommitted changes; never overwrite or reset user work.
+- After merging (only when authorized), delete the feature branch locally and remotely.
+
 ## Conventions
 
 - Git Flow: `main` (stable), `develop` (integration), `feature/*`, `bugfix/*`. Never commit to `main`. Never merge without explicit user confirmation.
