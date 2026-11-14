@@ -24,7 +24,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 12. **Multi-genre per game** ✅ (select multiple).
 13. **Automatic referential sync** ✅ (déjà au démarrage).
 14. **Metadata import/export** ✅ (export JSON, export DAT, preservation packs).
-15. **Enrichment history** with revert capability ❌ (restant).
+15. **Enrichment history** with revert capability ✅ (table enrichment_history + revert).
 
 ## Features
 
