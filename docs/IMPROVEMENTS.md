@@ -16,7 +16,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 7. **Advanced filters** ✅ (empreintes manquantes, sans métadonnées, récents, favoris, genre).
 8. **Detail view tabs** ✅ ("Médias" ajouté).
 9. **Dark/light mode** ✅ (déjà présent, sélecteur dans Paramètres).
-10. **Fuzzy search** and autocomplete ❌ (restant).
+10. **Fuzzy search** and autocomplete ✅ (backend strsim + dropdown autocomplete).
 
 ## Metadata and referentials
 
