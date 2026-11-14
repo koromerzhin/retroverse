@@ -13,6 +13,8 @@ export default function Library() {
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [search, setSearch] = useState("");
   const platform = searchParams.get("platform") || undefined;
   const developer = searchParams.get("developer") || undefined;
@@ -47,6 +49,18 @@ export default function Library() {
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!searchInput.trim()) { setSuggestions([]); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.searchGamesSuggest(searchInput.trim(), 8);
+        if (!cancelled) { setSuggestions(r || []); setShowSuggestions(true); }
+      } catch { if (!cancelled) setSuggestions([]); }
+    }, 200);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [searchInput]);
 
   useEffect(() => { setPage(1); }, [search, platform, developer, publisher]);
@@ -237,7 +251,22 @@ export default function Library() {
       <p className="page-sub">{t("library.subtitle")}</p>
 
       <div className="row" style={{ marginBottom: 18 }}>
-        <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t("library.search")} maxWidth={320} />
+        <div style={{ position: "relative", maxWidth: 320 }}>
+          <SearchInput value={searchInput} onChange={(v) => { setSearchInput(v); setShowSuggestions(true); }} placeholder={t("library.search")} maxWidth={320} onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} />
+          {showSuggestions && suggestions.length > 0 && (
+            <ul style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20, margin: 0, padding: 0, listStyle: "none", background: "var(--bg-card, #fff)", border: "1px solid var(--border, #ddd)", borderRadius: 6, maxHeight: 240, overflowY: "auto", boxShadow: "0 4px 12px rgba(0,0,0,.1)" }}>
+              {suggestions.map((sg, i) => (
+                <li key={i}
+                    style={{ padding: "6px 10px", cursor: "pointer", fontSize: 13 }}
+                    onMouseDown={(e) => { e.preventDefault(); setSearchInput(sg); setSearch(sg); setShowSuggestions(false); setSuggestions([]); }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover, #f0f0f0)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                  {sg}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <select
           className="select"
           style={{ maxWidth: 260 }}

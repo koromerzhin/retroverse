@@ -158,6 +158,7 @@ pub fn run() {
             commands::save_game_info,
             commands::get_game,
             commands::search_games_fts,
+            commands::search_games_suggest,
             commands::platform_game_counts,
             commands::platform_file_counts,
             commands::find_duplicates,
