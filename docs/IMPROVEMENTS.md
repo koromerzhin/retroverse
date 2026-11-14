@@ -55,7 +55,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 
 ### Performance
 - **Index DB** : ajouter des index sur les clés étrangères (migration).
-- **FTS5** : peupler la table `games_fts` pour la recherche plein texte.
+- **FTS5** ✅ : table `games_fts` rebuildée (migration v29), recherche robuste avec fallback LIKE.
 - **Concurrence contrôlée** : semaphore pour limiter les calculs d'empreintes simultanés.
 - **Mémoïsation** : `useMemo`/`useCallback` dans les composants lourds.
 - **Buffers réutilisables** : réutiliser les buffers au lieu d'en allouer de nouveaux.
