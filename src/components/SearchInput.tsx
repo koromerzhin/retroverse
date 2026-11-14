@@ -1,5 +1,4 @@
-
-export default function SearchInput({ value, onChange, placeholder, maxWidth = 260 }: { value: string; onChange: (v: string) => void; placeholder?: string; maxWidth?: number }) {
+export default function SearchInput({ value, onChange, placeholder, maxWidth = 260, onBlur }: { value: string; onChange: (v: string) => void; placeholder?: string; maxWidth?: number; onBlur?: () => void }) {
   return (
     <input
       className="input"
@@ -7,6 +6,7 @@ export default function SearchInput({ value, onChange, placeholder, maxWidth = 2
       placeholder={placeholder || "Rechercher…"}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
     />
   );
 }

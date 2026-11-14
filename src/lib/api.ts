@@ -27,6 +27,7 @@ export const api = {
   listGames: (platform?: string, search?: string, developer?: string, publisher?: string, missingHash?: boolean, limit?: number, offset?: number) => invoke<any>("list_games", { platform, search, developer, publisher, missingHash, limit, offset }),
   getGame: (id: string) => invoke<any>("get_game", { id }),
   searchGamesFts: (query: string, platform?: string, limit?: number, offset?: number) => invoke<any>("search_games_fts", { query, platform, limit, offset }),
+  searchGamesSuggest: (query: string, limit?: number) => invoke<string[]>("search_games_suggest", { query, limit }),
   platformGameCounts: () => invoke<any>("platform_game_counts"),
   platformFileCounts: () => invoke<any>("platform_file_counts"),
   findDuplicates: () => invoke<any[]>("find_duplicates"),

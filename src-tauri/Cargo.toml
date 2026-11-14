@@ -36,6 +36,7 @@ russh = "0.65"
 russh-sftp = "3.0"
 ureq = { version = "3", features = ["rustls", "json"] }
 thiserror = "2"
+strsim = "0.11"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"

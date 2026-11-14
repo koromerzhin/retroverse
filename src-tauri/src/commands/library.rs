@@ -591,6 +591,58 @@ pub fn collection_games(state: State<AppState>, collection_id: String) -> Result
     Ok(out)
 }
 
+#[tauri::command]
+pub fn search_games_suggest(
+    state: State<AppState>,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    let limit = limit.unwrap_or(8).min(50);
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return Ok(Vec::new());
+    }
+    // Load all titles.
+    let mut stmt = conn.prepare("SELECT title FROM games")?;
+    let titles: Vec<String> = stmt
+        .query_map([], |r| r.get(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    // Dedup
+    let mut seen = std::collections::HashSet::new();
+    let mut uniq: Vec<String> = Vec::new();
+    for t in titles {
+        if seen.insert(t.to_lowercase()) {
+            uniq.push(t);
+        }
+    }
+
+    // Score each title: substring containment (high) + fuzzy similarity.
+    let mut scored: Vec<(f64, String)> = Vec::new();
+    for t in uniq {
+        let tl = t.to_lowercase();
+        let score: f64 = if tl == q {
+            1.0
+        } else if tl.starts_with(&q) {
+            0.95
+        } else if tl.contains(&q) {
+            0.85
+        } else {
+            // fuzzy: jaro-winkler + normalized levenshtein
+            let jw = strsim::jaro_winkler(&tl, &q);
+            let nl = strsim::normalized_levenshtein(&tl, &q);
+            jw.max(nl) * 0.7
+        };
+        if score >= 0.45 {
+            scored.push((score, t));
+        }
+    }
+    scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let out: Vec<String> = scored.into_iter().take(limit).map(|x| x.1).collect();
+    Ok(out)
+}
+
 // unused Row import guard
 #[allow(dead_code)]
 fn _row(_r: &Row) {}
