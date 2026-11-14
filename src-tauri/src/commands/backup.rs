@@ -121,6 +121,11 @@ pub async fn compute_hashes(
     app: tauri::AppHandle,
     source_id: Option<String>,
 ) -> Result<usize> {
+    let sem = state.hash_semaphore.clone();
+    let _permit = sem
+        .acquire()
+        .await
+        .map_err(|e| RetroError::Other(e.to_string()))?;
     compute_hashes_inner(&state, Some(app), source_id).await
 }
 
@@ -493,6 +498,11 @@ pub async fn compute_hashes_for_game(
     app: tauri::AppHandle,
     game_id: String,
 ) -> Result<usize> {
+    let sem = state.hash_semaphore.clone();
+    let _permit = sem
+        .acquire()
+        .await
+        .map_err(|e| RetroError::Other(e.to_string()))?;
     crate::hashing::compute_hashes_for_game_inner(&state, Some(app), game_id).await
 }
 
@@ -519,6 +529,11 @@ pub fn list_transfer_jobs(state: State<AppState>) -> Result<Vec<serde_json::Valu
 
 #[tauri::command]
 pub async fn compute_hashes_for_file(state: State<'_, AppState>, file_id: String) -> Result<usize> {
+    let sem = state.hash_semaphore.clone();
+    let _permit = sem
+        .acquire()
+        .await
+        .map_err(|e| RetroError::Other(e.to_string()))?;
     crate::hashing::compute_hash_for_file_inner(&state, file_id).await
 }
 
@@ -528,6 +543,11 @@ pub async fn compute_hashes_for_platform(
     app: tauri::AppHandle,
     platform_id: String,
 ) -> Result<usize> {
+    let sem = state.hash_semaphore.clone();
+    let _permit = sem
+        .acquire()
+        .await
+        .map_err(|e| RetroError::Other(e.to_string()))?;
     crate::hashing::compute_hashes_for_platform(state, app, platform_id).await
 }
 
@@ -550,6 +570,11 @@ pub fn unhashed_counts_by_platform(
 
 #[tauri::command]
 pub async fn compute_hashes_for_all_games(state: State<'_, AppState>) -> Result<usize> {
+    let sem = state.hash_semaphore.clone();
+    let _permit = sem
+        .acquire()
+        .await
+        .map_err(|e| RetroError::Other(e.to_string()))?;
     crate::hashing::compute_hashes_for_all_games(state).await
 }
 

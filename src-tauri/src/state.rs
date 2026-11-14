@@ -11,6 +11,7 @@ pub struct AppState {
     pub cancel_hash: Arc<AtomicBool>,
     pub ready: Arc<AtomicBool>,
     pub started_at: std::time::Instant,
+    pub hash_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 impl AppState {
@@ -21,6 +22,7 @@ impl AppState {
             cancel_scan: Arc::new(AtomicBool::new(false)),
             cancel_hash: Arc::new(AtomicBool::new(false)),
             ready: Arc::new(AtomicBool::new(false)),
+            hash_semaphore: Arc::new(tokio::sync::Semaphore::new(2)),
             started_at: std::time::Instant::now(),
         })
     }
