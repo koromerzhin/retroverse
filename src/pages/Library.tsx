@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -89,7 +89,7 @@ export default function Library() {
   const hasNoResult = (id: string) => (noResultIds || []).includes(id);
   const isEligible = (e: LibraryEntry) => (e.files || []).length > 0 && !(e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash));
   const needsHash = (e: LibraryEntry) => (e.files || []).some((f: any) => !f.hash || !f.sha512 || ((f.extension === "zip" || f.extension === "7z") && !f.archive_hash)) && !(e.files || []).every((f: any) => f.extension === "scummvm");
-  const sortedGames = [...games].filter((e) => {
+  const sortedGames = useMemo(() => [...games].filter((e) => {
     if (onlyNoMeta && e.game.metadata_json) return false;
     if (onlyFavorites && !(favorites || []).includes(e.game.id)) return false;
     if (genre) {
@@ -109,12 +109,12 @@ export default function Library() {
       case "files": cmp = a.file_count - b.file_count; break;
     }
     if (onlyRecent) {
-    const da = new Date(a.game.created_at).getTime();
-    const db = new Date(b.game.created_at).getTime();
-    return db - da;
-  }
-  return sortDir === "asc" ? cmp : -cmp;
-  });
+      const da = new Date(a.game.created_at).getTime();
+      const db = new Date(b.game.created_at).getTime();
+      return db - da;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  }), [games, onlyNoMeta, onlyFavorites, genre, sortKey, sortDir, onlyRecent, favorites]);
 
   const platformCounts: Record<string, number> = platformCountsData || {};
   const availablePlatforms = (platforms || []).filter((p) => (platformCounts[p.id] ?? 0) > 0);
@@ -143,7 +143,7 @@ export default function Library() {
       return next;
     });
   };
-  const selectAll = () => setSelected(new Set(sortedGames.map((e) => e.game.id)));
+  const selectAll = () => setSelected(new Set(sortedGames.map((e: any) => e.game.id)));
   const clearSelection = () => setSelected(new Set());
 
   const batchHash = async () => {
@@ -401,7 +401,7 @@ export default function Library() {
         <>
         {view === "cards" ? (
         <div className="grid games">
-          {sortedGames.map((e) => {
+          {sortedGames.map((e: any) => {
             let cover: string | null = null;
             try {
               const d = e.game.metadata_json ? JSON.parse(e.game.metadata_json) : null;
