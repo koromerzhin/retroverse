@@ -30,6 +30,7 @@ export default function GameDetail() {
   const { data: ssNoResult } = useQuery<boolean>({ queryKey: ["ss-no-result-one", id], queryFn: async () => { const ids = await api.ssNoResultGameIds(); return ids.includes(id!); }, enabled: !!id });
   const { data: presStatus } = useQuery<string>({ queryKey: ["preservation-status", id], queryFn: () => api.getPreservationStatus(id!), enabled: !!id });
   const { data: gameClassifications } = useQuery<any[]>({ queryKey: ["game-classifications", id], queryFn: () => api.listGameClassifications(id!), enabled: !!id });
+  const { data: enrichHistory } = useQuery<any[]>({ queryKey: ["enrich-history", id], queryFn: () => api.listEnrichmentHistory(id!), enabled: !!id });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
 
@@ -276,6 +277,29 @@ export default function GameDetail() {
           }}>
             {searchingSS ? <><span className="spinner" /> Recherche en cours...</> : ssNoResult ? "Aucun résultat ScreenScraper" : "Rechercher sur ScreenScraper"}
           </button>
+          {(enrichHistory || []).length > 0 && (
+            <div style={{ width: "100%", marginTop: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Historique d'enrichissement</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: 12 }}>
+                {(enrichHistory || []).map((h: any) => (
+                  <li key={h.id} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                    <span>{new Date(h.created_at).toLocaleString()} — {h.provider}{h.reverted ? " (annulé)" : ""}</span>
+                    {!h.reverted && (
+                      <button className="btn" style={{ fontSize: 10, padding: "2px 6px" }} onClick={async () => {
+                        try {
+                          await api.revertEnrichment(h.id);
+                          qc.invalidateQueries({ queryKey: ["game", id] });
+                          qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+                          qc.invalidateQueries({ queryKey: ["enrich-history", id] });
+                          api.showNotification("RETROVERSE", "Enrichissement annulé.").catch(() => {});
+                        } catch (e) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
+                      }}>Annuler</button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <button className="btn primary" style={{ fontSize: 11, padding: "4px 8px" }} disabled={savingInfo} onClick={async () => {
             if (!id) return;
             setSavingInfo(true);
