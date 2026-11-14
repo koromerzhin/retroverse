@@ -375,24 +375,52 @@ pub fn search_games_fts(
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?
     } else {
-        let mut stmt = conn.prepare(
+        // Build a prefix query token by token so each word is prefix-matched.
+        let fts_query: String = safe_query
+            .split_whitespace()
+            .map(|w| format!("{}*", w))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let result = conn.prepare(
             "SELECT g.id,g.title,g.platform_id,g.created_at,g.updated_at,g.metadata_json FROM games g \
              JOIN games_fts f ON f.rowid = g.rowid \
              WHERE games_fts MATCH ?1 ORDER BY rank",
-        )?;
-        stmt.query_map([format!("{}*", safe_query)], |r| {
-            let created: String = r.get(3)?;
-            let updated: String = r.get(4)?;
-            Ok(Game {
-                id: r.get(0)?,
-                title: r.get(1)?,
-                platform_id: r.get(2)?,
-                created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
-                updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
-                metadata_json: r.get(5).ok(),
-            })
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?
+        ).and_then(|mut stmt| {
+            stmt.query_map([fts_query.as_str()], |r| {
+                let created: String = r.get(3)?;
+                let updated: String = r.get(4)?;
+                Ok(Game {
+                    id: r.get(0)?,
+                    title: r.get(1)?,
+                    platform_id: r.get(2)?,
+                    created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                    updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                    metadata_json: r.get(5).ok(),
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()
+        });
+        match result {
+            Ok(rows) => rows,
+            Err(_) => {
+                // Fallback to LIKE if FTS fails.
+                let like = format!("%{}%", safe_query);
+                conn.prepare("SELECT id,title,platform_id,created_at,updated_at,metadata_json FROM games WHERE title LIKE ?1 ORDER BY title")?
+                    .query_map([like], |r| {
+                        let created: String = r.get(3)?;
+                        let updated: String = r.get(4)?;
+                        Ok(Game {
+                            id: r.get(0)?,
+                            title: r.get(1)?,
+                            platform_id: r.get(2)?,
+                            created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                            updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                            metadata_json: r.get(5).ok(),
+                        })
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?
+            }
+        }
     };
 
     let rows: Vec<Game> = if let Some(pf) = &platform {
