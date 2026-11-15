@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{Result, RetroError};
 use crate::models::{Game, Platform};
 use crate::state::AppState;
 use rusqlite::{Row, params};
@@ -256,6 +256,38 @@ pub fn get_game(state: State<AppState>, id: String) -> Result<LibraryEntry> {
         developer,
         publisher,
     })
+}
+
+#[tauri::command]
+pub fn find_related_games(state: State<AppState>, game_id: String) -> Result<Vec<Game>> {
+    let conn = state.db.lock().unwrap();
+    let title: String = conn
+        .query_row(
+            "SELECT title FROM games WHERE id=?1",
+            [game_id.clone()],
+            |r| r.get(0),
+        )
+        .map_err(|_| RetroError::NotFound("game".into()))?;
+    let mut stmt = conn.prepare(
+        "SELECT id,title,platform_id,created_at,updated_at,metadata_json FROM games WHERE LOWER(title)=LOWER(?1) AND id<>?2 ORDER BY platform_id",
+    )?;
+    let rows = stmt.query_map(rusqlite::params![title, game_id], |r| {
+        let created: String = r.get(3)?;
+        let updated: String = r.get(4)?;
+        Ok(Game {
+            id: r.get(0)?,
+            title: r.get(1)?,
+            platform_id: r.get(2)?,
+            created_at: created.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            updated_at: updated.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            metadata_json: r.get(5).ok(),
+        })
+    })?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
 }
 
 #[tauri::command]

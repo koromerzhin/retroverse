@@ -30,6 +30,7 @@ export default function GameDetail() {
   const { data: ssNoResult } = useQuery<boolean>({ queryKey: ["ss-no-result-one", id], queryFn: async () => { const ids = await api.ssNoResultGameIds(); return ids.includes(id!); }, enabled: !!id });
   const { data: presStatus } = useQuery<string>({ queryKey: ["preservation-status", id], queryFn: () => api.getPreservationStatus(id!), enabled: !!id });
   const { data: gameClassifications } = useQuery<any[]>({ queryKey: ["game-classifications", id], queryFn: () => api.listGameClassifications(id!), enabled: !!id });
+  const { data: relatedGames } = useQuery<any[]>({ queryKey: ["related-games", id], queryFn: () => api.findRelatedGames(id!), enabled: !!id });
   const { data: enrichHistory } = useQuery<any[]>({ queryKey: ["enrich-history", id], queryFn: () => api.listEnrichmentHistory(id!), enabled: !!id });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
@@ -41,7 +42,7 @@ export default function GameDetail() {
   const [hashingAll, setHashingAll] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
   const [searchingSS, setSearchingSS] = useState(false);
-  const [tab, setTab] = useState<"info" | "files" | "hashes" | "media">("info");
+  const [tab, setTab] = useState<"info" | "files" | "hashes" | "media" | "versions">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
   const [infoGenres, setInfoGenres] = useState<string[]>([]);
@@ -142,6 +143,7 @@ export default function GameDetail() {
         <button className={`btn ${tab === "files" ? "primary" : ""}`} onClick={() => setTab("files")}>Fichiers</button>
         <button className={`btn ${tab === "hashes" ? "primary" : ""}`} onClick={() => setTab("hashes")}>Empreintes</button>
         <button className={`btn ${tab === "media" ? "primary" : ""}`} onClick={() => setTab("media")}>{t("game.media")}</button>
+        <button className={`btn ${tab === "versions" ? "primary" : ""}`} onClick={() => setTab("versions")}>Versions</button>
       </div>
 
       {tab === "info" && (
@@ -454,6 +456,39 @@ export default function GameDetail() {
           </div>
         ) : (
           <p style={{ color: "var(--text-muted)" }}>{t("game.noMedia")}</p>
+        )}
+      </div>
+      )}
+      {tab === "versions" && (
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Versions / Régions</h3>
+        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Fichiers liés à ce jeu :</p>
+        <table className="table" style={{ width: "100%", fontSize: 12 }}>
+          <thead><tr><th>Fichier</th><th>Taille</th><th>CRC32</th><th>MD5</th><th>SHA1</th></tr></thead>
+          <tbody>
+            {(data?.files || []).map((f: any) => (
+              <tr key={f.id}>
+                <td style={{ wordBreak: "break-all" }}>{f.filename}</td>
+                <td>{f.size}</td>
+                <td style={{ fontFamily: "monospace", fontSize: 10 }}>{f.crc32 || "—"}</td>
+                <td style={{ fontFamily: "monospace", fontSize: 10 }}>{f.md5 ? f.md5.slice(0, 8) + "…" : "—"}</td>
+                <td style={{ fontFamily: "monospace", fontSize: 10 }}>{f.sha1 ? f.sha1.slice(0, 8) + "…" : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {(relatedGames || []).length > 0 && (
+          <>
+            <h4 style={{ marginTop: 16 }}>Jeux liés (même titre, autre plateforme)</h4>
+            <ul style={{ fontSize: 12, paddingLeft: 18 }}>
+              {(relatedGames || []).map((g: any) => (
+                <li key={g.id}>
+                  <a href={`/game/${g.id}`} onClick={(e) => { e.preventDefault(); navigate(`/game/${g.id}`); }}>{g.title}</a>
+                  {g.platform_id ? ` — ${g.platform_id}` : ""}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
       )}
