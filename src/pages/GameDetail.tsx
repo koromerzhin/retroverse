@@ -46,6 +46,9 @@ export default function GameDetail() {
   const [raSearching, setRaSearching] = useState(false);
   const [raResults, setRaResults] = useState<any[]>([]);
   const [raFetching, setRaFetching] = useState(false);
+  const [sgdbSearching, setSgdbSearching] = useState(false);
+  const [sgdbResults, setSgdbResults] = useState<any[]>([]);
+  const [sgdbFetching, setSgdbFetching] = useState(false);
   const [tab, setTab] = useState<"info" | "files" | "hashes" | "media" | "versions" | "achievements">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
@@ -461,6 +464,36 @@ export default function GameDetail() {
           </div>
         ) : (
           <p style={{ color: "var(--text-muted)" }}>{t("game.noMedia")}</p>
+        )}
+        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn" disabled={sgdbSearching} onClick={async () => {
+            if (!id) return;
+            setSgdbSearching(true);
+            try {
+              const r = await api.sgdbSearchGame(data?.game?.title || "");
+              setSgdbResults(r || []);
+            } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
+            finally { setSgdbSearching(false); }
+          }}>{sgdbSearching ? "Recherche…" : "Rechercher sur SteamGridDB"}</button>
+        </div>
+        {sgdbResults.length > 0 && (
+          <ul style={{ fontSize: 12, paddingLeft: 18, marginTop: 8 }}>
+            {sgdbResults.map((r: any) => (
+              <li key={r.id} style={{ marginBottom: 4 }}>
+                {r.name}
+                <button className="btn" style={{ fontSize: 10, marginLeft: 8, padding: "2px 6px" }} disabled={sgdbFetching} onClick={async () => {
+                  if (!id) return;
+                  setSgdbFetching(true);
+                  try {
+                    const n = await api.sgdbFetchArtworks(id, r.id);
+                    qc.invalidateQueries({ queryKey: ["game-metadata", id] });
+                    api.showNotification("RETROVERSE", `${n} artwork(s) récupéré(s).`).catch(() => {});
+                  } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
+                  finally { setSgdbFetching(false); }
+                }}>Récupérer</button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
       )}

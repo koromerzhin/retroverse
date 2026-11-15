@@ -19,6 +19,8 @@ pub struct ProviderConfig {
     pub ra_username: String,
     #[serde(default)]
     pub ra_api_key: String,
+    #[serde(default)]
+    pub sgdb_api_key: String,
 }
 
 fn config_path() -> PathBuf {

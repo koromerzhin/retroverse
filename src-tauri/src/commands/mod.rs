@@ -15,6 +15,7 @@ pub mod retroachievements;
 pub mod scans;
 pub mod settings;
 pub mod sources;
+pub mod steamgriddb;
 
 pub use app::*;
 pub use backup::*;
@@ -33,3 +34,4 @@ pub use retroachievements::*;
 pub use scans::*;
 pub use settings::*;
 pub use sources::*;
+pub use steamgriddb::*;
