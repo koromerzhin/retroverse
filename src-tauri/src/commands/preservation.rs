@@ -126,6 +126,30 @@ pub fn verify_library(state: State<AppState>) -> Result<usize> {
 }
 
 #[tauri::command]
+pub fn count_unknown_dumps(state: State<AppState>) -> Result<usize> {
+    let conn = state.db.lock().unwrap();
+    // Count game_files whose hash does not match any dat_entry (i.e. unknown/new dumps).
+    // Only meaningful if at least one DAT has been imported.
+    let dat_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM dat_entries", [], |r| r.get(0))
+        .unwrap_or(0);
+    if dat_count == 0 {
+        return Ok(0);
+    }
+    let total_files: i64 = conn
+        .query_row("SELECT COUNT(*) FROM game_files", [], |r| r.get(0))
+        .unwrap_or(0);
+    let known: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM game_files gf WHERE EXISTS (SELECT 1 FROM dat_entries de WHERE (de.sha256 IS NOT NULL AND de.sha256=gf.hash) OR (de.sha1 IS NOT NULL AND de.sha1=gf.sha1) OR (de.md5 IS NOT NULL AND de.md5=gf.md5) OR (de.crc32 IS NOT NULL AND de.crc32=gf.crc32))",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    let unknown = (total_files - known).max(0) as usize;
+    Ok(unknown)
+}
+#[tauri::command]
 pub fn get_preservation_status(state: State<AppState>, game_id: String) -> Result<String> {
     let conn = state.db.lock().unwrap();
     let status: String = conn

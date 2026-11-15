@@ -10,6 +10,7 @@ export default function Preservation() {
   const { data: jobs } = useQuery({ queryKey: ["transfer-jobs"], queryFn: () => api.listTransferJobs() });
   const { data: presSummary } = useQuery({ queryKey: ["preservation-summary"], queryFn: () => api.preservationSummary() });
   const { data: auditLog } = useQuery({ queryKey: ["audit-log"], queryFn: () => api.listAuditLog(20) });
+  const { data: unknownDumps } = useQuery({ queryKey: ["unknown-dumps"], queryFn: () => api.countUnknownDumps() });
   const [hashing, setHashing] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
@@ -171,6 +172,21 @@ export default function Preservation() {
             api.showNotification("RETROVERSE", String(e)).catch(() => {});
           }
         }}>Exporter un XML HyperSpin</button>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Nouveaux dumps</h3>
+        <p style={{ color: "var(--text-dim)", fontSize: 13 }}>
+          Fichiers de la bibliothèque absents de tous les DAT importés (dumps inconnus / nouveaux) :
+          <strong style={{ marginLeft: 6 }}>{unknownDumps ?? 0}</strong>
+        </p>
+        <button className="btn" onClick={async () => {
+          try {
+            const n = await api.countUnknownDumps();
+            qc.invalidateQueries({ queryKey: ["unknown-dumps"] });
+            api.showNotification("RETROVERSE", `${n} dump(s) inconnu(s).`).catch(() => {});
+          } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
+        }}>Vérifier</button>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>

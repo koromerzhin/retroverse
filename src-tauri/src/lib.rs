@@ -73,6 +73,7 @@ pub fn run() {
             commands::list_game_classifications,
             commands::import_dat,
             commands::verify_library,
+            commands::count_unknown_dumps,
             commands::get_preservation_status,
             commands::list_preservation_statuses,
             commands::toggle_favorite,
