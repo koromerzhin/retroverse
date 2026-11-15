@@ -291,6 +291,25 @@ pub fn find_related_games(state: State<AppState>, game_id: String) -> Result<Vec
 }
 
 #[tauri::command]
+pub fn platform_folder_path(state: State<AppState>, platform_id: String) -> Result<Option<String>> {
+    let conn = state.db.lock().unwrap();
+    let path: Option<String> = conn
+        .query_row(
+            "SELECT path FROM game_files WHERE platform_id=?1 LIMIT 1",
+            [platform_id],
+            |r| r.get(0),
+        )
+        .ok();
+    Ok(path.map(|p| {
+        let pb = std::path::Path::new(&p);
+        // Return the immediate parent directory of the file.
+        pb.parent()
+            .map(|x| x.to_string_lossy().to_string())
+            .unwrap_or(p)
+    }))
+}
+
+#[tauri::command]
 pub fn correct_game_title(state: State<AppState>, game_id: String, title: String) -> Result<()> {
     let conn = state.db.lock().unwrap();
     conn.execute(

@@ -152,6 +152,7 @@ pub fn run() {
             commands::set_game_metadata,
             commands::save_game_info,
             commands::get_game,
+            commands::platform_folder_path,
             commands::find_related_games,
             commands::search_games_fts,
             commands::search_games_suggest,

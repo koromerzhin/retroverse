@@ -54,9 +54,19 @@ export default function Platforms() {
   useEffect(() => { localStorage.setItem("retroverse.platforms.cols", JSON.stringify(cols)); }, [cols]);
 
   async function handleOpenFolder(plat: Platform) {
+    const { openPath } = await import("@tauri-apps/plugin-opener");
+    // Prefer the real folder derived from an indexed file for this platform.
+    try {
+      const folder = await api.platformFolderPath(plat.id);
+      if (folder) {
+        await openPath(folder);
+        return;
+      }
+    } catch (e: any) {
+      // fall through to candidate guessing
+    }
     if (!sources) return;
     const locals = (sources || []).filter((s: any) => s.kind === "local");
-    const { openPath } = await import("@tauri-apps/plugin-opener");
     for (const s of locals) {
       const sep = (s.path || "").includes("\\") ? "\\" : "/";
       const candidates = [
@@ -73,7 +83,6 @@ export default function Platforms() {
         }
       }
     }
-    // fallback: try the source path itself
     const local = locals[0];
     if (local) {
       try {
