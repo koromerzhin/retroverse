@@ -58,6 +58,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **FTS5** ✅ : table `games_fts` rebuildée (migration v29), recherche robuste avec fallback LIKE.
 - **Concurrence contrôlée** ✅ : semaphore (2 permits) dans AppState.
 - **Mémoïsation** ✅ : `sortedGames` dans Library.tsx.
+- **Parallélisation du scan** ✅ : dossiers top-level traités en parallèle (std::thread::scope).
 - **Buffers réutilisables** ❌ : restant.
 
 ### Fonctionnalités
