@@ -15,6 +15,7 @@ pub mod models;
 pub mod remote;
 pub mod scanner;
 pub mod state;
+pub mod tmpfiles;
 pub mod tray;
 
 use state::AppState;
@@ -203,6 +204,17 @@ pub fn run() {
             // Spawn system tray (KDE/freedesktop StatusNotifierItem, pure Rust).
             let handle = app.handle().clone();
             crate::tray::spawn_tray(handle);
+
+            // Remove scratch files left behind by a crashed or killed run.
+            std::thread::spawn(|| {
+                let removed = crate::tmpfiles::sweep_orphans();
+                if removed > 0 {
+                    tracing::info!(
+                        "nettoyage : {} fichier(s) temporaire(s) supprimé(s)",
+                        removed
+                    );
+                }
+            });
 
             // Sync genres from ScreenScraper in background.
             let state = app.state::<crate::state::AppState>().inner().clone();

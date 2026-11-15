@@ -38,7 +38,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 
 ## Quality and development
 
-23. **Tests** ✅ : 19 tests Rust (identify) + Playwright E2E (navigation, pages, raccourcis).
+23. **Tests** ✅ : 31 tests Rust (identify, gamelists, tmpfiles) + Playwright E2E (navigation, pages, raccourcis).
 24. **CI** ✅ : eslint, tests Rust, build frontend, job E2E Playwright, job coverage (cargo-llvm-cov).
 25. **Logging** ✅ (tracing-appender + tracing-subscriber).
 26. **Error handling** ✅ (messages explicites, validation des chemins).
@@ -50,6 +50,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 29. **Refactoring** ✅ (hashing.rs, dat.rs).
 30. **Database** ✅ (migrations v1-v29, auto-backup, list/restore).
 31. **Configuration** ✅ (Settings page).
+32. **Fichiers temporaires maîtrisés** ✅ : le hachage distant écrit dans `<data_dir>/retroverse/scratch` (et non `/tmp`, souvent un tmpfs de quelques Go) ; suppression garantie par RAII, contrôle de l'espace libre avant téléchargement, nettoyage des orphelins au démarrage.
 
 ## Nouvelles pistes (2026-11)
 

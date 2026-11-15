@@ -91,8 +91,9 @@ pub async fn compute_hashes_for_game_inner(
             };
             let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
             let remote_path = crate::identify::remote_path_from_url(&path);
-            // Stream download to a temp file to avoid loading the whole file into memory.
-            let tmp = std::env::temp_dir().join(format!("retroverse_{}", fid));
+            // Stream download to a scratch file to avoid loading the whole file into memory.
+            let tmp = crate::tmpfiles::TempFile::new(&fid);
+            crate::tmpfiles::ensure_room_for(file_size.max(0) as u64)?;
             {
                 use tokio::io::AsyncReadExt;
                 let mut f = sess
@@ -100,7 +101,7 @@ pub async fn compute_hashes_for_game_inner(
                     .open(remote_path)
                     .await
                     .map_err(|e| RetroError::Other(e.to_string()))?;
-                let mut out = std::fs::File::create(&tmp).map_err(RetroError::Io)?;
+                let mut out = std::fs::File::create(tmp.path()).map_err(RetroError::Io)?;
                 use std::io::Write;
                 let mut chunk = vec![0u8; 65536];
                 loop {
@@ -119,13 +120,12 @@ pub async fn compute_hashes_for_game_inner(
                 .session
                 .disconnect(russh::Disconnect::ByApplication, "", "")
                 .await;
-            let r = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
+            let r = crate::identify::compute_hashes(tmp.as_str(), &allowed);
             let lower = remote_path.to_lowercase();
             let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
             if is_archive {
-                arch_hashes = crate::identify::hash_file_all(tmp.to_str().unwrap_or(""));
+                arch_hashes = crate::identify::hash_file_all(tmp.as_str());
             }
-            let _ = std::fs::remove_file(&tmp);
             r
         } else {
             crate::identify::compute_hashes(&path, &allowed)
@@ -196,12 +196,12 @@ pub async fn compute_hashes_for_file(state: State<'_, AppState>, file_id: String
 pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> Result<usize> {
     use russh::Disconnect;
 
-    let (path, kind, connection_id): (String, Option<String>, Option<String>) = {
+    let (path, kind, connection_id, size): (String, Option<String>, Option<String>, i64) = {
         let conn = state.db.lock().unwrap();
         conn.query_row(
-            "SELECT gf.path, gs.kind, gs.connection_id FROM game_files gf JOIN game_sources gs ON gs.id = gf.source_id WHERE gf.id = ?1",
+            "SELECT gf.path, gs.kind, gs.connection_id, gf.size FROM game_files gf JOIN game_sources gs ON gs.id = gf.source_id WHERE gf.id = ?1",
             [file_id.clone()],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )?
     };
 
@@ -239,7 +239,8 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
         };
         let sess = crate::remote::connect(&host, port, &username, &key_path).await?;
         let remote_path = crate::identify::remote_path_from_url(&path);
-        let tmp = std::env::temp_dir().join(format!("retroverse_{}", file_id));
+        let tmp = crate::tmpfiles::TempFile::new(&file_id);
+        crate::tmpfiles::ensure_room_for(size.max(0) as u64)?;
         {
             use tokio::io::AsyncReadExt;
             let mut f = sess
@@ -247,7 +248,7 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
                 .open(remote_path)
                 .await
                 .map_err(|e| RetroError::Other(e.to_string()))?;
-            let mut out = std::fs::File::create(&tmp).map_err(RetroError::Io)?;
+            let mut out = std::fs::File::create(tmp.path()).map_err(RetroError::Io)?;
             use std::io::Write;
             let mut chunk = vec![0u8; 65536];
             loop {
@@ -266,16 +267,15 @@ pub async fn compute_hash_for_file_inner(state: &AppState, file_id: String) -> R
             .session
             .disconnect(Disconnect::ByApplication, "", "")
             .await;
-        let content = crate::identify::compute_hashes(tmp.to_str().unwrap_or(""), &allowed);
+        let content = crate::identify::compute_hashes(tmp.as_str(), &allowed);
         let (s, c, m, h, zi, sh512) = content;
         let lower = crate::identify::remote_path_from_url(&path).to_lowercase();
         let is_archive = lower.ends_with(".7z") || lower.ends_with(".zip");
         let (as_, ac, am, ah, ash512) = if is_archive {
-            crate::identify::hash_file_all(tmp.to_str().unwrap_or(""))
+            crate::identify::hash_file_all(tmp.as_str())
         } else {
             (None, None, None, None, None)
         };
-        let _ = std::fs::remove_file(&tmp);
         (s, c, m, h, zi, sh512, as_, ac, am, ah, ash512)
     } else {
         let content = crate::identify::compute_hashes(&path, &allowed);
