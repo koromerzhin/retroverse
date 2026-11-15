@@ -65,7 +65,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Recommandations** basées sur les genres/plateformes possédés.
 - **Détection de jeux manquants** dans une série.
 - **Tracking des prix** (marché rétro).
-- **Alertes de nouveaux dumps** (No-Intro, Redump).
+- **Alertes de nouveaux dumps** ✅ : compteur + notification après scan.
 - **Import depuis d'autres gestionnaires** : LaunchBox, EmuDeck, ES-DE, Playnite.
 - **Export vers formats standards** ✅ : DAT (clrmamepro) + XML (HyperSpin).
 - **Mode présentation (kiosque)** ✅ : page /kiosk plein écran avec diaporama auto.
