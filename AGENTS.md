@@ -4,6 +4,13 @@
 
 RETROVERSE — Tauri 2 desktop app (Rust backend + React/TypeScript frontend + SQLite). Manages video game collections, metadata via ScreenScraper, hashes, preservation.
 
+## ⚠️ Git workflow (READ FIRST)
+
+- **Never merge a branch without explicit user confirmation ("ok, merge").**
+- Create the branch, push it, then **STOP and wait** for the user to say "ok, merge".
+- Do NOT auto-merge, even after successful checks.
+- Never commit directly to `main` or `develop`.
+
 ## Commands
 
 - Dev server: `./dev.sh` (sets `PATH` and `PKG_CONFIG_PATH`, runs `npm run tauri dev`). Vite on port 1420 (strict).
