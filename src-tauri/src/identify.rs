@@ -700,6 +700,39 @@ snes: Super Nintendo
         // Should not panic; hashes None
         assert!(h.0.is_none());
     }
+
+    #[test]
+    fn compute_hashes_from_bytes_basic() {
+        let data = b"hello";
+        let h = compute_hashes_from_bytes(data, "test.txt", &[]);
+        // sha256 of "hello"
+        assert_eq!(
+            h.0.as_deref(),
+            Some("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+        );
+        // crc32, md5, sha1 present
+        assert!(h.1.is_some());
+        assert!(h.2.is_some());
+        assert!(h.3.is_some());
+        // zip_inner is None for non-zip
+        assert!(h.4.is_none());
+        // sha512 present
+        assert!(h.5.is_some());
+    }
+
+    #[test]
+    fn compute_hashes_from_bytes_extension_filter() {
+        // allowed_exts with non-matching ext -> treated as non-archive, hashes computed
+        let data = b"hello";
+        let h = compute_hashes_from_bytes(data, "test.bin", &[".sfc".to_string()]);
+        assert!(h.0.is_some());
+    }
+
+    #[test]
+    fn clean_title_variants() {
+        assert_eq!(clean_title("Game (U) [!].nes"), "Game");
+        assert_eq!(clean_title("NoTags"), "NoTags");
+    }
 }
 
 /// Stream-hash an entire file, returning (sha256, crc32, md5, sha1, sha512) without loading it into memory.
