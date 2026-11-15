@@ -1,3 +1,5 @@
+//! Source scanning: walks directories, identifies games, updates the database.
+
 use crate::error::{Result, RetroError};
 use crate::identify;
 use crate::models::{GameFile, ScanResult};

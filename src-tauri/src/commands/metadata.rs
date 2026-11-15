@@ -1,3 +1,5 @@
+//! Commands for metadata.
+
 use crate::error::{Result, RetroError};
 use crate::metadata;
 use crate::state::AppState;

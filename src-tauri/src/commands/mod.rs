@@ -1,3 +1,5 @@
+//! Commands for mod.
+
 pub mod app;
 pub mod backup;
 pub mod classifications;

@@ -1,3 +1,5 @@
+//! Commands for retroachievements.
+
 use crate::config;
 use crate::error::{Result, RetroError};
 use crate::state::AppState;

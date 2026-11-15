@@ -1,3 +1,8 @@
+//! RETROVERSE backend: Tauri 2 application core.
+//!
+//! Manages the SQLite database, scanning, hashing, metadata (ScreenScraper),
+//! preservation, and exposes commands to the React frontend.
+
 pub mod commands;
 pub mod config;
 pub mod dat;

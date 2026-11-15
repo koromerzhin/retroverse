@@ -1,3 +1,5 @@
+//! Commands for genres.
+
 use crate::error::Result;
 use crate::error::RetroError;
 use crate::state::AppState;

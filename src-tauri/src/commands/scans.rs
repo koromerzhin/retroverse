@@ -1,3 +1,5 @@
+//! Commands for scans.
+
 use crate::error::Result;
 use crate::models::ScanResult;
 use crate::state::AppState;

@@ -1,3 +1,5 @@
+//! SQLite schema, migrations and database helpers.
+
 use crate::error::Result;
 use chrono::Utc;
 use rusqlite::{Connection, params};

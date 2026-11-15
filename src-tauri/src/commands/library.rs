@@ -1,3 +1,5 @@
+//! Commands for library.
+
 use crate::error::{Result, RetroError};
 use crate::models::{Game, Platform};
 use crate::state::AppState;

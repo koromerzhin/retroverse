@@ -1,3 +1,5 @@
+//! Commands for platforms.
+
 use crate::error::Result;
 use crate::identify;
 use crate::models::Platform;

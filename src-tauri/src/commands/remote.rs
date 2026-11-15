@@ -1,3 +1,5 @@
+//! Commands for remote.
+
 use crate::error::{Result, RetroError};
 use crate::models::{GameSource, RemoteEntry, ScanResult, TransferResult};
 use crate::remote;

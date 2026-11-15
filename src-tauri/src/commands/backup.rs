@@ -1,3 +1,5 @@
+//! Commands for backup.
+
 use crate::error::{Result, RetroError};
 use crate::state::AppState;
 
