@@ -657,6 +657,47 @@ snes: Super Nintendo
             "Super Mario World"
         );
     }
+
+    #[test]
+    fn ext_of_various() {
+        assert_eq!(ext_of("a.tar.gz"), "gz");
+        assert_eq!(ext_of("a/"), "");
+        assert_eq!(ext_of(""), "");
+        assert_eq!(ext_of("game.7z"), "7z");
+    }
+
+    #[test]
+    fn remote_path_from_url_edge() {
+        assert_eq!(remote_path_from_url("sftp://host"), "sftp://host");
+        assert_eq!(remote_path_from_url("ssh://u@h:22/"), "/");
+        assert_eq!(remote_path_from_url("plain"), "plain");
+    }
+
+    #[test]
+    fn hash_file_all_temp() {
+        let tmp = std::env::temp_dir().join("retroverse_hash_test.bin");
+        std::fs::write(&tmp, b"hello").unwrap();
+        let (sha256, crc32, md5, sha1, sha512) = hash_file_all(tmp.to_str().unwrap());
+        assert!(sha256.is_some());
+        assert!(crc32.is_some());
+        assert!(md5.is_some());
+        assert!(sha1.is_some());
+        assert!(sha512.is_some());
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn hash_file_all_missing() {
+        let (a, b, c, d, e) = hash_file_all("/nonexistent/path/file.bin");
+        assert!(a.is_none() && b.is_none() && c.is_none() && d.is_none() && e.is_none());
+    }
+
+    #[test]
+    fn compute_hashes_missing_file() {
+        let h = compute_hashes("/nonexistent/path/file.bin", &[]);
+        // Should not panic; hashes None
+        assert!(h.0.is_none());
+    }
 }
 
 /// Stream-hash an entire file, returning (sha256, crc32, md5, sha1, sha512) without loading it into memory.
