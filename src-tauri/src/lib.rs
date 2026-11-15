@@ -83,6 +83,8 @@ pub fn run() {
             commands::assign_tag,
             commands::remove_tag,
             commands::list_game_tags,
+            commands::sgdb_search_game,
+            commands::sgdb_fetch_artworks,
             commands::ra_search_game,
             commands::ra_fetch_achievements,
             commands::list_game_achievements,
