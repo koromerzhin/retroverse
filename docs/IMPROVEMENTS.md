@@ -43,7 +43,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 25. **Logging** ✅ (tracing-appender + tracing-subscriber).
 26. **Error handling** ✅ (messages explicites, validation des chemins).
 27. **Security** ✅ (validation des chemins, path traversal).
-28. **i18n** 🔄 (fr/en complets, autres langues fallback anglais).
+28. **i18n** ✅ (fr/en/es/pt/de/it complets : 179 clés chacun).
 
 ## Architecture
 
