@@ -98,6 +98,7 @@ export const api = {
   listAuditLog: (limit?: number) => invoke<any[]>("list_audit_log", { limit }),
   logAudit: (action: string, targetType?: string, targetId?: string, details?: string, provenance?: string) => invoke<void>("log_audit", { action, targetType, targetId, details, provenance }),
   exportDat: (destPath: string) => invoke<number>("export_dat", { destPath }),
+  exportHyperspin: (destPath: string) => invoke<number>("export_hyperspin", { destPath }),
   syncClassifications: () => invoke<number>("sync_classifications"),
   addDeveloper: (name: string, ssId?: string) => invoke<any>("add_developer", { name, ssId }),
   updateDeveloper: (id: string, name: string, ssId?: string) => invoke<void>("update_developer", { id, name, ssId }),
