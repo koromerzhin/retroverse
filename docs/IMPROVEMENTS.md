@@ -68,7 +68,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Alertes de nouveaux dumps** (No-Intro, Redump).
 - **Import depuis d'autres gestionnaires** : LaunchBox, EmuDeck, ES-DE, Playnite.
 - **Export vers formats standards** : DAT (No-Intro), XML (HyperSpin).
-- **Mode présentation (kiosque)** pour afficher la collection sur TV.
+- **Mode présentation (kiosque)** ✅ : page /kiosk plein écran avec diaporama auto.
 - **Comparaison de versions** (régions, révisions) côte à côte.
 - **Raccourcis clavier** ✅ : Ctrl/⌘+K recherche, Ctrl/⌘+1..9 navigation, ? aide, Échap.
 
