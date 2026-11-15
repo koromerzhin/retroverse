@@ -248,6 +248,12 @@ export default function Sources() {
                   <td>
                     <div className="row" style={{ gap: 6 }}>
                       <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleTest(s.id)}>Tester</button>
+                      <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={async () => {
+                        try {
+                          const n = await api.generateGamelist(s.id);
+                          api.showNotification("RETROVERSE", `gamelist.xml généré : ${n} jeu(x).`).catch(() => {});
+                        } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
+                      }}>Générer gamelist.xml</button>
                       <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startEdit(s)}>Modifier</button>
                       <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleDelete(s.id)}>Supprimer</button>
                     </div>

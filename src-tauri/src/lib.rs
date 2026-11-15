@@ -183,6 +183,7 @@ pub fn run() {
             commands::get_provider_config,
             commands::set_provider_config,
             commands::import_gamelists,
+            commands::generate_gamelist,
         ])
         .setup(|app| {
             use base64::Engine;

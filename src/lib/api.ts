@@ -56,6 +56,7 @@ export const api = {
   getProviderConfig: () => invoke<any>("get_provider_config"),
   setProviderConfig: (cfg: any) => invoke<void>("set_provider_config", { cfg }),
   importGamelists: (sourceId: string) => invoke<number>("import_gamelists", { sourceId }),
+  generateGamelist: (sourceId: string, platformId?: string) => invoke<number>("generate_gamelist", { sourceId, platformId }),
   computeHashes: (sourceId?: string) => invoke<number>("compute_hashes", { sourceId }),
   computeHashesForGame: (gameId: string) => invoke<number>("compute_hashes_for_game", { gameId }),
   computeHashesForAllGames: () => invoke<number>("compute_hashes_for_all_games"),
