@@ -76,7 +76,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Tests unitaires** supplémentaires (scanner, metadata, hashing).
 - **Tests E2E** Playwright complets.
 - **i18n complet** (traductions es/pt/de/it).
-- **Documentation** : rustdoc, Storybook pour les composants.
+- **Documentation** ✅ : rustdoc module-level sur le backend (cargo doc OK). Storybook non disponible hors ligne.
 
 ### Extensibilité
 - **Thèmes communautaires** (skins).
