@@ -177,6 +177,11 @@ export default function App() {
           msg += ` : ${formatNumber(files)} fichier(s), aucune nouveauté`;
         }
         api.showNotification("RETROVERSE", msg).catch(() => {});
+        api.countUnknownDumps().then((n) => {
+          if (n && n > 0) {
+            api.showNotification("RETROVERSE", `${n} dump(s) inconnu(s) détecté(s) (pas dans les DAT importés).`).catch(() => {});
+          }
+        }).catch(() => {});
         qc.invalidateQueries();
         qc.refetchQueries();
         setScanProgress(null);

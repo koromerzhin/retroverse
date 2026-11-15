@@ -88,6 +88,7 @@ export const api = {
   listGameClassifications: (gameId: string) => invoke<any[]>("list_game_classifications", { gameId }),
   importDat: (path: string) => invoke<number>("import_dat", { path }),
   verifyLibrary: () => invoke<number>("verify_library"),
+  countUnknownDumps: () => invoke<number>("count_unknown_dumps"),
   getPreservationStatus: (gameId: string) => invoke<string>("get_preservation_status", { gameId }),
   listPreservationStatuses: () => invoke<[string, string][]>("list_preservation_statuses"),
   toggleFavorite: (gameId: string) => invoke<boolean>("toggle_favorite", { gameId }),
