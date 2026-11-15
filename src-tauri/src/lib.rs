@@ -16,25 +16,14 @@ use state::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 const SPLASH_HTML: &str = include_str!("../../public/splash.html");
 
-#[cfg(unix)]
-fn single_instance_socket_path() -> std::path::PathBuf {
-    let base = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    base.join("retroverse").join("single-instance.sock")
-}
-
 pub fn run() {
-    #[cfg(unix)]
-    {
+    // Single-instance check (cross-platform): if a primary instance is listening on
+    // the local port, notify it and exit.
+    const SINGLE_INSTANCE_PORT: u16 = 47832;
+    if let Ok(mut stream) = std::net::TcpStream::connect(("127.0.0.1", SINGLE_INSTANCE_PORT)) {
         use std::io::Write;
-        use std::os::unix::net::UnixStream;
-        let sock_path = single_instance_socket_path();
-        // If an instance is already running, notify it and exit.
-        if let Ok(mut stream) = UnixStream::connect(&sock_path) {
-            let _ = stream.write_all(b"activate\n");
-            return;
-        }
-        // Remove stale socket file if present.
-        let _ = std::fs::remove_file(&sock_path);
+        let _ = stream.write_all(b"activate\n");
+        return;
     }
 
     // File-based logging (readable by external apps). Logs go to <data_dir>/retroverse/logs/
@@ -206,15 +195,17 @@ pub fn run() {
                 let _ = crate::commands::entities::sync_entities_from_metadata_inner(&state);
             });
 
-            // Single-instance listener (Unix): restore window when another instance pings.
-            #[cfg(unix)]
+            // Single-instance listener (cross-platform via localhost TCP): restore window
+            // when another instance pings.
             {
-                use std::os::unix::net::UnixListener;
-                let sock_path = single_instance_socket_path();
-                if let Ok(listener) = UnixListener::bind(&sock_path) {
+                const SINGLE_INSTANCE_PORT: u16 = 47832;
+                if let Ok(listener) =
+                    std::net::TcpListener::bind(("127.0.0.1", SINGLE_INSTANCE_PORT))
+                {
                     let app_handle = app.handle().clone();
                     std::thread::spawn(move || {
-                        for mut s in listener.incoming().flatten() {
+                        for stream in listener.incoming().flatten() {
+                            let mut s = stream;
                             use std::io::Read;
                             let mut buf = [0u8; 64];
                             let _ = s.read(&mut buf);
@@ -272,9 +263,4 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-
-    #[cfg(unix)]
-    {
-        let _ = std::fs::remove_file(single_instance_socket_path());
-    }
 }
