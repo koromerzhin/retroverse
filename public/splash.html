@@ -19,6 +19,7 @@
       .bar { width: 200px; height: 4px; background: #1a1e28; border-radius: 2px; overflow: hidden; margin-top: 14px; position: relative; }
       .bar > div { position: absolute; top: 0; left: 0; height: 100%; width: 40%; background: linear-gradient(90deg,#7c5cff,#5ad1ff); border-radius: 2px; animation: slide 1.2s ease-in-out infinite; }
       .status { font-size: 11px; color: #9aa3b5; margin-top: 6px; }
+      .version { position: absolute; bottom: 10px; font-size: 10px; letter-spacing: .5px; color: #4d5464; }
       @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
       @keyframes slide { 0% { left: -40%; } 100% { left: 100%; } }
     </style>
@@ -31,6 +32,7 @@
       <div class="subtitle">The Universal Video Game Collection Companion</div>
       <div class="bar"><div></div></div>
       <div class="status">Chargement…</div>
+      <div class="version">v{{VERSION}}</div>
     </div>
   </body>
 </html>
