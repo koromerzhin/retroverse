@@ -2,6 +2,7 @@ export default function SearchInput({ value, onChange, placeholder, maxWidth = 2
   return (
     <input
       className="input"
+      data-search="true"
       style={{ maxWidth }}
       placeholder={placeholder || "Rechercher…"}
       value={value}

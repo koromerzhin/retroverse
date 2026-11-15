@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { api } from "./lib/api";
 import { formatNumber, formatBytes } from "./lib/format";
 import { useI18n } from "./i18n";
-import { NavLink, Routes, Route, Navigate } from "react-router-dom";
+import { NavLink, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 const Home = lazy(() => import("./pages/Home"));
 const Library = lazy(() => import("./pages/Library"));
 const GameDetail = lazy(() => import("./pages/GameDetail"));
@@ -42,6 +42,8 @@ const nav = [
 
 export default function App() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string; folder?: string } | null>(null);
   const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number; game?: string; platform?: string; size?: number; startedAt?: number } | null>(null);
   const [hashHistory, setHashHistory] = useState<{ file: string; game?: string; ok: boolean; ts: number }[]>([]);
@@ -61,6 +63,41 @@ export default function App() {
   useEffect(() => {
     api.listSources().then((s) => setSources(s || [])).catch(() => {});
   }, []);
+
+  // Global keyboard shortcuts.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inInput = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        const inp = document.querySelector<HTMLInputElement>("input[data-search='true']");
+        if (inp) { inp.focus(); inp.select(); }
+        return;
+      }
+      if (mod && /^\d$/.test(e.key)) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx >= 0 && idx < nav.length) {
+          e.preventDefault();
+          navigate(nav[idx].to);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        setSidebarOpen(false);
+        setShortcutsOpen(false);
+        return;
+      }
+      if (!inInput && (e.key === "?" )) {
+        e.preventDefault();
+        setShortcutsOpen((v) => !v);
+        return;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [navigate]);
 
   // Preload data, then ask Rust to reveal the main window and close the splashscreen.
   useEffect(() => {
@@ -366,6 +403,20 @@ export default function App() {
         </Routes>
         </Suspense>
       </main>
+      {shortcutsOpen && (
+        <div onClick={() => setShortcutsOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--bg-card, #fff)", padding: 20, borderRadius: 8, maxWidth: 420, width: "90%" }}>
+            <h3 style={{ marginTop: 0 }}>Raccourcis clavier</h3>
+            <ul style={{ listStyle: "none", padding: 0, fontSize: 13, lineHeight: 1.8 }}>
+              <li><kbd>Ctrl/⌘+K</kbd> — Rechercher</li>
+              <li><kbd>Ctrl/⌘+1..9</kbd> — Naviguer vers une page</li>
+              <li><kbd>?</kbd> — Afficher/masquer cette aide</li>
+              <li><kbd>Échap</kbd> — Fermer les panneaux</li>
+            </ul>
+            <button className="btn" onClick={() => setShortcutsOpen(false)}>Fermer</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
