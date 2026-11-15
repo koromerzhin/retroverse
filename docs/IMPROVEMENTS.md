@@ -59,7 +59,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Concurrence contrôlée** ✅ : semaphore (2 permits) dans AppState.
 - **Mémoïsation** ✅ : `sortedGames` dans Library.tsx.
 - **Parallélisation du scan** ✅ : dossiers top-level traités en parallèle (std::thread::scope).
-- **Buffers réutilisables** ❌ : restant.
+- **Buffers réutilisables** ✅ : téléchargements distants streamés sur disque avec buffer 64 Ko réutilisable.
 
 ### Fonctionnalités
 - **Recommandations** basées sur les genres/plateformes possédés.
