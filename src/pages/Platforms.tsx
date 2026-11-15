@@ -53,24 +53,30 @@ export default function Platforms() {
   const [cols, setCols] = useState<Record<string, boolean>>(() => { try { const c = JSON.parse(localStorage.getItem("retroverse.platforms.cols") || "{}"); return Object.keys(c).length ? c : { name: true, manufacturer: true, year: true, games: true, files: true, actions: true }; } catch { return { name: true, manufacturer: true, year: true, games: true, files: true, actions: true }; } });
   useEffect(() => { localStorage.setItem("retroverse.platforms.cols", JSON.stringify(cols)); }, [cols]);
 
-  async function handleOpenFolder(p: Platform) {
+  async function handleOpenFolder(plat: Platform) {
     if (!sources) return;
-    for (const s of sources) {
-      if (s.kind !== "local") continue;
-      const folder = `${s.path}/${p.id}`;
-      try {
-        const { openPath } = await import("@tauri-apps/plugin-opener");
-        await openPath(folder);
-        return;
-      } catch (e: any) {
-        // try next source
+    const locals = (sources || []).filter((s: any) => s.kind === "local");
+    const { openPath } = await import("@tauri-apps/plugin-opener");
+    for (const s of locals) {
+      const sep = (s.path || "").includes("\\") ? "\\" : "/";
+      const candidates = [
+        `${s.path}${sep}${plat.slug}`,
+        `${s.path}${sep}roms${sep}${plat.slug}`,
+        `${s.path}${sep}ROMs${sep}${plat.slug}`,
+      ];
+      for (const folder of candidates) {
+        try {
+          await openPath(folder);
+          return;
+        } catch (e: any) {
+          // try next candidate
+        }
       }
     }
     // fallback: try the source path itself
-    const local = sources.find((s) => s.kind === "local");
+    const local = locals[0];
     if (local) {
       try {
-        const { openPath } = await import("@tauri-apps/plugin-opener");
         await openPath(local.path);
         return;
       } catch (e: any) {
@@ -78,9 +84,9 @@ export default function Platforms() {
         return;
       }
     }
-    const remote = sources.find((s) => s.kind === "remote");
+    const remote = (sources || []).find((s: any) => s.kind === "remote");
     if (remote) {
-      alert(`Dossier distant : ${remote.remote_path || remote.path}/${p.id}`);
+      alert(`Dossier distant : ${remote.remote_path || remote.path}/${plat.slug}`);
     } else {
       alert("Aucun dossier local trouvé pour cette plateforme.");
     }
