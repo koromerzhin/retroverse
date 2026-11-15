@@ -35,10 +35,10 @@ pub async fn compute_hashes(
             Ok(Ok(f)) => f,
             _ => return (None, None, None, None, None, None),
         };
-    // Stream download to a temp file to avoid loading the whole file into memory.
-    let tmp = std::env::temp_dir().join(format!("retroverse_remote_{}", path.len()));
+    // Stream download to a scratch file to avoid loading the whole file into memory.
+    let tmp = crate::tmpfiles::TempFile::new(&format!("remote_{}", path.len()));
     let download = async {
-        let mut out = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+        let mut out = std::fs::File::create(tmp.path()).map_err(|e| e.to_string())?;
         use std::io::Write;
         let mut chunk = vec![0u8; 65536];
         loop {
@@ -52,22 +52,17 @@ pub async fn compute_hashes(
         Ok::<(), String>(())
     };
     let read_result = tokio::time::timeout(std::time::Duration::from_secs(600), download).await;
-    match read_result {
-        Ok(Ok(())) => {}
-        _ => {
-            let _ = std::fs::remove_file(&tmp);
-            return (None, None, None, None, None, None);
-        }
+    if !matches!(read_result, Ok(Ok(()))) {
+        return (None, None, None, None, None, None);
     }
     let path_owned = path.to_string();
     let allowed = allowed.to_vec();
-    let tmp_for_hash = tmp.clone();
+    let tmp_path = tmp.path().to_path_buf();
     let r = tokio::task::spawn_blocking(move || {
-        crate::identify::compute_hashes(tmp_for_hash.to_str().unwrap_or(""), &allowed)
+        crate::identify::compute_hashes(tmp_path.to_str().unwrap_or(""), &allowed)
     })
     .await
     .unwrap_or((None, None, None, None, None, None));
-    let _ = std::fs::remove_file(&tmp);
     let _ = path_owned;
     r
 }

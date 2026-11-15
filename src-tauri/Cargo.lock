@@ -4102,6 +4102,7 @@ dependencies = [
  "dirs 5.0.1",
  "image",
  "ksni",
+ "libc",
  "md5",
  "notify-rust",
  "rusqlite",
