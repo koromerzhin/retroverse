@@ -69,7 +69,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Import depuis d'autres gestionnaires** : LaunchBox, EmuDeck, ES-DE, Playnite.
 - **Export vers formats standards** ✅ : DAT (clrmamepro) + XML (HyperSpin).
 - **Mode présentation (kiosque)** ✅ : page /kiosk plein écran avec diaporama auto.
-- **Comparaison de versions** (régions, révisions) côte à côte.
+- **Comparaison de versions** ✅ : onglet "Versions" dans la fiche jeu (fichiers + jeux liés).
 - **Raccourcis clavier** ✅ : Ctrl/⌘+K recherche, Ctrl/⌘+1..9 navigation, ? aide, Échap.
 
 ### Qualité
