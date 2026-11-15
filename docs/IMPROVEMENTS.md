@@ -68,6 +68,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Alertes de nouveaux dumps** ✅ : compteur + notification après scan.
 - **Import depuis d'autres gestionnaires** : LaunchBox, EmuDeck, ES-DE, Playnite.
 - **Export vers formats standards** ✅ : DAT (clrmamepro) + XML (HyperSpin).
+- **Gamelists ES-DE** ✅ : génération de `saves/es-de/gamelists/<plateforme>/gamelist.xml` local ou distant SFTP, fusion sans perte des favoris/playcount/médias existants.
 - **Mode présentation (kiosque)** ✅ : page /kiosk plein écran avec diaporama auto.
 - **Comparaison de versions** ✅ : onglet "Versions" dans la fiche jeu (fichiers + jeux liés).
 - **Raccourcis clavier** ✅ : Ctrl/⌘+K recherche, Ctrl/⌘+1..9 navigation, ? aide, Échap.
