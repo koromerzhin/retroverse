@@ -38,7 +38,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 
 ## Quality and development
 
-23. **Tests** ✅ : 11 tests Rust (identify) + Playwright E2E (navigation, pages, raccourcis).
+23. **Tests** ✅ : 16 tests Rust (identify) + Playwright E2E (navigation, pages, raccourcis).
 24. **CI** ✅ : eslint, tests Rust, build frontend, job E2E Playwright, job coverage (cargo-llvm-cov).
 25. **Logging** ✅ (tracing-appender + tracing-subscriber).
 26. **Error handling** ✅ (messages explicites, validation des chemins).
