@@ -239,9 +239,12 @@ pub fn run() {
             let _ = main_window.hide();
 
             // Independent splashscreen window with embedded HTML (data URL, no file/URL resolution).
+            // Use the bundle version so the splash and the frontend (`getVersion()`) agree.
+            let app_version = app.package_info().version.to_string();
+            let splash_html = SPLASH_HTML.replace("{{VERSION}}", &app_version);
             let splash_url = format!(
                 "data:text/html;base64,{}",
-                base64::engine::general_purpose::STANDARD.encode(SPLASH_HTML)
+                base64::engine::general_purpose::STANDARD.encode(splash_html)
             );
             let _splash = WebviewWindowBuilder::new(
                 app,

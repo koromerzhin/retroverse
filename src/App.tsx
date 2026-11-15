@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
+import { getVersion } from "@tauri-apps/api/app";
 import { api } from "./lib/api";
 import { formatNumber, formatBytes } from "./lib/format";
 import { useI18n } from "./i18n";
@@ -53,7 +54,13 @@ export default function App() {
   const [hashHistory, setHashHistory] = useState<{ file: string; game?: string; ok: boolean; ts: number }[]>([]);
   const [hashDetails, setHashDetails] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
   const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    getVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion(""));
+  }, []);
   useEffect(() => {
     if (!hashProgress) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -378,9 +385,12 @@ export default function App() {
             {n.label}
           </NavLink>
         ))}
+        <div style={{ marginTop: "auto", padding: "6px 14px 2px", fontSize: 11, color: "var(--text-muted)", letterSpacing: ".3px" }}>
+          {appVersion ? `Version ${appVersion}` : ""}
+        </div>
         <button
           className="nav-item"
-          style={{ marginTop: "auto", background: "none", border: "none", cursor: "pointer", textAlign: "left", width: "100%" }}
+          style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", width: "100%" }}
           onClick={async () => {
             await api.quit();
           }}
