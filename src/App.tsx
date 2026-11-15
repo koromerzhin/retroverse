@@ -89,7 +89,7 @@ export default function App() {
         setShortcutsOpen(false);
         return;
       }
-      if (!inInput && (e.key === "?" )) {
+      if (!inInput && (e.key === "?" || (e.shiftKey && e.key === "/") || (e.code === "Slash" && e.shiftKey))) {
         e.preventDefault();
         setShortcutsOpen((v) => !v);
         return;
