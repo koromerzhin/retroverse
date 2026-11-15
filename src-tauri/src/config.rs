@@ -15,6 +15,10 @@ pub struct ProviderConfig {
     pub screenscraper_ssid: String,
     #[serde(default)]
     pub screenscraper_sspassword: String,
+    #[serde(default)]
+    pub ra_username: String,
+    #[serde(default)]
+    pub ra_api_key: String,
 }
 
 fn config_path() -> PathBuf {

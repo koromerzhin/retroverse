@@ -126,6 +126,15 @@ export default function Settings() {
               <label style={{ fontSize: 12, color: "var(--text-muted)" }}>ScreenScraper user password</label>
               <input className="input" type="password" value={pc.screenscraper_sspassword || ""} onChange={(e) => setPc({ ...pc, screenscraper_sspassword: e.target.value })} />
             </div>
+            <h4 style={{ marginTop: 16, marginBottom: 4 }}>RetroAchievements</h4>
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Nom d'utilisateur RetroAchievements</label>
+              <input className="input" value={pc.ra_username || ""} onChange={(e) => setPc({ ...pc, ra_username: e.target.value })} />
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Clé API Web RetroAchievements</label>
+              <input className="input" type="password" value={pc.ra_api_key || ""} onChange={(e) => setPc({ ...pc, ra_api_key: e.target.value })} />
+            </div>
             <button className="btn primary" style={{ marginTop: 12 }} onClick={async () => {
               try {
                 await api.setProviderConfig(pc);

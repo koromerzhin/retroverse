@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 
-pub const SCHEMA_VERSION: i32 = 30;
+pub const SCHEMA_VERSION: i32 = 31;
 
 pub fn db_path() -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -161,6 +161,9 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
     if current < 30 {
         apply_v30(conn)?;
+    }
+    if current < 31 {
+        apply_v31(conn)?;
     }
     if current < 16 {
         apply_v16(conn)?;
@@ -1443,6 +1446,28 @@ fn apply_v30(conn: &Connection) -> Result<()> {
             reverted INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_enrichment_history_game ON enrichment_history(game_id);
+        "#,
+    )?;
+    Ok(())
+}
+
+fn apply_v31(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS game_achievements (
+            id TEXT PRIMARY KEY,
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            ra_game_id INTEGER NOT NULL,
+            ra_achievement_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            points INTEGER NOT NULL DEFAULT 0,
+            badge_url TEXT,
+            unlocked INTEGER NOT NULL DEFAULT 0,
+            fetched_at TEXT NOT NULL,
+            UNIQUE(game_id, ra_achievement_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_game_achievements_game ON game_achievements(game_id);
         "#,
     )?;
     Ok(())
