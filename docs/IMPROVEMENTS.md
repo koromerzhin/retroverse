@@ -39,7 +39,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 ## Quality and development
 
 23. **Tests** ✅ : 31 tests Rust (identify, gamelists, tmpfiles) + Playwright E2E (navigation, pages, raccourcis).
-24. **CI** ✅ : eslint, tests Rust, build frontend, job E2E Playwright, job coverage (cargo-llvm-cov).
+24. **CI** ✅ : fmt/clippy/tests Rust, build frontend, job E2E Playwright, job coverage (cargo-llvm-cov), et workflow `Release` qui produit les bundles Linux/Windows/macOS sur tag (`.deb`, `.rpm`, `.AppImage`, `.msi`, `.exe` NSIS, `.dmg` universel) et les attache à une release GitHub en brouillon.
 25. **Logging** ✅ (tracing-appender + tracing-subscriber).
 26. **Error handling** ✅ (messages explicites, validation des chemins).
 27. **Security** ✅ (validation des chemins, path traversal).

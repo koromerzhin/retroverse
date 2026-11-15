@@ -1,0 +1,186 @@
+name: Release
+
+# Build installable bundles for Linux, Windows and macOS whenever a version tag
+# is pushed, and attach them to a draft GitHub release. A manual run
+# (workflow_dispatch) builds the same artifacts without publishing anything.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_NAME: retroverse
+
+jobs:
+  verify:
+    name: Verify sources
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libdbus-1-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      # The tag is what users see, so refuse to build when it disagrees with the
+      # version declared by the project.
+      - name: Tag matches the declared version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          conf=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+          cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+          pkg=$(node -p "require('./package.json').version")
+          echo "tag=$tag tauri.conf.json=$conf Cargo.toml=$cargo package.json=$pkg"
+          for found in "$conf" "$cargo" "$pkg"; do
+            if [ "$found" != "$tag" ]; then
+              echo "::error::version mismatch: sources say $found, tag says $tag"
+              exit 1
+            fi
+          done
+
+      - name: Frontend build
+        run: npm ci && npm run build
+
+      - name: Format check
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            artifact: linux-x86_64
+            target: ""
+            bundles: src-tauri/target/release/bundle/**/*.{deb,rpm,AppImage}
+          - name: Windows x64
+            os: windows-latest
+            artifact: windows-x64
+            target: ""
+            bundles: src-tauri/target/release/bundle/**/*.{msi,exe}
+          - name: macOS universal
+            os: macos-latest
+            artifact: macos-universal
+            # Intel + Apple Silicon in a single .app/.dmg.
+            target: universal-apple-darwin
+            bundles: src-tauri/target/universal-apple-darwin/release/bundle/**/*.dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Windows needs nothing extra: WebView2 ships with the runner and the
+      # bundler downloads WiX/NSIS itself.
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libdbus-1-dev \
+            libfuse2 patchelf xdg-utils
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+          key: ${{ matrix.artifact }}
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build bundles
+        run: npm run tauri -- build ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
+
+      - name: Upload bundles as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-${{ matrix.artifact }}
+          path: ${{ matrix.bundles }}
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Draft release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: bundles
+          pattern: ${{ env.APP_NAME }}-*
+          merge-multiple: true
+
+      - name: List collected bundles
+        run: find bundles -type f | sort
+
+      - name: Create the draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: RETROVERSE ${{ github.ref_name }}
+          body_path: .github/release-notes.md
+          draft: true
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            bundles/**/*.AppImage
+            bundles/**/*.deb
+            bundles/**/*.rpm
+            bundles/**/*.msi
+            bundles/**/*.exe
+            bundles/**/*.dmg
+
+      - name: Summary
+        run: |
+          {
+            echo "### Draft release for ${{ github.ref_name }}"
+            echo ""
+            echo "Artifacts are attached to https://github.com/${{ github.repository }}/releases"
+            echo ""
+            echo "Review the bundle list, edit the notes, then publish."
+          } >> "$GITHUB_STEP_SUMMARY"
