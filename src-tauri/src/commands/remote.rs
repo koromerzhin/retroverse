@@ -926,30 +926,43 @@ pub async fn copy_remote_files(
         match sess.sftp.open(rpath).await {
             Ok(mut rf) => {
                 use tokio::io::AsyncReadExt;
-                let mut buf = Vec::with_capacity(*size as usize);
+                // Stream directly to disk with a reusable 64 KB buffer to avoid
+                // loading the whole file into memory.
                 let mut tmp = vec![0u8; 65536];
+                let mut out = match std::fs::File::create(&dest) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        errors.push(format!("{}: {}", filename, e));
+                        continue;
+                    }
+                };
+                use std::io::Write;
+                let mut total = 0i64;
+                let mut read_err: Option<String> = None;
                 loop {
                     match rf.read(&mut tmp).await {
                         Ok(0) => break,
-                        Ok(n) => buf.extend_from_slice(&tmp[..n]),
+                        Ok(n) => {
+                            if let Err(e) = out.write_all(&tmp[..n]) {
+                                read_err = Some(format!("{}: {}", filename, e));
+                                break;
+                            }
+                            total += n as i64;
+                        }
                         Err(e) => {
-                            errors.push(format!("{}: {}", filename, e));
+                            read_err = Some(format!("{}: {}", filename, e));
                             break;
                         }
                     }
                 }
-                // only write if no read error for this file
-                let read_ok = !errors
-                    .iter()
-                    .any(|e| e.starts_with(&format!("{}:", filename)));
-                if read_ok {
-                    if let Err(e) = std::fs::write(&dest, &buf) {
-                        errors.push(format!("{}: {}", filename, e));
-                    } else {
-                        total_bytes += buf.len() as i64;
-                        done_files += 1;
-                        let _ = app.emit("transfer-progress", serde_json::json!({"job_id": job_id, "file": filename, "status": "done", "bytes": buf.len()}));
-                    }
+                if let Some(e) = read_err {
+                    errors.push(e);
+                    let _ = std::fs::remove_file(&dest);
+                } else {
+                    let _ = out.flush();
+                    total_bytes += total;
+                    done_files += 1;
+                    let _ = app.emit("transfer-progress", serde_json::json!({"job_id": job_id, "file": filename, "status": "done", "bytes": total}));
                 }
             }
             Err(e) => errors.push(format!("{}: {}", filename, e)),
