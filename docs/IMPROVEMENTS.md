@@ -85,4 +85,4 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Plugin system** pour étendre les fonctionnalités.
 - **API REST locale** pour intégration avec d'autres outils.
 - **SteamGridDB** pour les artworks supplémentaires.
-- **RetroAchievements** pour les succès et le tracking.
+- **RetroAchievements** ✅ : recherche, récupération et affichage des succès (onglet "Succès").
