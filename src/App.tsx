@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { api } from "./lib/api";
 import { formatNumber, formatBytes } from "./lib/format";
 import { useI18n } from "./i18n";
-import { NavLink, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { NavLink, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 const Home = lazy(() => import("./pages/Home"));
 const Library = lazy(() => import("./pages/Library"));
 const GameDetail = lazy(() => import("./pages/GameDetail"));
@@ -21,6 +21,7 @@ const Duplicates = lazy(() => import("./pages/Duplicates"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Collections = lazy(() => import("./pages/Collections"));
 const Classifications = lazy(() => import("./pages/Classifications"));
+const Kiosk = lazy(() => import("./pages/Kiosk"));
 
 const nav = [
   { to: "/", label: "Accueil", icon: "🏠" },
@@ -38,11 +39,14 @@ const nav = [
   { to: "/classifications", label: "Classifications", icon: "🛡️" },
   { to: "/preservation", label: "Préservation", icon: "🛡️" },
   { to: "/settings", label: "Paramètres", icon: "⚙️" },
+  { to: "/kiosk", label: "Kiosque", icon: "🖥️" },
 ];
 
 export default function App() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isKiosk = location.pathname === "/kiosk";
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ scanned: number; total: number; status: string; sourceId?: string; file?: string; folder?: string } | null>(null);
   const [hashProgress, setHashProgress] = useState<{ scanned: number; total: number; status: string; file?: string; done?: number; game?: string; platform?: string; size?: number; startedAt?: number } | null>(null);
@@ -348,8 +352,8 @@ export default function App() {
           </div>
         </div>
       )}
-      <button className="btn hamburger" onClick={() => setSidebarOpen((v) => !v)} style={{ position: "fixed", top: 8, left: 8, zIndex: 301 }}>☰</button>
-      <aside className={"sidebar" + (sidebarOpen ? " open" : "")}>
+      {!isKiosk && <button className="btn hamburger" onClick={() => setSidebarOpen((v) => !v)} style={{ position: "fixed", top: 8, left: 8, zIndex: 301 }}>☰</button>}
+      {!isKiosk && <aside className={"sidebar" + (sidebarOpen ? " open" : "")}>
         <div className="brand">
           <div className="logo"><img src="/favicon.png" alt="RETROVERSE" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }} /></div>
           <div>
@@ -379,8 +383,8 @@ export default function App() {
           <span>🚪</span>
           Quitter
         </button>
-      </aside>
-      <main className="main">
+      </aside>}
+      <main className="main" style={isKiosk ? { marginLeft: 0 } : undefined}>
         <Suspense fallback={<div className="empty"><div className="spinner" /></div>}>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -399,6 +403,7 @@ export default function App() {
           <Route path="/collections" element={<Collections />} />
           <Route path="/classifications" element={<Classifications />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/kiosk" element={<Kiosk />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
