@@ -1,3 +1,5 @@
+//! Commands for gamelists.
+
 use crate::error::{Result, RetroError};
 use crate::state::AppState;
 use rusqlite::params;

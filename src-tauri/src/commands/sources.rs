@@ -1,3 +1,5 @@
+//! Commands for sources.
+
 use crate::error::{Result, RetroError};
 use crate::models::{GameSource, ScanResult};
 use crate::scanner;

@@ -1,3 +1,5 @@
+//! Commands for app.
+
 use crate::error::Result;
 use crate::state::AppState;
 use std::time::Duration;

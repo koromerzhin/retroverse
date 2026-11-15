@@ -1,3 +1,5 @@
+//! Commands for settings.
+
 use crate::config;
 use crate::error::Result;
 use crate::state::AppState;

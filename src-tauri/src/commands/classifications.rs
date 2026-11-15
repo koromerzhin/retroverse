@@ -1,3 +1,5 @@
+//! Commands for classifications.
+
 use crate::error::{Result, RetroError};
 use crate::models::Classification;
 use crate::state::AppState;

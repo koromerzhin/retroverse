@@ -1,3 +1,5 @@
+//! Commands for companion.
+
 use crate::error::Result;
 use crate::state::AppState;
 use rusqlite::params;

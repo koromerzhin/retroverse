@@ -1,3 +1,5 @@
+//! File identification, platform guessing, hashing algorithms and helpers.
+
 use crate::models::{GameFile, Platform};
 use rusqlite::Connection;
 use std::path::Path;

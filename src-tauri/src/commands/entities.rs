@@ -1,3 +1,5 @@
+//! Commands for entities.
+
 use crate::error::Result;
 use crate::models::{Developer, Genre, Publisher};
 use crate::state::AppState;

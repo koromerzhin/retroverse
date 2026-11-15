@@ -1,3 +1,5 @@
+//! On-demand hash computation for game files (local, remote, archives).
+
 use crate::error::{Result, RetroError};
 use crate::state::AppState;
 use rusqlite::params;

@@ -1,3 +1,5 @@
+//! Commands for preservation.
+
 use crate::dat;
 use crate::error::{Result, RetroError};
 use crate::state::AppState;

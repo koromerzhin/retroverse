@@ -1,3 +1,5 @@
+//! Commands for notifications.
+
 use crate::error::Result;
 
 #[tauri::command]
