@@ -88,6 +88,7 @@ pub fn run() {
             commands::list_audit_log,
             commands::log_audit,
             commands::export_dat,
+            commands::export_hyperspin,
             commands::sync_classifications,
             commands::delete_publisher,
             commands::update_publisher,

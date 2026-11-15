@@ -337,6 +337,101 @@ pub fn export_dat(state: State<AppState>, dest_path: String) -> Result<usize> {
     Ok(count)
 }
 
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+#[allow(clippy::type_complexity)]
+#[tauri::command]
+pub fn export_hyperspin(state: State<AppState>, dest_path: String) -> Result<usize> {
+    let conn = state.db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT g.id, g.title, g.platform_id, p.name, gf.size, gf.crc32, gf.md5, gf.sha1, g.metadata_json FROM games g LEFT JOIN platforms p ON p.id=g.platform_id JOIN game_file_links l ON l.game_id=g.id JOIN game_files gf ON gf.id=l.file_id ORDER BY p.name, g.title",
+    )?;
+    let rows: Vec<(
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        i64,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )> = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+                r.get(7)?,
+                r.get(8)?,
+            ))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let mut by_platform: std::collections::BTreeMap<
+        String,
+        Vec<(String, i64, Option<String>, Option<String>, Option<String>)>,
+    > = std::collections::BTreeMap::new();
+    for (_gid, title, _pid, pname, size, crc, md5, sha1, _meta) in &rows {
+        let key = pname.clone().unwrap_or_else(|| "Unknown".to_string());
+        by_platform.entry(key).or_default().push((
+            title.clone(),
+            *size,
+            crc.clone(),
+            md5.clone(),
+            sha1.clone(),
+        ));
+    }
+
+    let mut content = String::new();
+    content.push_str("<?xml version=\"1.0\"?>\n");
+    content.push_str("<menu>\n");
+    let mut count = 0usize;
+    for (platform, games) in &by_platform {
+        content.push_str(&format!("  <header>\n    <listname>{}</listname>\n    <lastlistupdate></lastlistupdate>\n    <listversion></listversion>\n    <exporterversion>Retroverse</exporterversion>\n  </header>\n", xml_escape(platform)));
+        for (title, size, crc, md5, sha1) in games {
+            content.push_str("  <game name=\"");
+            content.push_str(&xml_escape(title));
+            content.push_str("\">\n");
+            content.push_str(&format!(
+                "    <description>{}</description>\n",
+                xml_escape(title)
+            ));
+            content.push_str(&format!(
+                "    <rom name=\"{}\" size=\"{}\"",
+                xml_escape(title),
+                size
+            ));
+            if let Some(c) = crc.as_ref() {
+                content.push_str(&format!(" crc=\"{}\"", xml_escape(c)));
+            }
+            if let Some(m) = md5.as_ref() {
+                content.push_str(&format!(" md5=\"{}\"", xml_escape(m)));
+            }
+            if let Some(s) = sha1.as_ref() {
+                content.push_str(&format!(" sha1=\"{}\"", xml_escape(s)));
+            }
+            content.push_str("/>\n");
+            content.push_str("  </game>\n");
+            count += 1;
+        }
+    }
+    content.push_str("</menu>\n");
+    std::fs::write(&dest_path, content).map_err(RetroError::Io)?;
+    Ok(count)
+}
+
 #[tauri::command]
 pub fn import_preservation_pack(state: State<AppState>, path: String) -> Result<usize> {
     let file = std::fs::File::open(&path).map_err(RetroError::Io)?;
