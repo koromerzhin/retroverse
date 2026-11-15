@@ -67,7 +67,7 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Tracking des prix** (marché rétro).
 - **Alertes de nouveaux dumps** (No-Intro, Redump).
 - **Import depuis d'autres gestionnaires** : LaunchBox, EmuDeck, ES-DE, Playnite.
-- **Export vers formats standards** : DAT (No-Intro), XML (HyperSpin).
+- **Export vers formats standards** ✅ : DAT (clrmamepro) + XML (HyperSpin).
 - **Mode présentation (kiosque)** ✅ : page /kiosk plein écran avec diaporama auto.
 - **Comparaison de versions** (régions, révisions) côte à côte.
 - **Raccourcis clavier** ✅ : Ctrl/⌘+K recherche, Ctrl/⌘+1..9 navigation, ? aide, Échap.
