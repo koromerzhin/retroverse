@@ -42,6 +42,14 @@ export default function Sources() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // gamelist.xml generation dialog
+  const [glSource, setGlSource] = useState<GameSource | null>(null);
+  const [glInfo, setGlInfo] = useState<{ root: string; gamelist_dir: string; platforms: any[] } | null>(null);
+  const [glPlatform, setGlPlatform] = useState("");
+  const [glBusy, setGlBusy] = useState(false);
+  const [glLoading, setGlLoading] = useState(false);
+  const [glError, setGlError] = useState<string | null>(null);
+
   function resetForms() {
     setLocalName(""); setLocalPath("");
     setRName(""); setRHost(""); setRPort("22"); setRUser("deck"); setRKey("/home/koromerzhin/.ssh/id_ed25519"); setRPath("");
@@ -191,6 +199,38 @@ export default function Sources() {
     }
   }
 
+  async function openGamelistDialog(src: GameSource) {
+    setGlSource(src);
+    setGlInfo(null);
+    setGlPlatform("");
+    setGlError(null);
+    setGlBusy(false);
+    setGlLoading(true);
+    try {
+      const info = await api.listSourcePlatforms(src.id);
+      setGlInfo(info);
+    } catch (e: any) {
+      setGlError(String(e));
+    } finally {
+      setGlLoading(false);
+    }
+  }
+
+  async function generateGamelist() {
+    if (!glSource) return;
+    setGlBusy(true);
+    setGlError(null);
+    try {
+      const n = await api.generateGamelist(glSource.id, glPlatform || undefined);
+      api.showNotification("RETROVERSE", `gamelist.xml généré : ${n} jeu(x).`).catch(() => {});
+      setGlSource(null);
+    } catch (e: any) {
+      setGlError(String(e));
+    } finally {
+      setGlBusy(false);
+    }
+  }
+
   const isEmpty = !sources || sources.length === 0;
 
   return (
@@ -248,12 +288,7 @@ export default function Sources() {
                   <td>
                     <div className="row" style={{ gap: 6 }}>
                       <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleTest(s.id)}>Tester</button>
-                      <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={async () => {
-                        try {
-                          const n = await api.generateGamelist(s.id);
-                          api.showNotification("RETROVERSE", `gamelist.xml généré : ${n} jeu(x).`).catch(() => {});
-                        } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
-                      }}>Générer gamelist.xml</button>
+                      <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => openGamelistDialog(s)}>Générer gamelist.xml</button>
                       <button className="btn" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startEdit(s)}>Modifier</button>
                       <button className="btn danger" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleDelete(s.id)}>Supprimer</button>
                     </div>
@@ -360,6 +395,50 @@ export default function Sources() {
                   {saving ? <span className="spinner" /> : "Enregistrer"}
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+      {glSource && (
+        <div className="modal-backdrop" onClick={() => (glBusy ? undefined : setGlSource(null))}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <h3 style={{ marginTop: 0 }}>Générer les gamelist.xml</h3>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 0 }}>
+              Source : <strong>{glSource.name}</strong> ({glSource.kind === "remote" ? "distante" : "locale"})
+            </p>
+
+            {glLoading ? (
+              <div className="empty"><div className="spinner" /></div>
+            ) : (
+              <>
+                {glInfo && (
+                  <div style={{ marginTop: 8 }}>
+                    <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Dossier de destination</label>
+                    <div style={{ fontFamily: "monospace", fontSize: 12, wordBreak: "break-all" }}>{glInfo.gamelist_dir}</div>
+                    <label style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, display: "block" }}>Plateforme</label>
+                    <select className="select" value={glPlatform} onChange={(e) => setGlPlatform(e.target.value)}>
+                      <option value="">Toutes les plateformes ({glInfo.platforms.length})</option>
+                      {glInfo.platforms.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.name} — {p.games} jeu(x)</option>
+                      ))}
+                    </select>
+                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
+                      Fichiers écrits : <code>{glInfo.gamelist_dir}/&lt;plateforme&gt;/gamelist.xml</code>
+                    </p>
+                  </div>
+                )}
+                {glError && <p style={{ color: "var(--danger)", fontSize: 12, marginTop: 8 }}>{glError}</p>}
+                <div className="row" style={{ marginTop: 16, justifyContent: "flex-end", gap: 8 }}>
+                  <button className="btn" onClick={() => setGlSource(null)} disabled={glBusy}>Annuler</button>
+                  <button
+                    className="btn primary"
+                    onClick={generateGamelist}
+                    disabled={glBusy || !glInfo || glInfo.platforms.length === 0}
+                  >
+                    {glBusy ? <span className="spinner" /> : "Générer"}
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
