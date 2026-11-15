@@ -48,6 +48,7 @@ Git hooks live in `.githooks/` (`core.hooksPath=.githooks`): pre-commit runs fmt
 - **Never merge `develop` into `main`** without explicit instruction (release step).
 - Preserve uncommitted changes; never overwrite or reset user work.
 - After merging (only when authorized), delete the feature branch locally and remotely.
+- **After every modification, run a full build** (`npm run build` + `cargo build` / `cargo tauri build`) to verify nothing is broken before pushing.
 
 ## Conventions
 

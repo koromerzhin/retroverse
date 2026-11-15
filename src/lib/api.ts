@@ -26,6 +26,7 @@ export const api = {
     invoke<any>("copy_remote_files", { sourceId, fileIds, destDir }),
   listGames: (platform?: string, search?: string, developer?: string, publisher?: string, missingHash?: boolean, limit?: number, offset?: number) => invoke<any>("list_games", { platform, search, developer, publisher, missingHash, limit, offset }),
   getGame: (id: string) => invoke<any>("get_game", { id }),
+  platformFolderPath: (platformId: string) => invoke<string | null>("platform_folder_path", { platformId }),
   findRelatedGames: (id: string) => invoke<any[]>("find_related_games", { id }),
   raSearchGame: (title: string) => invoke<any[]>("ra_search_game", { title }),
   raFetchAchievements: (gameId: string, raGameId: number) => invoke<number>("ra_fetch_achievements", { gameId, raGameId }),
