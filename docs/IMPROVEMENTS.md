@@ -84,5 +84,5 @@ Possible evolution paths for RETROVERSE, grouped by theme. Prioritize as needed.
 - **Contributions de métadonnées** vers ScreenScraper.
 - **Plugin system** pour étendre les fonctionnalités.
 - **API REST locale** pour intégration avec d'autres outils.
-- **SteamGridDB** pour les artworks supplémentaires.
+- **SteamGridDB** ✅ : recherche et récupération d'artworks (onglet Médias).
 - **RetroAchievements** ✅ : recherche, récupération et affichage des succès (onglet "Succès").
