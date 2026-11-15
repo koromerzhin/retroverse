@@ -31,6 +31,7 @@ export default function GameDetail() {
   const { data: presStatus } = useQuery<string>({ queryKey: ["preservation-status", id], queryFn: () => api.getPreservationStatus(id!), enabled: !!id });
   const { data: gameClassifications } = useQuery<any[]>({ queryKey: ["game-classifications", id], queryFn: () => api.listGameClassifications(id!), enabled: !!id });
   const { data: relatedGames } = useQuery<any[]>({ queryKey: ["related-games", id], queryFn: () => api.findRelatedGames(id!), enabled: !!id });
+  const { data: achievements, refetch: refetchAch } = useQuery<any[]>({ queryKey: ["achievements", id], queryFn: () => api.listGameAchievements(id!), enabled: !!id });
   const { data: enrichHistory } = useQuery<any[]>({ queryKey: ["enrich-history", id], queryFn: () => api.listEnrichmentHistory(id!), enabled: !!id });
   const { data: developers } = useQuery<string[]>({ queryKey: ["developers"], queryFn: () => api.listDevelopers() });
   const { data: publishers } = useQuery<string[]>({ queryKey: ["publishers"], queryFn: () => api.listPublishers() });
@@ -42,7 +43,10 @@ export default function GameDetail() {
   const [hashingAll, setHashingAll] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
   const [searchingSS, setSearchingSS] = useState(false);
-  const [tab, setTab] = useState<"info" | "files" | "hashes" | "media" | "versions">("info");
+  const [raSearching, setRaSearching] = useState(false);
+  const [raResults, setRaResults] = useState<any[]>([]);
+  const [raFetching, setRaFetching] = useState(false);
+  const [tab, setTab] = useState<"info" | "files" | "hashes" | "media" | "versions" | "achievements">("info");
   const [infoPublisher, setInfoPublisher] = useState("");
   const [infoDeveloper, setInfoDeveloper] = useState("");
   const [infoGenres, setInfoGenres] = useState<string[]>([]);
@@ -144,6 +148,7 @@ export default function GameDetail() {
         <button className={`btn ${tab === "hashes" ? "primary" : ""}`} onClick={() => setTab("hashes")}>Empreintes</button>
         <button className={`btn ${tab === "media" ? "primary" : ""}`} onClick={() => setTab("media")}>{t("game.media")}</button>
         <button className={`btn ${tab === "versions" ? "primary" : ""}`} onClick={() => setTab("versions")}>Versions</button>
+        <button className={`btn ${tab === "achievements" ? "primary" : ""}`} onClick={() => setTab("achievements")}>Succès</button>
       </div>
 
       {tab === "info" && (
@@ -489,6 +494,59 @@ export default function GameDetail() {
               ))}
             </ul>
           </>
+        )}
+      </div>
+      )}
+      {tab === "achievements" && (
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Succès RetroAchievements</h3>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button className="btn" disabled={raSearching} onClick={async () => {
+            if (!id) return;
+            setRaSearching(true);
+            try {
+              const r = await api.raSearchGame(data?.game?.title || "");
+              setRaResults(r || []);
+            } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
+            finally { setRaSearching(false); }
+          }}>{raSearching ? "Recherche…" : "Rechercher sur RetroAchievements"}</button>
+        </div>
+        {raResults.length > 0 && (
+          <ul style={{ fontSize: 12, paddingLeft: 18, marginBottom: 12 }}>
+            {raResults.map((r: any) => (
+              <li key={r.id} style={{ marginBottom: 4 }}>
+                {r.title} ({r.console})
+                <button className="btn" style={{ fontSize: 10, marginLeft: 8, padding: "2px 6px" }} disabled={raFetching} onClick={async () => {
+                  if (!id) return;
+                  setRaFetching(true);
+                  try {
+                    const n = await api.raFetchAchievements(id, r.id);
+                    await refetchAch();
+                    api.showNotification("RETROVERSE", `${n} succès récupérés.`).catch(() => {});
+                  } catch (e: any) { api.showNotification("RETROVERSE", String(e)).catch(() => {}); }
+                  finally { setRaFetching(false); }
+                }}>Récupérer</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {(achievements || []).length === 0 ? (
+          <p style={{ color: "var(--text-muted)" }}>Aucun succès. Recherchez le jeu sur RetroAchievements pour récupérer les succès.</p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+            {(achievements || []).map((a: any) => (
+              <div key={a.id} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 8, opacity: a.unlocked ? 1 : 0.5 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {a.badge && <img src={`https://media.retroachievements.org/Badge/${a.badge}${a.unlocked ? "" : "_lock"}.png`} alt="" style={{ width: 48, height: 48 }} onError={(e: any) => { e.target.style.display = "none"; }} />}
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{a.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{a.points} pts</div>
+                  </div>
+                </div>
+                {a.description && <p style={{ fontSize: 11, marginTop: 6, color: "var(--text-dim)" }}>{a.description}</p>}
+              </div>
+            ))}
+          </div>
         )}
       </div>
       )}
